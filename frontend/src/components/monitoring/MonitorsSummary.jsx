@@ -135,7 +135,7 @@ export default function MonitorsSummary({ refreshKey = 0 }) {
                 <section className="monitoring-panel">
                     <div className="monitoring-panel__header">
                         <div>
-                            <h3>{t('app.monitorsSummary.monitors2', 'Monitors')}</h3>
+                            <h3>{t('app.monitorsSummary.monitors', 'Monitors')}</h3>
                             <span className="mon-panel-sub">{monitors.length} watched</span>
                         </div>
                         <Button variant="outline" size="sm" asChild>

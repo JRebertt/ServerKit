@@ -136,8 +136,8 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                     />
                     {t('app.configTunerPanel.dedicatedDbServer', 'Dedicated DB server')}
                 </label>
-                <Button type="button" size="sm" variant="ghost" onClick={() => load(dedicated)} aria-label={t('app.configTunerPanel.refresh', 'Refresh')}>
-                    <RefreshCw size={14} /> {t('app.configTunerPanel.refresh2', 'Refresh')}
+                <Button type="button" size="sm" variant="ghost" onClick={() => load(dedicated)} aria-label={t('common.actions.refresh', 'Refresh')}>
+                    <RefreshCw size={14} /> {t('common.actions.refresh', 'Refresh')}
                 </Button>
             </div>
 
@@ -147,7 +147,7 @@ export default function ConfigTunerPanel({ target, engine, user, password }) {
                         <tr>
                             <th aria-label={t('app.configTunerPanel.select', 'Select')} />
                             <th>{t('app.configTunerPanel.setting', 'Setting')}</th>
-                            <th>{t('app.configTunerPanel.current', 'Current')}</th>
+                            <th>{t('common.labels.current', 'Current')}</th>
                             <th>{t('app.configTunerPanel.suggested', 'Suggested')}</th>
                             <th>{t('app.configTunerPanel.targetValue', 'Target value')}</th>
                         </tr>

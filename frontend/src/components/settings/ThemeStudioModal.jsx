@@ -136,7 +136,7 @@ const ThemeStudioModal = ({ open, onOpenChange }) => {
 
                 <div className="theme-studio__top">
                     <label className="theme-studio__field">
-                        <span>{t('app.themeStudioModal.name', 'Name')}</span>
+                        <span>{t('common.labels.name', 'Name')}</span>
                         <input value={name} onChange={(e) => onNameChange(e.target.value)} />
                     </label>
                     <label className="theme-studio__field">

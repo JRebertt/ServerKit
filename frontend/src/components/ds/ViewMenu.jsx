@@ -81,7 +81,7 @@ export function ViewMenu({ views, className }) {
                         className={cn('sk-viewmenu__star', view.is_default && 'is-on')}
                         onClick={() => toggleDefault(view)}
                         title={view.is_default ? t('app.viewMenu.removeAsDefault', 'Remove as default') : t('app.viewMenu.setAsDefaultView', 'Set as default view')}
-                        aria-label={view.is_default ? t('app.viewMenu.removeAsDefault2', 'Remove as default') : t('app.viewMenu.setAsDefaultView2', 'Set as default view')}
+                        aria-label={view.is_default ? t('app.viewMenu.removeAsDefault', 'Remove as default') : t('app.viewMenu.setAsDefaultView', 'Set as default view')}
                         aria-pressed={view.is_default}
                     >
                         <Star size={13} />
@@ -151,7 +151,7 @@ export function ViewMenu({ views, className }) {
                         maxLength={120}
                     />
                     <Button size="sm" onClick={handleSave} disabled={!name.trim() || saving}>
-                        {t('app.viewMenu.save', 'Save')}
+                        {t('common.actions.save', 'Save')}
                     </Button>
                 </div>
             </PopoverContent>

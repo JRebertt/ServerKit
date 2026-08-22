@@ -11,7 +11,7 @@ const PERMISSION_GROUPS = [
         features: ['files', 'monitoring', 'backups', 'cron', 'security', 'email', 'git']
     },
     {
-        labelKey: 'app.permissionEditor.system', label: 'System',
+        labelKey: 'common.labels.system', label: 'System',
         features: ['terminal', 'users', 'settings']
     }
 ];

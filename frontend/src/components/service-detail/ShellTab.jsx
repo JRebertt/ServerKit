@@ -68,7 +68,7 @@ const ShellTab = ({ appId, appName }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title={t('app.shellTab.loadingContainers', 'Loading containers...')} />;
+        return <EmptyState loading title={t('app.shellTab.loadingContainers', 'Loading containers…')} />;
     }
 
     if (containers.length === 0) {
@@ -116,7 +116,7 @@ const ShellTab = ({ appId, appName }) => {
                             {line.text}
                         </div>
                     ))}
-                    {running && <div className="shell-tab__hint">{t('app.shellTab.running', 'Running...')}</div>}
+                    {running && <div className="shell-tab__hint">{t('app.shellTab.running', 'Running…')}</div>}
                 </div>
 
                 <form className="shell-tab__input-row" onSubmit={handleExec}>
@@ -126,7 +126,7 @@ const ShellTab = ({ appId, appName }) => {
                         type="text"
                         value={command}
                         onChange={(e) => setCommand(e.target.value)}
-                        placeholder={t('app.shellTab.enterCommand', 'Enter command...')}
+                        placeholder={t('app.shellTab.enterCommand', 'Enter command…')}
                         disabled={running}
                         autoFocus
                     />

@@ -190,14 +190,14 @@ const RestoreDrawer = ({
                     onClick={() => setConfirmOpen(true)}
                 >
                     <RotateCcw size={ACTION_ICON_SIZE} />
-                    {t('app.restoreDrawer.restore', 'Restore')}
+                    {t('common.actions.restore', 'Restore')}
                 </Button>
 
                 <ConfirmDialog
                     isOpen={confirmOpen}
                     title={t('app.restoreDrawer.confirmRestore', 'Confirm restore')}
                     message={t('app.restoreDrawer.typeTheNameToConfirmRestoring', 'Type the name to confirm restoring {{value}}. This overwrites current data.', { value: targetName || 'this target' })}
-                    confirmText={t('app.restoreDrawer.restore2', 'Restore')}
+                    confirmText={t('common.actions.restore', 'Restore')}
                     variant="danger"
                     requireConfirmation={targetName || 'restore'}
                     confirmationPlaceholder={targetName}

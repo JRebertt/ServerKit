@@ -75,7 +75,7 @@ function SecretRow({ password, onRegenerate, disabled }) {
                     className="dbx-icon-xs"
                     onClick={copy}
                     aria-label={t('app.engineInstallDrawer.copyPasswordToClipboard', 'Copy password to clipboard')}
-                    title={t('app.engineInstallDrawer.copy', 'Copy')}
+                    title={t('common.actions.copy', 'Copy')}
                 >
                     <Copy size={13} aria-hidden="true" />
                 </button>
@@ -275,7 +275,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
                         <dl className="dbx-kv">
                             <div className="dbx-kv__row">
-                                <dt>{t('app.engineInstallDrawer.service', 'Service')}</dt>
+                                <dt>{t('common.labels.service', 'Service')}</dt>
                                 <dd className="dbx-kv__mono">{result.app?.name || slugifyService(name)}</dd>
                             </div>
                             {meta.admin_user && (
@@ -285,7 +285,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                 </div>
                             )}
                             <div className="dbx-kv__row">
-                                <dt>{t('app.engineInstallDrawer.password', 'Password')}</dt>
+                                <dt>{t('common.labels.password', 'Password')}</dt>
                                 <dd><SecretRow password={result.secret} /></dd>
                             </div>
                         </dl>
@@ -334,7 +334,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
                         {versionOptions.length > 1 && (
                             <div className="dbx-field">
-                                <span className="dbx-field__label">{t('app.engineInstallDrawer.version', 'Version')}</span>
+                                <span className="dbx-field__label">{t('common.labels.version', 'Version')}</span>
                                 <SegControl options={versionOptions} value={version} onChange={setVersion} />
                             </div>
                         )}
@@ -359,7 +359,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
                         {(parts.portVar || meta.default_port != null) && (
                             <div className="dbx-field">
-                                <label className="dbx-field__label" htmlFor="dbx-eng-port">{t('app.engineInstallDrawer.port', 'Port')}</label>
+                                <label className="dbx-field__label" htmlFor="dbx-eng-port">{t('common.labels.port', 'Port')}</label>
                                 <div className="dbx-input">
                                     <Share2 size={15} aria-hidden="true" />
                                     <input
@@ -391,13 +391,13 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                 <dl className="dbx-kv">
                                     {meta.admin_user && (
                                         <div className="dbx-kv__row">
-                                            <dt>{t('app.engineInstallDrawer.user', 'User')}</dt>
+                                            <dt>{t('common.labels.user', 'User')}</dt>
                                             <dd className="dbx-kv__mono">{meta.admin_user}</dd>
                                         </div>
                                     )}
                                     {parts.passwordVar && (
                                         <div className="dbx-kv__row">
-                                            <dt>{t('app.engineInstallDrawer.password2', 'Password')}</dt>
+                                            <dt>{t('common.labels.password', 'Password')}</dt>
                                             <dd>
                                                 <SecretRow
                                                     password={password}
@@ -456,7 +456,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
                                     <Switch
                                         checked={expose}
                                         onCheckedChange={setExpose}
-                                        aria-label={t('app.engineInstallDrawer.exposeOnThePublicNetwork2', 'Expose on the public network')}
+                                        aria-label={t('app.engineInstallDrawer.exposeOnThePublicNetwork', 'Expose on the public network')}
                                     />
                                 </div>
                                 {meta.data_path && (
@@ -485,7 +485,7 @@ export default function EngineInstallDrawer({ entry, open, onOpenChange, onInsta
 
                     <footer className="dbx-drawer__foot">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            {t('app.engineInstallDrawer.cancel', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={busy || !slugifyService(name)}>
                             <Rocket size={15} aria-hidden="true" />

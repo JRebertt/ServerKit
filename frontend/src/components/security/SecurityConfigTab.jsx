@@ -52,7 +52,7 @@ const SecurityConfigTab = () => {
     }
 
     if (loading) {
-        return <div className="loading-sm">{t('app.securityConfigTab.loadingSettings', 'Loading settings...')}</div>;
+        return <div className="loading-sm">{t('app.securityConfigTab.loadingSettings', 'Loading settings…')}</div>;
     }
 
     return (

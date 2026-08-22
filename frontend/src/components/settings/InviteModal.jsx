@@ -92,7 +92,7 @@ const InviteModal = ({ onClose, onCreated }) => {
                             </p>
                         )}
                     <div className="modal-footer">
-                        <Button variant="default" onClick={onClose}>{t('app.inviteModal.done', 'Done')}</Button>
+                        <Button variant="default" onClick={onClose}>{t('common.actions.done', 'Done')}</Button>
                     </div>
             </Modal>
         );
@@ -166,7 +166,7 @@ const InviteModal = ({ onClose, onCreated }) => {
                                         setShowPermissions(!showPermissions);
                                     }}
                                 >
-                                    {showPermissions ? 'Hide' : 'Customize'} {t('app.inviteModal.permissions', 'Permissions')}
+                                    {showPermissions ? 'Hide' : 'Customize'} {t('common.labels.permissions', 'Permissions')}
                                     <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2" className="invite-caret">
                                         {showPermissions
                                             ? <polyline points="18 15 12 9 6 15"/>
@@ -185,7 +185,7 @@ const InviteModal = ({ onClose, onCreated }) => {
                     </div>
 
                     <div className="modal-footer">
-                        <Button type="button" variant="ghost" onClick={onClose}>{t('app.inviteModal.cancel', 'Cancel')}</Button>
+                        <Button type="button" variant="ghost" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button type="submit" variant="default" disabled={loading}>
                             {loading ? 'Creating...' : 'Create Invitation'}
                         </Button>

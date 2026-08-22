@@ -85,7 +85,7 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
         },
         {
             key: 'warning',
-            headerKey: 'app.fleetThresholdsPanel.warning', header: 'Warning',
+            headerKey: 'common.labels.warning', header: 'Warning',
             sortable: true,
             sortValue: (t) => t.warning_threshold ?? null,
             cellClassName: 'sk-cell-mono',
@@ -138,7 +138,7 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
             {adding && (
                 <div className="mon-threshold-form">
                     <div className="form-group">
-                        <Label htmlFor="fleet-threshold-server">{t('app.fleetThresholdsPanel.appliesTo2', 'Applies to')}</Label>
+                        <Label htmlFor="fleet-threshold-server">{t('app.fleetThresholdsPanel.appliesTo', 'Applies to')}</Label>
                         <select
                             id="fleet-threshold-server"
                             value={draft.server_id || ''}
@@ -149,15 +149,15 @@ export default function FleetThresholdsPanel({ servers = [], refreshKey = 0 }) {
                         </select>
                     </div>
                     <div className="form-group">
-                        <Label htmlFor="fleet-threshold-metric">{t('app.fleetThresholdsPanel.metric2', 'Metric')}</Label>
+                        <Label htmlFor="fleet-threshold-metric">{t('app.fleetThresholdsPanel.metric', 'Metric')}</Label>
                         <select
                             id="fleet-threshold-metric"
                             value={draft.metric}
                             onChange={(e) => setDraft((p) => ({ ...p, metric: e.target.value }))}
                         >
                             <option value="cpu">CPU</option>
-                            <option value="memory">{t('app.fleetThresholdsPanel.memory', 'Memory')}</option>
-                            <option value="disk">{t('app.fleetThresholdsPanel.disk', 'Disk')}</option>
+                            <option value="memory">{t('common.labels.memory', 'Memory')}</option>
+                            <option value="disk">{t('common.labels.disk', 'Disk')}</option>
                         </select>
                     </div>
                     <div className="form-group">

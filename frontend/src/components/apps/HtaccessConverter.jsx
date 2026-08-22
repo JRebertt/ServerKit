@@ -76,7 +76,7 @@ export default function HtaccessConverter({ onInsert, trigger = null }) {
                 footer={(
                     <div className="htaccess-converter__footer">
                         <Button type="button" variant="ghost" onClick={handleClose}>
-                            {t('app.htaccessConverter.close', 'Close')}
+                            {t('common.actions.close', 'Close')}
                         </Button>
                         {result?.nginx && onInsert && (
                             <Button type="button" onClick={handleInsert}>

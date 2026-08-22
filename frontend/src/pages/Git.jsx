@@ -110,7 +110,7 @@ const REPO_COLUMNS = [
         // keeps the exact meaning the old "Forks" segment had (`repo.fork`) —
         // a repo that is both reads as a fork, as it did then.
         key: 'kind',
-        headerKey: 'app.git.kind', header: 'Kind',
+        headerKey: 'common.labels.kind', header: 'Kind',
         sortable: true,
         type: 'enum',
         groupable: true,
@@ -128,7 +128,7 @@ const REPO_COLUMNS = [
     },
     {
         key: 'branch',
-        headerKey: 'app.git.branch', header: 'Branch',
+        headerKey: 'common.labels.branch', header: 'Branch',
         sortable: true,
         // main/master/develop on nearly every server — a pick-list, not a
         // fragment you type.
@@ -206,7 +206,7 @@ const WEBHOOK_COLUMNS = [
         // The clone URL carries the host, so `contains github.com` is how you
         // slice by provider without a column of its own.
         key: 'repository',
-        headerKey: 'app.git.repository2', header: 'Repository',
+        headerKey: 'app.git.repository', header: 'Repository',
         sortable: true,
         type: 'text',
         value: (webhook) => webhook.source_repo_url || '',
@@ -216,7 +216,7 @@ const WEBHOOK_COLUMNS = [
     },
     {
         key: 'branch',
-        headerKey: 'app.git.branch2', header: 'Branch',
+        headerKey: 'common.labels.branch', header: 'Branch',
         sortable: true,
         type: 'enum',
         value: (webhook) => webhook.source_branch || '',
@@ -279,7 +279,7 @@ const WEBHOOK_COLUMNS = [
     },
     {
         key: 'status',
-        headerKey: 'app.git.status', header: 'Status',
+        headerKey: 'common.labels.status', header: 'Status',
         sortable: true,
         // Declared enum with a STRING `value`: `sortValue` is 1/0 so that a
         // sort puts the live hooks together, and letting that number type the
@@ -423,21 +423,21 @@ const WEBHOOK_VIEWS = [
 const HOOK_DEPLOY_COLUMNS = [
     {
         key: 'version',
-        headerKey: 'app.git.version', header: 'Version',
+        headerKey: 'common.labels.version', header: 'Version',
         sortable: true,
         sortValue: (d) => d.version ?? 0,
         render: (d) => `v${d.version}`,
     },
     {
         key: 'status',
-        headerKey: 'app.git.status2', header: 'Status',
+        headerKey: 'common.labels.status', header: 'Status',
         sortable: true,
         sortValue: (d) => d.status || '',
         render: (d) => <Pill kind={statusKind(d.status)}>{d.status}</Pill>,
     },
     {
         key: 'when',
-        headerKey: 'app.git.when', header: 'When',
+        headerKey: 'common.labels.when', header: 'When',
         sortable: true,
         sortValue: (d) => (d.created_at ? new Date(d.created_at).getTime() : null),
         render: (d) => formatDate(d.created_at),
@@ -644,7 +644,7 @@ function Git({ basePath = '/git' }) {
         setConfirmDialog({
             titleKey: 'app.git.deleteWebhook', title: 'Delete Webhook',
             messageKey: 'app.git.areYouSureYouWantTo', message: 'Are you sure you want to delete this webhook? This cannot be undone.',
-            confirmTextKey: 'app.git.delete', confirmText: 'Delete',
+            confirmTextKey: 'common.actions.delete', confirmText: 'Delete',
             variant: 'danger',
             onConfirm: async () => {
                 try {
@@ -940,7 +940,7 @@ function Git({ basePath = '/git' }) {
         setConfirmDialog({
             titleKey: 'app.git.stopGitServer', title: 'Stop Git Server',
             messageKey: 'app.git.stopTheGitServer', message: 'Stop the Git server?',
-            confirmTextKey: 'app.git.stop', confirmText: 'Stop',
+            confirmTextKey: 'common.actions.stop', confirmText: 'Stop',
             variant: 'warning',
             onConfirm: async () => {
                 setActionLoading(true);
@@ -1018,7 +1018,7 @@ function Git({ basePath = '/git' }) {
                     <KpiBand>
                         <MetricCard tone="accent" icon={<FolderGit2 size={16} />} value={repositories.length} label={t('app.git.repositories', 'Repositories')} />
                         <MetricCard tone="amber" icon={<Lock size={16} />} value={repoPrivateCount} label={t('app.git.private', 'Private')} />
-                        <MetricCard tone="cyan" icon={<GitBranch size={16} />} value={repoForkCount} label={t('app.git.forks2', 'Forks')} />
+                        <MetricCard tone="cyan" icon={<GitBranch size={16} />} value={repoForkCount} label={t('app.git.forks', 'Forks')} />
                         <MetricCard tone="green" icon={<Clock size={16} />} value={repoUpdatedCount} label={t('app.git.updated7d', 'Updated ≤7d')} />
                     </KpiBand>
                 );
@@ -1036,7 +1036,7 @@ function Git({ basePath = '/git' }) {
                     <KpiBand>
                         <MetricCard tone="accent" icon={<Rocket size={16} />} value={deployments.length} label={t('app.git.deployments', 'Deployments')} />
                         <MetricCard tone="green" icon={<Server size={16} />} value={deploymentSuccessCount} label={t('app.git.success', 'Success')} />
-                        <MetricCard tone="red" icon={<AlertTriangle size={16} />} value={deploymentFailedCount} label={t('app.git.failed', 'Failed')} />
+                        <MetricCard tone="red" icon={<AlertTriangle size={16} />} value={deploymentFailedCount} label={t('common.state.failed', 'Failed')} />
                         <MetricCard tone="amber" icon={<Clock size={16} />} value={deploymentRunningCount} label={t('app.git.running', 'Running')} />
                     </KpiBand>
                 );
@@ -1092,7 +1092,7 @@ function Git({ basePath = '/git' }) {
                     icon={FolderGit2}
                     title={t('app.git.noRepositoriesYet', 'No repositories yet')}
                     description={t('app.git.createYourFirstRepositoryInGitea', 'Create your first repository in Gitea.')}
-                    action={<Button onClick={openGitea}>{t('app.git.openGitea2', 'Open Gitea')}</Button>}
+                    action={<Button onClick={openGitea}>{t('app.git.openGitea', 'Open Gitea')}</Button>}
                 />
             );
         }
@@ -1160,7 +1160,7 @@ function Git({ basePath = '/git' }) {
                     <div className="sk-spec-card__sub">{t('app.git.webBrowserAccess', 'Web browser access')}</div>
                     <div className="git-quick-actions">
                         <Button variant="outline" size="sm" onClick={() => { copyToClipboard(getGiteaUrl()); toast.success(t('app.git.urlCopied', 'URL copied')); }}>{t('app.git.copyUrl', 'Copy URL')}</Button>
-                        <Button variant="outline" size="sm" onClick={openGitea} disabled={!status?.running}>{t('app.git.openGitea3', 'Open Gitea')}</Button>
+                        <Button variant="outline" size="sm" onClick={openGitea} disabled={!status?.running}>{t('app.git.openGitea', 'Open Gitea')}</Button>
                     </div>
                 </div>
                 <div className="sk-spec-card">
@@ -1168,7 +1168,7 @@ function Git({ basePath = '/git' }) {
                     <div className="sk-spec-card__value git-url-value">ssh://git@{window.location.hostname}:{status?.ssh_port}/username/repo.git</div>
                     <div className="sk-spec-card__sub">{t('app.git.cloneRepositoriesViaSsh', 'Clone repositories via SSH')}</div>
                     <div className="git-quick-actions">
-                        <Button variant="outline" size="sm" onClick={() => { copyToClipboard(`ssh://git@${window.location.hostname}:${status?.ssh_port}/username/repo.git`); toast.success(t('app.git.sshUrlCopied2', 'SSH URL copied')); }}>{t('app.git.copySshUrl2', 'Copy SSH URL')}</Button>
+                        <Button variant="outline" size="sm" onClick={() => { copyToClipboard(`ssh://git@${window.location.hostname}:${status?.ssh_port}/username/repo.git`); toast.success(t('app.git.sshUrlCopied', 'SSH URL copied')); }}>{t('app.git.copySshUrl', 'Copy SSH URL')}</Button>
                     </div>
                 </div>
                 <div className="sk-spec-card">
@@ -1260,10 +1260,10 @@ function Git({ basePath = '/git' }) {
                             value={deploymentFilter}
                             onChange={setDeploymentFilter}
                             options={[
-                                { value: 'all', labelKey: 'app.git.all', label: 'All', count: deployments.length },
-                                { value: 'success', labelKey: 'app.git.success2', label: 'Success', count: deploymentSuccessCount },
-                                { value: 'failed', labelKey: 'app.git.failed2', label: 'Failed', count: deploymentFailedCount },
-                                { value: 'running', labelKey: 'app.git.running2', label: 'Running', count: deploymentRunningCount },
+                                { value: 'all', labelKey: 'common.labels.all', label: 'All', count: deployments.length },
+                                { value: 'success', labelKey: 'app.git.success', label: 'Success', count: deploymentSuccessCount },
+                                { value: 'failed', labelKey: 'common.state.failed', label: 'Failed', count: deploymentFailedCount },
+                                { value: 'running', labelKey: 'app.git.running', label: 'Running', count: deploymentRunningCount },
                             ]}
                         />
                     )}
@@ -1313,15 +1313,15 @@ function Git({ basePath = '/git' }) {
                         {status?.running ? (
                             <Button variant="secondary" onClick={handleStop} disabled={actionLoading}>{t('app.git.stopServer', 'Stop Server')}</Button>
                         ) : (
-                            <Button onClick={handleStart} disabled={actionLoading}>{t('app.git.startServer2', 'Start Server')}</Button>
+                            <Button onClick={handleStart} disabled={actionLoading}>{t('app.git.startServer', 'Start Server')}</Button>
                         )}
                     </div>
                     <div className="sk-spec-card__sub">{t('app.git.startOrStopTheGiteaContainer', 'Start or stop the Gitea container')}</div>
                 </div>
                 <div className="sk-spec-card">
-                    <div className="sk-spec-card__label">{t('app.git.uninstall2', 'Uninstall')}</div>
+                    <div className="sk-spec-card__label">{t('app.git.uninstall', 'Uninstall')}</div>
                     <div className="git-quick-actions">
-                        <Button variant="destructive" onClick={handleUninstall} disabled={actionLoading}>{t('app.git.uninstallGitServer2', 'Uninstall Git Server')}</Button>
+                        <Button variant="destructive" onClick={handleUninstall} disabled={actionLoading}>{t('app.git.uninstallGitServer', 'Uninstall Git Server')}</Button>
                     </div>
                     <div className="sk-spec-card__sub">{t('app.git.stopsGiteaDataIsPreservedUnless', 'Stops Gitea; data is preserved unless removed manually')}</div>
                 </div>
@@ -1353,7 +1353,7 @@ function Git({ basePath = '/git' }) {
         }
         const common = (
             <Button variant="outline" onClick={openGitea} disabled={!status?.running}>
-                <ExternalLink size={15} /> {t('app.git.openGitea4', 'Open Gitea')}
+                <ExternalLink size={15} /> {t('app.git.openGitea', 'Open Gitea')}
             </Button>
         );
         switch (activeTab) {
@@ -1361,7 +1361,7 @@ function Git({ basePath = '/git' }) {
                 return (
                     <>
                         {common}
-                        <Button onClick={() => setShowWebhookModal(true)}><Plus size={15} /> {t('app.git.addWebhook2', 'Add Webhook')}</Button>
+                        <Button onClick={() => setShowWebhookModal(true)}><Plus size={15} /> {t('app.git.addWebhook', 'Add Webhook')}</Button>
                     </>
                 );
             case 'deployments':
@@ -1369,7 +1369,7 @@ function Git({ basePath = '/git' }) {
                     <>
                         {common}
                         <Button variant="outline" onClick={loadAllDeployments} disabled={deploymentsLoading}>
-                            <RefreshCw size={15} /> {t('app.git.refresh', 'Refresh')}
+                            <RefreshCw size={15} /> {t('common.actions.refresh', 'Refresh')}
                         </Button>
                     </>
                 );
@@ -1378,7 +1378,7 @@ function Git({ basePath = '/git' }) {
                     <>
                         {common}
                         <Button variant="outline" onClick={loadRepositories} disabled={reposLoading}>
-                            <RefreshCw size={15} /> {t('app.git.refresh2', 'Refresh')}
+                            <RefreshCw size={15} /> {t('common.actions.refresh', 'Refresh')}
                         </Button>
                     </>
                 );
@@ -1387,9 +1387,9 @@ function Git({ basePath = '/git' }) {
                     <>
                         {common}
                         {status?.running ? (
-                            <Button variant="secondary" onClick={handleStop} disabled={actionLoading}>{t('app.git.stopServer2', 'Stop Server')}</Button>
+                            <Button variant="secondary" onClick={handleStop} disabled={actionLoading}>{t('app.git.stopServer', 'Stop Server')}</Button>
                         ) : (
-                            <Button onClick={handleStart} disabled={actionLoading}>{t('app.git.startServer3', 'Start Server')}</Button>
+                            <Button onClick={handleStart} disabled={actionLoading}>{t('app.git.startServer', 'Start Server')}</Button>
                         )}
                     </>
                 );
@@ -1400,12 +1400,12 @@ function Git({ basePath = '/git' }) {
     // renders all sections, keyed off the /git/:tab route via useTabParam — the
     // header title + icon mirror the active tab.
     const GIT_TABS = useMemo(() => [
-        { slug: 'overview', to: basePath, labelKey: 'app.git.overview', label: 'Overview', end: true, icon: <Server size={15} /> },
-        { slug: 'repositories', to: `${basePath}/repositories`, labelKey: 'app.git.repositories2', label: 'Repositories', icon: <FolderGit2 size={15} /> },
-        { slug: 'webhooks', to: `${basePath}/webhooks`, labelKey: 'app.git.webhooks2', label: 'Webhooks', icon: <Webhook size={15} /> },
-        { slug: 'deployments', to: `${basePath}/deployments`, labelKey: 'app.git.deployments2', label: 'Deployments', icon: <Rocket size={15} /> },
+        { slug: 'overview', to: basePath, labelKey: 'common.labels.overview', label: 'Overview', end: true, icon: <Server size={15} /> },
+        { slug: 'repositories', to: `${basePath}/repositories`, labelKey: 'app.git.repositories', label: 'Repositories', icon: <FolderGit2 size={15} /> },
+        { slug: 'webhooks', to: `${basePath}/webhooks`, labelKey: 'app.git.webhooks', label: 'Webhooks', icon: <Webhook size={15} /> },
+        { slug: 'deployments', to: `${basePath}/deployments`, labelKey: 'app.git.deployments', label: 'Deployments', icon: <Rocket size={15} /> },
         { slug: 'access', to: `${basePath}/access`, labelKey: 'app.git.access', label: 'Access', icon: <Globe size={15} /> },
-        { slug: 'settings', to: `${basePath}/settings`, labelKey: 'app.git.settings', label: 'Settings', icon: <Settings size={15} /> },
+        { slug: 'settings', to: `${basePath}/settings`, labelKey: 'common.labels.settings', label: 'Settings', icon: <Settings size={15} /> },
     ], [basePath]);
     const activeGit = GIT_TABS.find((t) => t.slug === activeTab) || GIT_TABS[0];
 
@@ -1451,7 +1451,7 @@ function Git({ basePath = '/git' }) {
                             <li><strong>{t('app.git.components', 'Components:')}</strong> {t('app.git.giteaPostgresqlDatabase', 'Gitea + PostgreSQL database')}</li>
                         </ul>
                     </div>
-                    <Button size="lg" onClick={() => setShowInstallModal(true)}>{t('app.git.installGitServer2', 'Install Git Server')}</Button>
+                    <Button size="lg" onClick={() => setShowInstallModal(true)}>{t('app.git.installGitServer', 'Install Git Server')}</Button>
                 </div>
             ) : (
                 <div className="domains-body">
@@ -1480,7 +1480,7 @@ function Git({ basePath = '/git' }) {
                                 copyToClipboard(`${getGiteaUrl()}/${selectedRepo.owner.login}/${selectedRepo.name}`);
                                 toast.success(t('app.git.repositoryUrlCopied', 'Repository URL copied'));
                             }}>
-                                {t('app.git.copyUrl2', 'Copy URL')}
+                                {t('app.git.copyUrl', 'Copy URL')}
                             </Button>
                         </div>
                         <div className="dom-specs">
@@ -1490,12 +1490,12 @@ function Git({ basePath = '/git' }) {
                                 <div className="sk-spec-card__sub">{branches.length} branches</div>
                             </div>
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">{t('app.git.stars2', 'Stars')}</div>
+                                <div className="sk-spec-card__label">{t('app.git.stars', 'Stars')}</div>
                                 <div className="sk-spec-card__value">{selectedRepo.stars}</div>
                                 <div className="sk-spec-card__sub">{selectedRepo.forks} forks</div>
                             </div>
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">{t('app.git.visibility2', 'Visibility')}</div>
+                                <div className="sk-spec-card__label">{t('app.git.visibility', 'Visibility')}</div>
                                 <div className="sk-spec-card__value">{selectedRepo.private ? 'Private' : 'Public'}</div>
                                 <div className="sk-spec-card__sub">{selectedRepo.fork ? 'Fork' : 'Original'}</div>
                             </div>
@@ -1503,7 +1503,7 @@ function Git({ basePath = '/git' }) {
 
                         <div className="git-repo-detail-tabs">
                             <div className="branch-selector">
-                                <Label>{t('app.git.branch3', 'Branch')}</Label>
+                                <Label>{t('common.labels.branch', 'Branch')}</Label>
                                 <select value={selectedBranch || ''} onChange={(e) => changeBranch(e.target.value)}>
                                     {branches.map(b => <option key={b.name} value={b.name}>{b.name}</option>)}
                                 </select>
@@ -1615,28 +1615,28 @@ function Git({ basePath = '/git' }) {
                 {drawerWebhook && (
                     <div className="dom-drawer">
                         <div className="dom-drawer__actions">
-                            <Button variant="outline" size="sm" onClick={() => copyWebhookUrl(drawerWebhook)}>{t('app.git.copyUrl3', 'Copy URL')}</Button>
-                            <Button variant="outline" size="sm" onClick={() => handleTestWebhook(drawerWebhook.id)}>{t('app.git.test', 'Test')}</Button>
+                            <Button variant="outline" size="sm" onClick={() => copyWebhookUrl(drawerWebhook)}>{t('app.git.copyUrl', 'Copy URL')}</Button>
+                            <Button variant="outline" size="sm" onClick={() => handleTestWebhook(drawerWebhook.id)}>{t('common.actions.test', 'Test')}</Button>
                             <Button variant="outline" size="sm" onClick={() => handleToggleWebhook(drawerWebhook.id)}>
                                 {drawerWebhook.is_active ? 'Disable' : 'Enable'}
                             </Button>
                             <Button variant="outline" size="sm" className="dom-delete-btn" onClick={() => handleDeleteWebhook(drawerWebhook.id)}>
-                                <Trash2 size={14} /> {t('app.git.delete2', 'Delete')}
+                                <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                             </Button>
                         </div>
                         <div className="dom-specs">
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">{t('app.git.source', 'Source')}</div>
+                                <div className="sk-spec-card__label">{t('common.labels.source', 'Source')}</div>
                                 <div className="sk-spec-card__value">{drawerWebhook.source}</div>
                                 <div className="sk-spec-card__sub">{drawerWebhook.source_repo_url}</div>
                             </div>
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">{t('app.git.branch4', 'Branch')}</div>
+                                <div className="sk-spec-card__label">{t('common.labels.branch', 'Branch')}</div>
                                 <div className="sk-spec-card__value">{drawerWebhook.source_branch}</div>
                                 <div className="sk-spec-card__sub">{drawerWebhook.sync_direction}</div>
                             </div>
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">{t('app.git.status3', 'Status')}</div>
+                                <div className="sk-spec-card__label">{t('common.labels.status', 'Status')}</div>
                                 <div className="git-pill-row"><Pill kind={drawerWebhook.is_active ? 'green' : 'gray'}>{drawerWebhook.is_active ? 'Active' : 'Inactive'}</Pill></div>
                                 <div className="sk-spec-card__sub">{drawerWebhook.sync_count} syncs</div>
                             </div>
@@ -1650,7 +1650,7 @@ function Git({ basePath = '/git' }) {
                                         <div className="sk-spec-card__value">{getAppName(drawerWebhook.app_id)}</div>
                                     </div>
                                     <div className="sk-spec-card">
-                                        <div className="sk-spec-card__label">{t('app.git.deployOnPush2', 'Deploy on push')}</div>
+                                        <div className="sk-spec-card__label">{t('app.git.deployOnPush', 'Deploy on push')}</div>
                                         <div className="git-pill-row"><Pill kind={drawerWebhook.deploy_on_push ? 'green' : 'gray'}>{drawerWebhook.deploy_on_push ? 'Enabled' : 'Disabled'}</Pill></div>
                                     </div>
                                     <div className="sk-spec-card">
@@ -1702,7 +1702,7 @@ function Git({ basePath = '/git' }) {
                         <div className="dom-drawer__actions">
                             <Button variant="outline" size="sm" onClick={() => viewDeploymentLogs(drawerDeployment.id)}>{t('app.git.viewLogs', 'View Logs')}</Button>
                             {drawerDeployment.status === 'success' && !drawerDeployment.is_rollback && (
-                                <Button variant="secondary" size="sm" onClick={() => handleRollback(drawerDeployment.app_id, drawerDeployment.version)}>{t('app.git.rollback2', 'Rollback')}</Button>
+                                <Button variant="secondary" size="sm" onClick={() => handleRollback(drawerDeployment.app_id, drawerDeployment.version)}>{t('app.git.rollback', 'Rollback')}</Button>
                             )}
                             {drawerDeployment.status === 'success' && (
                                 <Button size="sm" onClick={() => handleTriggerDeploy(drawerDeployment.app_id)} disabled={deployingAppId === drawerDeployment.app_id}>
@@ -1712,12 +1712,12 @@ function Git({ basePath = '/git' }) {
                         </div>
                         <div className="dom-specs">
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">{t('app.git.status4', 'Status')}</div>
+                                <div className="sk-spec-card__label">{t('common.labels.status', 'Status')}</div>
                                 <div className="git-pill-row"><Pill kind={statusKind(drawerDeployment.status)}>{drawerDeployment.status}</Pill></div>
                                 {drawerDeployment.duration_seconds != null && <div className="sk-spec-card__sub">{drawerDeployment.duration_seconds}s</div>}
                             </div>
                             <div className="sk-spec-card">
-                                <div className="sk-spec-card__label">{t('app.git.branch5', 'Branch')}</div>
+                                <div className="sk-spec-card__label">{t('common.labels.branch', 'Branch')}</div>
                                 <div className="sk-spec-card__value">{drawerDeployment.branch}</div>
                                 <div className="sk-spec-card__sub">{drawerDeployment.triggered_by}</div>
                             </div>
@@ -1744,7 +1744,7 @@ function Git({ basePath = '/git' }) {
             </Drawer>
 
             {/* Install Modal */}
-            <Modal open={showInstallModal} onClose={() => setShowInstallModal(false)} title={t('app.git.installGitServer3', 'Install Git Server')} size="lg">
+            <Modal open={showInstallModal} onClose={() => setShowInstallModal(false)} title={t('app.git.installGitServer', 'Install Git Server')} size="lg">
                             <div className="install-warning">
                                 <AlertTriangle size={20} />
                                 <div>
@@ -1768,7 +1768,7 @@ function Git({ basePath = '/git' }) {
                                 <Input type="password" value={installForm.adminPassword} onChange={(e) => setInstallForm({ ...installForm, adminPassword: e.target.value })} placeholder={t('app.git.autoGenerateSecurePassword', 'Auto-generate secure password')} />
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowInstallModal(false)}>{t('app.git.cancel', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowInstallModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleInstall} disabled={actionLoading || !installForm.adminEmail}>
                                 {actionLoading ? 'Installing...' : 'Install Git Server'}
                             </Button>
@@ -1776,13 +1776,13 @@ function Git({ basePath = '/git' }) {
             </Modal>
 
             {/* Webhook Modal */}
-            <Modal open={showWebhookModal} onClose={() => setShowWebhookModal(false)} title={t('app.git.addWebhook3', 'Add Webhook')} size="lg">
+            <Modal open={showWebhookModal} onClose={() => setShowWebhookModal(false)} title={t('app.git.addWebhook', 'Add Webhook')} size="lg">
                             <div className="form-group">
-                                <Label>{t('app.git.name', 'Name')} <span className="required">*</span></Label>
+                                <Label>{t('common.labels.name', 'Name')} <span className="required">*</span></Label>
                                 <Input type="text" value={webhookForm.name} onChange={(e) => setWebhookForm({ ...webhookForm, name: e.target.value })} placeholder={t('app.git.myGithubRepo', 'My GitHub Repo')} />
                             </div>
                             <div className="form-group">
-                                <Label>{t('app.git.source2', 'Source')}</Label>
+                                <Label>{t('common.labels.source', 'Source')}</Label>
                                 <select value={webhookForm.source} onChange={(e) => setWebhookForm({ ...webhookForm, source: e.target.value })}>
                                     <option value="github">{t('app.git.github', 'GitHub')}</option>
                                     <option value="gitlab">{t('app.git.gitlab', 'GitLab')}</option>
@@ -1795,7 +1795,7 @@ function Git({ basePath = '/git' }) {
                             </div>
                             <div className="form-row">
                                 <div className="form-group">
-                                    <Label>{t('app.git.branch6', 'Branch')}</Label>
+                                    <Label>{t('common.labels.branch', 'Branch')}</Label>
                                     <Input type="text" value={webhookForm.sourceBranch} onChange={(e) => setWebhookForm({ ...webhookForm, sourceBranch: e.target.value })} placeholder="main" />
                                 </div>
                                 <div className="form-group">
@@ -1832,7 +1832,7 @@ function Git({ basePath = '/git' }) {
                                         <div className="form-group checkbox">
                                             <label>
                                                 <input type="checkbox" checked={webhookForm.deployOnPush} onChange={(e) => setWebhookForm({ ...webhookForm, deployOnPush: e.target.checked })} />
-                                                {t('app.git.deployOnPush3', 'Deploy on push')}
+                                                {t('app.git.deployOnPush', 'Deploy on push')}
                                             </label>
                                             <span className="form-hint">{t('app.git.automaticallyDeployWhenCodeIsPushed', 'Automatically deploy when code is pushed to the branch')}</span>
                                         </div>
@@ -1854,7 +1854,7 @@ function Git({ basePath = '/git' }) {
                                 )}
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowWebhookModal(false)}>{t('app.git.cancel2', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowWebhookModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleCreateWebhook} disabled={actionLoading || !webhookForm.name || !webhookForm.sourceRepoUrl}>
                                 {actionLoading ? 'Creating...' : 'Create Webhook'}
                             </Button>
@@ -1869,7 +1869,7 @@ function Git({ basePath = '/git' }) {
                             </div>
                             <div className="secret-display">
                                 <code>{webhookSecret}</code>
-                                <Button size="sm" variant="outline" onClick={() => { copyToClipboard(webhookSecret); toast.success(t('app.git.secretCopied', 'Secret copied')); }}>{t('app.git.copy', 'Copy')}</Button>
+                                <Button size="sm" variant="outline" onClick={() => { copyToClipboard(webhookSecret); toast.success(t('app.git.secretCopied', 'Secret copied')); }}>{t('common.actions.copy', 'Copy')}</Button>
                             </div>
                             <p className="text-muted">{t('app.git.useThisSecretWhenConfiguringThe', 'Use this secret when configuring the webhook in your repository settings.')}</p>
                         <div className="modal-actions">
@@ -1899,7 +1899,7 @@ function Git({ basePath = '/git' }) {
                             {!selectedDeployment.pre_script_output && !selectedDeployment.deploy_output && !selectedDeployment.post_script_output && <div className="no-logs"><p>{t('app.git.noDeploymentLogsAvailable', 'No deployment logs available.')}</p></div>}
                         </>)}
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowDeploymentLogs(false)}>{t('app.git.close', 'Close')}</Button>
+                            <Button variant="outline" onClick={() => setShowDeploymentLogs(false)}>{t('common.actions.close', 'Close')}</Button>
                         </div>
             </Modal>
 

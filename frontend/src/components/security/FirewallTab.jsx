@@ -201,7 +201,7 @@ const FirewallTab = () => {
         const confirmed = await confirm({
             title: t('app.firewallTab.disableFirewall', 'Disable Firewall'),
             message: t('app.firewallTab.areYouSureYouWantTo', 'Are you sure you want to disable the firewall? This will leave your server unprotected.'),
-            confirmText: t('app.firewallTab.disable', 'Disable'),
+            confirmText: t('common.actions.disable', 'Disable'),
             variant: 'danger',
         });
         if (!confirmed) return;
@@ -272,10 +272,10 @@ const FirewallTab = () => {
         setActionLoading(true);
         try {
             await api.allowPort(port, protocol);
-            toast.success(t('app.firewallTab.portAllowed2', 'Port {{port}}/{{protocol}} allowed', { port: port, protocol: protocol }));
+            toast.success(t('app.firewallTab.portAllowed', 'Port {{port}}/{{protocol}} allowed', { port: port, protocol: protocol }));
             await loadRules();
         } catch (error) {
-            toast.error(t('app.firewallTab.failedToAllowPort2', 'Failed to allow port: {{message}}', { message: error.message }));
+            toast.error(t('app.firewallTab.failedToAllowPort', 'Failed to allow port: {{message}}', { message: error.message }));
         } finally {
             setActionLoading(false);
         }
@@ -285,7 +285,7 @@ const FirewallTab = () => {
         const confirmed = await confirm({
             title: t('app.firewallTab.removePortRule', 'Remove Port Rule'),
             message: t('app.firewallTab.areYouSureYouWantTo4', 'Are you sure you want to remove the rule for port {{port}}/{{protocol}}?', { port: port, protocol: protocol }),
-            confirmText: t('app.firewallTab.remove', 'Remove'),
+            confirmText: t('common.actions.remove', 'Remove'),
             variant: 'danger',
         });
         if (!confirmed) return;
@@ -320,7 +320,7 @@ const FirewallTab = () => {
     const ruleColumns = [
         {
             key: 'type',
-            headerKey: 'app.firewallTab.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             sortValue: (rule) => rule.type || '',
             render: (rule) => (
@@ -331,7 +331,7 @@ const FirewallTab = () => {
         },
         {
             key: 'target',
-            headerKey: 'app.firewallTab.target', header: 'Target',
+            headerKey: 'common.labels.target', header: 'Target',
             sortable: true,
             sortValue: ruleTarget,
             cellClassName: 'sk-cell-mono',
@@ -360,13 +360,13 @@ const FirewallTab = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.firewallTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             render: (rule) => (
                 rule.type === 'port' && (
                     <Button variant="destructive" size="sm" onClick={() => handleRemovePort(rule.port, rule.protocol)}>
-                        {t('app.firewallTab.remove3', 'Remove')}
+                        {t('common.actions.remove', 'Remove')}
                     </Button>
                 )
             ),
@@ -402,7 +402,7 @@ const FirewallTab = () => {
     );
 
     if (loading) {
-        return <div className="loading-sm">{t('app.firewallTab.loadingFirewallStatus', 'Loading firewall status...')}</div>;
+        return <div className="loading-sm">{t('app.firewallTab.loadingFirewallStatus', 'Loading firewall status…')}</div>;
     }
 
     return (
@@ -438,11 +438,11 @@ const FirewallTab = () => {
                                 </Button>
                                 {isActive ? (
                                     <Button variant="destructive" size="sm" onClick={handleDisable} disabled={actionLoading}>
-                                        {t('app.firewallTab.disable3', 'Disable')}
+                                        {t('common.actions.disable', 'Disable')}
                                     </Button>
                                 ) : (
                                     <Button variant="default" size="sm" onClick={handleEnable} disabled={actionLoading}>
-                                        {t('app.firewallTab.enable', 'Enable')}
+                                        {t('common.actions.enable', 'Enable')}
                                     </Button>
                                 )}
                             </div>
@@ -469,9 +469,9 @@ const FirewallTab = () => {
                         value={activeSubTab}
                         onChange={setActiveSubTab}
                         options={[
-                            { value: 'status', labelKey: 'app.firewallTab.status', label: 'Status' },
-                            { value: 'rules', labelKey: 'app.firewallTab.rules2', label: 'Rules', count: rules.length },
-                            { value: 'blocked', labelKey: 'app.firewallTab.blockedIps2', label: 'Blocked IPs', count: blockedIPs.length },
+                            { value: 'status', labelKey: 'common.labels.status', label: 'Status' },
+                            { value: 'rules', labelKey: 'app.firewallTab.rules', label: 'Rules', count: rules.length },
+                            { value: 'blocked', labelKey: 'app.firewallTab.blockedIps', label: 'Blocked IPs', count: blockedIPs.length },
                             { value: 'quick', labelKey: 'app.firewallTab.quickPorts', label: 'Quick Ports' },
                         ]}
                     />
@@ -480,16 +480,16 @@ const FirewallTab = () => {
                         <div className="card">
                             <div className="card-header">
                                 <h3>{t('app.firewallTab.firewallInformation', 'Firewall Information')}</h3>
-                                <Button variant="outline" size="sm" onClick={loadData}>{t('app.firewallTab.refresh', 'Refresh')}</Button>
+                                <Button variant="outline" size="sm" onClick={loadData}>{t('common.actions.refresh', 'Refresh')}</Button>
                             </div>
                             <div className="card-body">
                                 <div className="sec-rows">
                                     <div className="sk-info-row">
-                                        <span className="k">{t('app.firewallTab.type2', 'Type')}</span>
+                                        <span className="k">{t('common.labels.type', 'Type')}</span>
                                         <span className="v">{activeFirewall?.toUpperCase()}</span>
                                     </div>
                                     <div className="sk-info-row">
-                                        <span className="k">{t('app.firewallTab.status2', 'Status')}</span>
+                                        <span className="k">{t('common.labels.status', 'Status')}</span>
                                         <Pill kind={isActive ? 'green' : 'red'}>
                                             {isActive ? 'Active' : 'Inactive'}
                                         </Pill>
@@ -563,7 +563,7 @@ const FirewallTab = () => {
                         <div className="card sec-flush">
                             <div className="card-header">
                                 <h3>{t('app.firewallTab.blockedIpAddresses', 'Blocked IP Addresses')}</h3>
-                                <Button variant="default" size="sm" onClick={() => setShowBlockIPModal(true)}>{t('app.firewallTab.blockIp2', 'Block IP')}</Button>
+                                <Button variant="default" size="sm" onClick={() => setShowBlockIPModal(true)}>{t('app.firewallTab.blockIp', 'Block IP')}</Button>
                             </div>
                             {blockedIPs.length === 0 ? (
                                 <div className="card-body">
@@ -577,7 +577,7 @@ const FirewallTab = () => {
                                                 <span className="blocked-ip">{item.ip}</span>
                                             </div>
                                             <Button variant="secondary" size="sm" onClick={() => handleUnblockIP(item.ip)}>
-                                                {t('app.firewallTab.unblock3', 'Unblock')}
+                                                {t('app.firewallTab.unblock', 'Unblock')}
                                             </Button>
                                         </div>
                                     ))}
@@ -665,7 +665,7 @@ const FirewallTab = () => {
             {/* Block IP Modal */}
             <Modal open={showBlockIPModal} onClose={() => setShowBlockIPModal(false)} title={t('app.firewallTab.blockIpAddress', 'Block IP Address')}>
                 <div className="form-group">
-                    <Label>{t('app.firewallTab.ipAddress', 'IP Address')}</Label>
+                    <Label>{t('common.labels.ipAddress', 'IP Address')}</Label>
                     <Input
                         type="text"
                         value={blockIP}
@@ -675,7 +675,7 @@ const FirewallTab = () => {
                 </div>
                 <p className="text-muted">{t('app.firewallTab.youCanBlockASingleIp', 'You can block a single IP or a range using CIDR notation.')}</p>
                 <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setShowBlockIPModal(false)}>{t('app.firewallTab.cancel', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={() => setShowBlockIPModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button variant="destructive" onClick={handleBlockIP} disabled={actionLoading || !blockIP.trim()}>
                         {actionLoading ? 'Blocking...' : 'Block IP'}
                     </Button>
@@ -683,7 +683,7 @@ const FirewallTab = () => {
             </Modal>
 
             {/* Allow Port Modal */}
-            <Modal open={showPortModal} onClose={() => setShowPortModal(false)} title={t('app.firewallTab.allowPort2', 'Allow Port')}>
+            <Modal open={showPortModal} onClose={() => setShowPortModal(false)} title={t('app.firewallTab.allowPort', 'Allow Port')}>
                 <div className="form-row">
                     <div className="form-group">
                         <Label>{t('app.firewallTab.portNumber', 'Port Number')}</Label>
@@ -697,7 +697,7 @@ const FirewallTab = () => {
                         />
                     </div>
                     <div className="form-group">
-                        <Label>{t('app.firewallTab.protocol2', 'Protocol')}</Label>
+                        <Label>{t('app.firewallTab.protocol', 'Protocol')}</Label>
                         <Select value={newPort.protocol} onValueChange={(value) => setNewPort({ ...newPort, protocol: value })}>
                             <SelectTrigger>
                                 <SelectValue />
@@ -710,7 +710,7 @@ const FirewallTab = () => {
                     </div>
                 </div>
                 <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setShowPortModal(false)}>{t('app.firewallTab.cancel2', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={() => setShowPortModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button variant="default" onClick={handleAllowPort} disabled={actionLoading || !newPort.port}>
                         {actionLoading ? 'Adding...' : 'Allow Port'}
                     </Button>
@@ -718,7 +718,7 @@ const FirewallTab = () => {
             </Modal>
 
             {/* Install Firewall Modal */}
-            <Modal open={showInstallModal} onClose={() => setShowInstallModal(false)} title={t('app.firewallTab.installFirewall2', 'Install Firewall')}>
+            <Modal open={showInstallModal} onClose={() => setShowInstallModal(false)} title={t('app.firewallTab.installFirewall', 'Install Firewall')}>
                 <div className="form-group">
                     <Label>{t('app.firewallTab.selectFirewall', 'Select Firewall')}</Label>
                     <Select value={selectedFirewall} onValueChange={setSelectedFirewall}>
@@ -739,7 +739,7 @@ const FirewallTab = () => {
                     )}
                 </div>
                 <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setShowInstallModal(false)}>{t('app.firewallTab.cancel3', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={() => setShowInstallModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button variant="default" onClick={handleInstall} disabled={actionLoading}>
                         {actionLoading ? 'Installing...' : 'Install'}
                     </Button>

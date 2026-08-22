@@ -75,7 +75,7 @@ const SourceConnectionCallback = () => {
                 ) : (
                     <div className="sso-loading">
                         <Loader2 size={24} className="spinning" />
-                        <p>{t('app.sourceConnectionCallback.finishingProviderAuthorization', 'Finishing provider authorization...')}</p>
+                        <p>{t('app.sourceConnectionCallback.finishingProviderAuthorization', 'Finishing provider authorization…')}</p>
                     </div>
                 )}
             </div>

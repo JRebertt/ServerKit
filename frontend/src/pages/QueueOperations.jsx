@@ -378,7 +378,7 @@ const QueueOperations = () => {
         },
         {
             key: 'created',
-            headerKey: 'app.queueOperations.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             // The sort wants epoch ms, but that number is also what the filter
             // would infer from — leaving the column menu offering "is under
@@ -438,7 +438,7 @@ const QueueOperations = () => {
             <div className="queue-page queue-page--loading">
                 <div className="queue-loading-card">
                     <Layers size={24} />
-                    <span>{t('app.queueOperations.loadingQueueBus', 'Loading queue bus...')}</span>
+                    <span>{t('app.queueOperations.loadingQueueBus', 'Loading queue bus…')}</span>
                 </div>
             </div>
         );
@@ -451,19 +451,19 @@ const QueueOperations = () => {
                     <section className="queue-rail-section queue-rail-section--overview">
                         <div className="queue-rail-section-header">
                             <Activity size={14} />
-                            <span>{t('app.queueOperations.overview', 'Overview')}</span>
+                            <span>{t('common.labels.overview', 'Overview')}</span>
                         </div>
                         <div className="queue-rail-overview">
                             <MetricCard label={t('app.queueOperations.groups', 'Groups')} value={groups.length} compact />
                             <MetricCard label={t('app.queueOperations.queues', 'Queues')} value={totalQueues} compact />
-                            <MetricCard label={t('app.queueOperations.messages2', 'Messages')} value={totalMessages} compact />
+                            <MetricCard label={t('app.queueOperations.messages', 'Messages')} value={totalMessages} compact />
                             <MetricCard label={t('app.queueOperations.deadLetter', 'Dead Letter')} value={statusCounts.dead_letter || 0} kind="danger" compact />
                         </div>
                     </section>
 
                     <section className="queue-rail-section">
                         <div className="queue-rail-section-header queue-rail-section-header--split">
-                            <span><Folder size={14} /> {t('app.queueOperations.groups2', 'Groups')}</span>
+                            <span><Folder size={14} /> {t('app.queueOperations.groups', 'Groups')}</span>
                             <button type="button" onClick={() => setShowGroupModal(true)}>{t('app.queueOperations.new', 'New')}</button>
                         </div>
                         <div className="queue-group-nav">
@@ -505,7 +505,7 @@ const QueueOperations = () => {
                                 className={`queue-status-nav-item ${messageFilter === 'all' ? 'active' : ''}`}
                                 onClick={() => setMessageFilter('all')}
                             >
-                                <span><strong>{t('app.queueOperations.all', 'All')}</strong><small>{t('app.queueOperations.anyStatus', 'Any status')}</small></span>
+                                <span><strong>{t('common.labels.all', 'All')}</strong><small>{t('app.queueOperations.anyStatus', 'Any status')}</small></span>
                                 <b title={String(formatFull(totalMessages))}>{formatCompact(totalMessages)}</b>
                             </button>
                             {STATUS_ORDER.map(status => (
@@ -535,13 +535,13 @@ const QueueOperations = () => {
                         </div>
                         <div className="queue-workbar-actions">
                             <Button variant="outline" onClick={() => setShowGroupModal(true)}>
-                                <Folder size={16} /> {t('app.queueOperations.group2', 'Group')}
+                                <Folder size={16} /> {t('app.queueOperations.group', 'Group')}
                             </Button>
                             <Button variant="outline" onClick={() => setShowQueueModal(true)}>
-                                <Plus size={16} /> {t('app.queueOperations.queue2', 'Queue')}
+                                <Plus size={16} /> {t('app.queueOperations.queue', 'Queue')}
                             </Button>
                             <Button variant="outline" onClick={() => { loadData(); loadQueues(selectedGroup); }}>
-                                <RefreshCw size={16} /> {t('app.queueOperations.refresh', 'Refresh')}
+                                <RefreshCw size={16} /> {t('common.actions.refresh', 'Refresh')}
                             </Button>
                         </div>
                     </div>
@@ -581,7 +581,7 @@ const QueueOperations = () => {
                                 value={selectedGroup}
                                 onChange={(e) => setSelectedGroup(e.target.value)}
                             >
-                                <option value="">{t('app.queueOperations.allGroups2', 'All groups')}</option>
+                                <option value="">{t('app.queueOperations.allGroups', 'All groups')}</option>
                                 {groups.map(g => <option key={g.id} value={g.slug}>{g.name}</option>)}
                             </select>
                         </div>
@@ -595,7 +595,7 @@ const QueueOperations = () => {
                                     setSearchTerm('');
                                 }}
                             >
-                                {t('app.queueOperations.clearFilters', 'Clear filters')}
+                                {t('common.actions.clearFilters', 'Clear filters')}
                             </button>
                         )}
                     </div>
@@ -621,7 +621,7 @@ const QueueOperations = () => {
                                     setMessageFilter('all');
                                     setSearchTerm('');
                                 }}>
-                                    {t('app.queueOperations.clearFilters2', 'Clear filters')}
+                                    {t('common.actions.clearFilters', 'Clear filters')}
                                 </Button>
                             )}
                         />
@@ -652,16 +652,16 @@ const QueueOperations = () => {
             <Modal open={showGroupModal} onClose={() => setShowGroupModal(false)} title={t('app.queueOperations.createQueueGroup', 'Create Queue Group')}>
                         <form onSubmit={handleCreateGroup}>
                                 <div className="form-group">
-                                    <Label htmlFor="group-name">{t('app.queueOperations.name', 'Name')}</Label>
+                                    <Label htmlFor="group-name">{t('common.labels.name', 'Name')}</Label>
                                     <Input id="group-name" value={groupForm.name} onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })} required />
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="group-description">{t('app.queueOperations.description', 'Description')}</Label>
+                                    <Label htmlFor="group-description">{t('common.labels.description', 'Description')}</Label>
                                     <Input id="group-description" value={groupForm.description} onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })} />
                                 </div>
                             <div className="modal-actions">
-                                <Button type="button" variant="outline" onClick={() => setShowGroupModal(false)}>{t('app.queueOperations.cancel', 'Cancel')}</Button>
-                                <Button type="submit">{t('app.queueOperations.createGroup2', 'Create Group')}</Button>
+                                <Button type="button" variant="outline" onClick={() => setShowGroupModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                                <Button type="submit">{t('app.queueOperations.createGroup', 'Create Group')}</Button>
                             </div>
                         </form>
             </Modal>
@@ -670,7 +670,7 @@ const QueueOperations = () => {
             <Modal open={showQueueModal} onClose={() => setShowQueueModal(false)} title={t('app.queueOperations.createQueue', 'Create Queue')}>
                         <form onSubmit={handleCreateQueue}>
                                 <div className="form-group">
-                                    <Label htmlFor="queue-group">{t('app.queueOperations.group3', 'Group')}</Label>
+                                    <Label htmlFor="queue-group">{t('app.queueOperations.group', 'Group')}</Label>
                                     <select
                                         id="queue-group"
                                         className="queue-select queue-select--full"
@@ -683,11 +683,11 @@ const QueueOperations = () => {
                                     </select>
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="queue-name">{t('app.queueOperations.name2', 'Name')}</Label>
+                                    <Label htmlFor="queue-name">{t('common.labels.name', 'Name')}</Label>
                                     <Input id="queue-name" value={queueForm.name} onChange={(e) => setQueueForm({ ...queueForm, name: e.target.value })} required />
                                 </div>
                                 <div className="form-group">
-                                    <Label htmlFor="queue-description">{t('app.queueOperations.description2', 'Description')}</Label>
+                                    <Label htmlFor="queue-description">{t('common.labels.description', 'Description')}</Label>
                                     <Input id="queue-description" value={queueForm.description} onChange={(e) => setQueueForm({ ...queueForm, description: e.target.value })} />
                                 </div>
                                 <div className="form-group">
@@ -695,8 +695,8 @@ const QueueOperations = () => {
                                     <Textarea id="queue-config" value={queueForm.config} onChange={(e) => setQueueForm({ ...queueForm, config: e.target.value })} rows={4} />
                                 </div>
                             <div className="modal-actions">
-                                <Button type="button" variant="outline" onClick={() => setShowQueueModal(false)}>{t('app.queueOperations.cancel2', 'Cancel')}</Button>
-                                <Button type="submit">{t('app.queueOperations.createQueue2', 'Create Queue')}</Button>
+                                <Button type="button" variant="outline" onClick={() => setShowQueueModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                                <Button type="submit">{t('app.queueOperations.createQueue', 'Create Queue')}</Button>
                             </div>
                         </form>
             </Modal>
@@ -707,11 +707,11 @@ const QueueOperations = () => {
                         <form onSubmit={handleSendMessage}>
                                 <div className="queue-send-destination">
                                     <div>
-                                        <Label>{t('app.queueOperations.group4', 'Group')}</Label>
+                                        <Label>{t('app.queueOperations.group', 'Group')}</Label>
                                         <div className="queue-send-readonly">{sendTarget.group_slug}</div>
                                     </div>
                                     <div>
-                                        <Label>{t('app.queueOperations.queue3', 'Queue')}</Label>
+                                        <Label>{t('app.queueOperations.queue', 'Queue')}</Label>
                                         <div className="queue-send-readonly">{sendTarget.slug}</div>
                                     </div>
                                 </div>
@@ -736,8 +736,8 @@ const QueueOperations = () => {
                                     </div>
                                 </div>
                             <div className="modal-actions">
-                                <Button type="button" variant="outline" onClick={() => setSendTarget(null)}>{t('app.queueOperations.cancel3', 'Cancel')}</Button>
-                                <Button type="submit"><Send size={14} className="mr-2" /> {t('app.queueOperations.sendMessage3', 'Send Message')}</Button>
+                                <Button type="button" variant="outline" onClick={() => setSendTarget(null)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                                <Button type="submit"><Send size={14} className="mr-2" /> {t('app.queueOperations.sendMessage2', 'Send Message')}</Button>
                             </div>
                         </form>
                         )}

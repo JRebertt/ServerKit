@@ -53,7 +53,7 @@ const WorkspaceServicesTab = ({ wsId, services, appsOut, onMoveApp, onShare }) =
     const columns = [
         {
             key: 'name',
-            headerKey: 'app.workspaceServicesTab.service', header: 'Service',
+            headerKey: 'common.labels.service', header: 'Service',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -71,7 +71,7 @@ const WorkspaceServicesTab = ({ wsId, services, appsOut, onMoveApp, onShare }) =
         },
         {
             key: 'status',
-            headerKey: 'app.workspaceServicesTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a workspace holding two services of two
             // statuses fails the enum cardinality test and would fall back to
@@ -92,7 +92,7 @@ const WorkspaceServicesTab = ({ wsId, services, appsOut, onMoveApp, onShare }) =
             render: (a) => (
                 <div className="ws-detail__rowactions" onClick={e => e.stopPropagation()}>
                     <Button size="sm" variant="outline" onClick={() => onShare(a)}>{t('app.workspaceServicesTab.share', 'Share')}</Button>
-                    <Button size="sm" variant="destructive" onClick={() => onMoveApp(a.id, null)}>{t('app.workspaceServicesTab.remove', 'Remove')}</Button>
+                    <Button size="sm" variant="destructive" onClick={() => onMoveApp(a.id, null)}>{t('common.actions.remove', 'Remove')}</Button>
                 </div>
             ),
         },

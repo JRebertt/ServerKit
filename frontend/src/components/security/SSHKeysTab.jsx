@@ -109,7 +109,7 @@ const SSHKeysTab = () => {
         const confirmed = await confirm({
             title: t('app.sSHKeysTab.removeSshKey', 'Remove SSH Key'),
             message: t('app.sSHKeysTab.areYouSureYouWantTo', 'Are you sure you want to remove the SSH key{{value}}? This may lock you out if it\'s your only key.', { value: comment ? ` "${comment}"` : '' }),
-            confirmText: t('app.sSHKeysTab.remove', 'Remove'),
+            confirmText: t('common.actions.remove', 'Remove'),
             variant: 'danger',
         });
         if (!confirmed) return;
@@ -126,7 +126,7 @@ const SSHKeysTab = () => {
     const columns = [
         {
             key: 'type',
-            headerKey: 'app.sSHKeysTab.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             // Declared, not inferred: two keys of two types fail the enum
             // cardinality test and would fall back to text, which turns the
@@ -162,12 +162,12 @@ const SSHKeysTab = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.sSHKeysTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             render: (key) => (
                 <Button variant="destructive" size="sm" onClick={() => handleRemoveKey(key.id, key.comment)}>
-                    {t('app.sSHKeysTab.remove3', 'Remove')}
+                    {t('common.actions.remove', 'Remove')}
                 </Button>
             ),
         },
@@ -227,7 +227,7 @@ const SSHKeysTab = () => {
 
             {loading ? (
                 <div className="card">
-                    <div className="loading-sm">{t('app.sSHKeysTab.loading', 'Loading...')}</div>
+                    <div className="loading-sm">{t('common.loading', 'Loading…')}</div>
                 </div>
             ) : keys.length === 0 ? (
                 <div className="card">
@@ -275,7 +275,7 @@ const SSHKeysTab = () => {
                     <p className="help-text">{t('app.sSHKeysTab.pasteYourSshPublicKeyTypically', 'Paste your SSH public key (typically from ~/.ssh/id_rsa.pub or ~/.ssh/id_ed25519.pub)')}</p>
                 </div>
                 <div className="modal-footer">
-                    <Button variant="outline" onClick={() => setShowAddModal(false)}>{t('app.sSHKeysTab.cancel', 'Cancel')}</Button>
+                    <Button variant="outline" onClick={() => setShowAddModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button variant="default" onClick={handleAddKey} disabled={actionLoading || !newKey.trim()}>
                         {actionLoading ? 'Adding...' : 'Add Key'}
                     </Button>

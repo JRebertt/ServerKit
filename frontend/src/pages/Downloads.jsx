@@ -144,7 +144,7 @@ function Downloads() {
         <>
             <Button size="sm" variant="outline" onClick={fetchVersionInfo}>
                 <RefreshIcon />
-                {t('app.downloads.refresh', 'Refresh')}
+                {t('common.actions.refresh', 'Refresh')}
             </Button>
         </>,
         [],
@@ -155,7 +155,7 @@ function Downloads() {
             <div className="sk-tabgroup__inner downloads-page">
                 <div className="loading-container">
                     <div className="loading-spinner"></div>
-                    <p>{t('app.downloads.loadingVersionInformation', 'Loading version information...')}</p>
+                    <p>{t('app.downloads.loadingVersionInformation', 'Loading version information…')}</p>
                 </div>
             </div>
         );
@@ -275,7 +275,7 @@ function Downloads() {
                                     <button type="button"
                                         className="copy-btn"
                                         onClick={() => copyCommand(platforms[2].command, 'windows')}
-                                        title={t('app.downloads.copyToClipboard2', 'Copy to clipboard')}
+                                        title={t('app.downloads.copyToClipboard', 'Copy to clipboard')}
                                     >
                                         {copiedCommand === 'windows' ? <CheckIcon /> : <CopyIcon />}
                                     </button>

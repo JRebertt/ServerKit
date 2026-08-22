@@ -186,7 +186,7 @@ const UsersTab = () => {
     const columns = [
         {
             key: 'user',
-            headerKey: 'app.usersTab.user', header: 'User',
+            headerKey: 'common.labels.user', header: 'User',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -230,7 +230,7 @@ const UsersTab = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.usersTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             type: 'enum',
             value: statusLabel,
             render: (user) => (
@@ -254,7 +254,7 @@ const UsersTab = () => {
         },
         {
             key: 'created',
-            headerKey: 'app.usersTab.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             // Declared, not inferred: the sorter wants epoch ms, and letting
             // that number type the column would offer "is under 1754…" instead
@@ -267,7 +267,7 @@ const UsersTab = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.usersTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions-cell',
@@ -349,7 +349,7 @@ const UsersTab = () => {
     if (loading) {
         return (
             <div className="users-tab">
-                <div className="loading-state">{t('app.usersTab.loadingUsers', 'Loading users...')}</div>
+                <div className="loading-state">{t('app.usersTab.loadingUsers', 'Loading users…')}</div>
             </div>
         );
     }
@@ -418,10 +418,10 @@ const UsersTab = () => {
                             <p className="text-muted">{t('app.usersTab.thisActionCannotBeUndone', 'This action cannot be undone.')}</p>
                         <div className="modal-footer">
                             <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
-                                {t('app.usersTab.cancel', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </Button>
                             <Button variant="destructive" onClick={() => handleDeleteUser(deleteConfirm)}>
-                                {t('app.usersTab.deleteUser3', 'Delete User')}
+                                {t('app.usersTab.deleteUser2', 'Delete User')}
                             </Button>
                         </div>
                 </Modal>

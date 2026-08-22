@@ -3,14 +3,14 @@ import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 
 const PRIORITY_OPTIONS = [
-    { value: '', labelKey: 'app.journalControls.all', label: 'All' },
+    { value: '', labelKey: 'common.labels.all', label: 'All' },
     { value: '0', labelKey: 'app.journalControls.emergency', label: 'Emergency' },
     { value: '1', labelKey: 'app.journalControls.alert', label: 'Alert' },
     { value: '2', labelKey: 'app.journalControls.critical', label: 'Critical' },
     { value: '3', labelKey: 'app.journalControls.error', label: 'Error' },
-    { value: '4', labelKey: 'app.journalControls.warning', label: 'Warning' },
+    { value: '4', labelKey: 'common.labels.warning', label: 'Warning' },
     { value: '5', labelKey: 'app.journalControls.notice', label: 'Notice' },
-    { value: '6', labelKey: 'app.journalControls.info', label: 'Info' },
+    { value: '6', labelKey: 'common.labels.info', label: 'Info' },
     { value: '7', labelKey: 'app.journalControls.debug', label: 'Debug' },
 ];
 

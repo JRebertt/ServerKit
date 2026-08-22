@@ -234,7 +234,7 @@ const QueueDetail = () => {
     const columns = [
         {
             key: 'status',
-            headerKey: 'app.queueDetail.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // `value` is not optional here. The rule engine falls back to
             // sortValue when a column has none, and this sortValue is a
@@ -272,7 +272,7 @@ const QueueDetail = () => {
         },
         {
             key: 'created',
-            headerKey: 'app.queueDetail.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             // Same split as elsewhere: epoch ms sorts, the ISO string filters.
             // Without `value` the column menu would offer "is under 1755…".
@@ -324,7 +324,7 @@ const QueueDetail = () => {
             <div className="queue-page queue-page--loading">
                 <div className="queue-loading-card">
                     <Inbox size={24} />
-                    <span>{t('app.queueDetail.loadingQueue', 'Loading queue...')}</span>
+                    <span>{t('app.queueDetail.loadingQueue', 'Loading queue…')}</span>
                 </div>
             </div>
         );
@@ -354,7 +354,7 @@ const QueueDetail = () => {
                             </Button>
                         )}
                         <Button variant="outline" onClick={() => { loadMeta(); loadMessages(statusFilter); }}>
-                            <RefreshCw size={16} /> {t('app.queueDetail.refresh', 'Refresh')}
+                            <RefreshCw size={16} /> {t('common.actions.refresh', 'Refresh')}
                         </Button>
                     </div>
                 </div>
@@ -450,7 +450,7 @@ const QueueDetail = () => {
                     <aside className="queue-detail-panel">
                         <div className="queue-detail-panel-header">
                             <h2>{t('app.queueDetail.message', 'Message')}</h2>
-                            <button type="button" className="queue-panel-close" onClick={() => setSelectedMessage(null)} aria-label={t('app.queueDetail.close', 'Close')}>
+                            <button type="button" className="queue-panel-close" onClick={() => setSelectedMessage(null)} aria-label={t('common.actions.close', 'Close')}>
                                 <X size={16} />
                             </button>
                         </div>
@@ -474,7 +474,7 @@ const QueueDetail = () => {
                         {!viewOnly && (selectedMessage.status === 'failed' || selectedMessage.status === 'dead_letter') && (
                             <div className="queue-detail-panel-footer">
                                 <Button onClick={() => handleRequeue(selectedMessage)}>
-                                    <RefreshCw size={14} className="mr-2" /> {t('app.queueDetail.requeue2', 'Requeue')}
+                                    <RefreshCw size={14} className="mr-2" /> {t('app.queueDetail.requeue', 'Requeue')}
                                 </Button>
                             </div>
                         )}
@@ -482,7 +482,7 @@ const QueueDetail = () => {
                 )}
             </div>
 
-            <Modal open={showSend && !viewOnly} onClose={() => setShowSend(false)} title={t('app.queueDetail.sendMessage2', 'Send Message')}>
+            <Modal open={showSend && !viewOnly} onClose={() => setShowSend(false)} title={t('app.queueDetail.sendMessage', 'Send Message')}>
                         <form onSubmit={handleSend}>
                                 <div className="form-group">
                                     <Label htmlFor="payload">{t('app.queueDetail.payloadJson', 'Payload (JSON)')}</Label>
@@ -499,7 +499,7 @@ const QueueDetail = () => {
                                     </div>
                                 </div>
                             <div className="modal-actions">
-                                <Button type="button" variant="outline" onClick={() => setShowSend(false)}>{t('app.queueDetail.cancel', 'Cancel')}</Button>
+                                <Button type="button" variant="outline" onClick={() => setShowSend(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                                 <Button type="submit"><Send size={14} className="mr-2" /> {t('app.queueDetail.send', 'Send')}</Button>
                             </div>
                         </form>

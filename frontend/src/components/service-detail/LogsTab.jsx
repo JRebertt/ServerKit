@@ -181,7 +181,7 @@ const LogsTab = ({ app }) => {
                         </svg>
                         <Input
                             type="text"
-                            placeholder={t('app.logsTab.searchLogs', 'Search logs...')}
+                            placeholder={t('app.logsTab.searchLogs', 'Search logs…')}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
@@ -234,7 +234,7 @@ const LogsTab = ({ app }) => {
                             <line x1="12" y1="15" x2="12" y2="3"/>
                         </svg>
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={loadLogs} title={t('app.logsTab.refresh', 'Refresh')}>
+                    <Button variant="ghost" size="icon" onClick={loadLogs} title={t('common.actions.refresh', 'Refresh')}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="23 4 23 10 17 10"/>
                             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
@@ -271,7 +271,7 @@ const LogsTab = ({ app }) => {
             {/* Log Viewer */}
             <div className="logs-viewer" ref={logRef}>
                 {loading ? (
-                    <div className="logs-viewer__loading">{t('app.logsTab.loadingLogs', 'Loading logs...')}</div>
+                    <div className="logs-viewer__loading">{t('app.logsTab.loadingLogs', 'Loading logs…')}</div>
                 ) : filteredLines.length === 0 ? (
                     <div className="logs-viewer__empty">
                         {searchTerm || levelFilter !== 'all'

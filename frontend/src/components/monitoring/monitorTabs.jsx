@@ -27,7 +27,7 @@ import {
 // (tab-group contribution, #43) and merged in by TabGroupLayout
 // groupId="monitoring". TabGroupLayout overflows the tail into "⋯ More".
 export const MONITOR_TABS = [
-    { to: '/monitoring', labelKey: 'app.monitorTabs.overview', label: 'Overview', end: true, icon: <Activity size={15} /> },
+    { to: '/monitoring', labelKey: 'common.labels.overview', label: 'Overview', end: true, icon: <Activity size={15} /> },
     { to: '/monitoring/monitors', labelKey: 'app.monitorTabs.monitors', label: 'Monitors', icon: <Radar size={15} /> },
     { to: '/monitoring/incidents', labelKey: 'app.monitorTabs.incidents', label: 'Incidents', icon: <AlertTriangle size={15} /> },
     { to: '/monitoring/rules', labelKey: 'app.monitorTabs.rules', label: 'Rules', icon: <SlidersHorizontal size={15} /> },

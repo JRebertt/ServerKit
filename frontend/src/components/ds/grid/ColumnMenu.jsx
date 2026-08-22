@@ -196,7 +196,7 @@ export function ColumnMenu({
                                     <select
                                         value={rule?.op || OPS[type][0][0]}
                                         onChange={(e) => writeValue(draft, e.target.value)}
-                                        aria-label={t('app.columnMenu.filterOperator2', '{{label}} filter operator', { label: label })}
+                                        aria-label={t('app.columnMenu.filterOperator', '{{label}} filter operator', { label: label })}
                                     >
                                         {OPS[type].map(([op, text]) => (
                                             <option key={op} value={op}>{text}</option>
@@ -273,7 +273,7 @@ export function ColumnMenu({
                             {t('app.columnMenu.clearFilter', 'Clear filter')}
                         </button>
                         <button type="button" className="is-primary" onClick={() => onOpenChange(false)}>
-                            {t('app.columnMenu.done', 'Done')}
+                            {t('common.actions.done', 'Done')}
                         </button>
                     </div>
                 )}

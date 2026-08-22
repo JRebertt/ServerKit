@@ -165,7 +165,7 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
         },
         {
             key: 'user',
-            headerKey: 'app.processListPanel.user', header: 'User',
+            headerKey: 'common.labels.user', header: 'User',
             sortable: true,
             type: 'enum',
             value: (p) => p.user || NO_DB,
@@ -202,7 +202,7 @@ export default function ProcessListPanel({ conn, engine, active, isAdmin }) {
         },
         {
             key: 'time',
-            headerKey: 'app.processListPanel.time', header: 'Time',
+            headerKey: 'common.labels.time', header: 'Time',
             sortable: true,
             // Declared as seconds, not as the "3m 12s" the cell shows: the rule
             // engine has to compare numbers for "Long running" to mean anything.

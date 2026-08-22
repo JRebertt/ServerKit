@@ -300,7 +300,7 @@ const EnvironmentVariables = ({ appId }) => {
         if (!await confirm({
             title: t('app.environmentVariables.clearEnvironmentVariables', 'Clear environment variables'),
             message: t('app.environmentVariables.deleteAllEnvironmentVariablesThisCannot', 'Delete all environment variables? This cannot be undone.'),
-            confirmText: t('app.environmentVariables.continue', 'Continue'),
+            confirmText: t('common.actions.continue', 'Continue'),
         })) return;
         if (!await confirm({
             title: t('app.environmentVariables.confirmDeletion', 'Confirm deletion'),
@@ -334,7 +334,7 @@ const EnvironmentVariables = ({ appId }) => {
     const columns = [
         {
             key: 'key',
-            headerKey: 'app.environmentVariables.key', header: 'Key',
+            headerKey: 'common.labels.key', header: 'Key',
             sortable: true,
             hideable: false,
             // An identifier you type a fragment of, never pick from a list.
@@ -346,7 +346,7 @@ const EnvironmentVariables = ({ appId }) => {
         },
         {
             key: 'value',
-            headerKey: 'app.environmentVariables.value', header: 'Value',
+            headerKey: 'common.labels.value', header: 'Value',
             sortable: false,
             // Neither sortable nor filterable, and `value` answers with the
             // mask rather than the secret: those three accessors also feed the
@@ -381,8 +381,8 @@ const EnvironmentVariables = ({ appId }) => {
                             ))}
                         </select>
                     )}
-                    <Button size="sm" onClick={() => handleUpdate(ev.key)}>{t('app.environmentVariables.save', 'Save')}</Button>
-                    <Button variant="outline" size="sm" onClick={cancelEditing}>{t('app.environmentVariables.cancel', 'Cancel')}</Button>
+                    <Button size="sm" onClick={() => handleUpdate(ev.key)}>{t('common.actions.save', 'Save')}</Button>
+                    <Button variant="outline" size="sm" onClick={cancelEditing}>{t('common.actions.cancel', 'Cancel')}</Button>
                 </div>
             ) : (showValues[ev.id] ? ev.value : MASK)),
         },
@@ -416,7 +416,7 @@ const EnvironmentVariables = ({ appId }) => {
         }] : []),
         {
             key: 'description',
-            headerKey: 'app.environmentVariables.description', header: 'Description',
+            headerKey: 'common.labels.description', header: 'Description',
             sortable: true,
             // Text, never enum: on an app where nothing is documented the
             // inference would see one repeated dash and offer a checklist.
@@ -430,7 +430,7 @@ const EnvironmentVariables = ({ appId }) => {
         },
         {
             key: 'actions',
-            headerKey: 'app.environmentVariables.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             className: 'actions-cell',
@@ -457,7 +457,7 @@ const EnvironmentVariables = ({ appId }) => {
                         type="button"
                         className="btn-icon"
                         onClick={() => startEditing(ev)}
-                        title={t('app.environmentVariables.edit', 'Edit')}
+                        title={t('common.actions.edit', 'Edit')}
                     >
                         <Pencil size={16} />
                     </button>
@@ -465,7 +465,7 @@ const EnvironmentVariables = ({ appId }) => {
                         type="button"
                         className="btn-icon btn-danger"
                         onClick={() => handleDelete(ev.key)}
-                        title={t('app.environmentVariables.delete', 'Delete')}
+                        title={t('common.actions.delete', 'Delete')}
                     >
                         <Trash2 size={16} />
                     </button>
@@ -501,7 +501,7 @@ const EnvironmentVariables = ({ appId }) => {
     });
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title={t('app.environmentVariables.loadingEnvironmentVariables', 'Loading environment variables...')} />;
+        return <EmptyState loading loadingVariant="table" title={t('app.environmentVariables.loadingEnvironmentVariables', 'Loading environment variables…')} />;
     }
 
     return (
@@ -561,7 +561,7 @@ const EnvironmentVariables = ({ appId }) => {
                     <ListToolbar>
                         <Button size="sm" onClick={openAddModal}>
                             <Plus size={15} />
-                            {t('app.environmentVariables.addVariable2', 'Add Variable')}
+                            {t('app.environmentVariables.addVariable', 'Add Variable')}
                         </Button>
                         <Button
                             variant="outline"
@@ -574,7 +574,7 @@ const EnvironmentVariables = ({ appId }) => {
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => setShowImportModal(true)}>
                             <Upload size={14} />
-                            {t('app.environmentVariables.import2', 'Import')}
+                            {t('app.environmentVariables.import', 'Import')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => handleExport(true)}>
                             <Download size={14} />
@@ -622,7 +622,7 @@ const EnvironmentVariables = ({ appId }) => {
             <Modal open={showAddModal} onClose={() => setShowAddModal(false)} title={t('app.environmentVariables.addEnvironmentVariable', 'Add Environment Variable')}>
                 <form onSubmit={handleAdd}>
                     <div className="form-group">
-                        <Label>{t('app.environmentVariables.key2', 'Key')}</Label>
+                        <Label>{t('common.labels.key', 'Key')}</Label>
                         <Input
                             type="text"
                             value={newKey}
@@ -633,7 +633,7 @@ const EnvironmentVariables = ({ appId }) => {
                         />
                     </div>
                     <div className="form-group">
-                        <Label>{t('app.environmentVariables.value2', 'Value')}</Label>
+                        <Label>{t('common.labels.value', 'Value')}</Label>
                         <Input
                             type="text"
                             value={newValue}
@@ -642,7 +642,7 @@ const EnvironmentVariables = ({ appId }) => {
                         />
                     </div>
                     <div className="form-group">
-                        <Label>{t('app.environmentVariables.description2', 'Description')} <span className="env-optional">(optional)</span></Label>
+                        <Label>{t('common.labels.description', 'Description')} <span className="env-optional">(optional)</span></Label>
                         <Input
                             type="text"
                             value={newDescription}
@@ -652,13 +652,13 @@ const EnvironmentVariables = ({ appId }) => {
                     </div>
                     {composeServices.length > 0 && (
                         <div className="form-group">
-                            <Label>{t('app.environmentVariables.appliesTo2', 'Applies to')}</Label>
+                            <Label>{t('app.environmentVariables.appliesTo', 'Applies to')}</Label>
                             <select
                                 className="env-target-select__control"
                                 value={newTargetService}
                                 onChange={(e) => setNewTargetService(e.target.value)}
                             >
-                                <option value="">{t('app.environmentVariables.allServices2', 'All services')}</option>
+                                <option value="">{t('app.environmentVariables.allServices', 'All services')}</option>
                                 {composeServices.map((svc) => (
                                     <option key={svc} value={svc}>{svc}</option>
                                 ))}
@@ -670,7 +670,7 @@ const EnvironmentVariables = ({ appId }) => {
                     </p>
                     <div className="modal-footer">
                         <Button type="button" variant="outline" onClick={() => setShowAddModal(false)}>
-                            {t('app.environmentVariables.cancel2', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={saving}>
                             {saving ? 'Adding...' : 'Add Variable'}
@@ -713,7 +713,7 @@ const EnvironmentVariables = ({ appId }) => {
                 </label>
                 <div className="modal-footer">
                     <Button variant="outline" onClick={() => setShowImportModal(false)}>
-                        {t('app.environmentVariables.cancel3', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button onClick={handleImport} disabled={saving}>
                         {saving ? 'Importing...' : 'Import'}
@@ -730,7 +730,7 @@ const EnvironmentVariables = ({ appId }) => {
                         columns={[
                             {
                                 key: 'key',
-                                headerKey: 'app.environmentVariables.key3', header: 'Key',
+                                headerKey: 'common.labels.key', header: 'Key',
                                 sortable: true,
                                 hideable: false,
                                 sortValue: (h) => h.key || '',
@@ -739,7 +739,7 @@ const EnvironmentVariables = ({ appId }) => {
                             },
                             {
                                 key: 'action',
-                                headerKey: 'app.environmentVariables.action', header: 'Action',
+                                headerKey: 'common.labels.action', header: 'Action',
                                 sortable: true,
                                 sortValue: (h) => h.action || '',
                                 render: (h) => (
@@ -771,7 +771,7 @@ const EnvironmentVariables = ({ appId }) => {
                 )}
                 <div className="modal-footer">
                     <Button variant="outline" onClick={() => setShowHistoryModal(false)}>
-                        {t('app.environmentVariables.close', 'Close')}
+                        {t('common.actions.close', 'Close')}
                     </Button>
                 </div>
             </Modal>

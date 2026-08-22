@@ -18,7 +18,7 @@ const STATUS_META = {
     pending: { labelKey: 'app.deployConsole.queued', label: 'Queued', icon: Clock, cls: 'pending' },
     running: { labelKey: 'app.deployConsole.running', label: 'Running', icon: Loader2, cls: 'running' },
     succeeded: { labelKey: 'app.deployConsole.succeeded', label: 'Succeeded', icon: CheckCircle2, cls: 'succeeded' },
-    failed: { labelKey: 'app.deployConsole.failed', label: 'Failed', icon: XCircle, cls: 'failed' },
+    failed: { labelKey: 'common.state.failed', label: 'Failed', icon: XCircle, cls: 'failed' },
     cancelled: { labelKey: 'app.deployConsole.cancelled', label: 'Cancelled', icon: XCircle, cls: 'failed' },
 };
 
@@ -260,7 +260,7 @@ export default function DeployConsole() {
         // Without it the console ran edge-to-edge with no gutters at all.
         <div className={`sk-tabgroup__inner deploy-console${logFocus ? ' deploy-console--focus' : ''}`}>
             <header className="deploy-console__header">
-                <Link to="/deployments" className="deploy-console__back" title={t('app.deployConsole.backToDeployments2', 'Back to deployments')}>
+                <Link to="/deployments" className="deploy-console__back" title={t('app.deployConsole.backToDeployments', 'Back to deployments')}>
                     <ArrowLeft size={18} />
                 </Link>
                 <h1 className="deploy-console__title">{humanizeTitle(job)}</h1>

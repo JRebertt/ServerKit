@@ -563,7 +563,7 @@ const Marketplace = () => {
                                 title={t('app.marketplace.noCatalogEntriesFound', 'No catalog entries found')}
                                 description={hasFilters ? t('app.marketplace.noBuiltInOrRegistryEntries', 'No built-in or registry entries match the current filter.') : t('app.marketplace.noExtensionEntriesAreAvailableYet', 'No extension entries are available yet.')}
                                 action={hasFilters ? (
-                                    <Button variant="outline" size="sm" onClick={resetFilters}>{t('app.marketplace.clearFilters', 'Clear filters')}</Button>
+                                    <Button variant="outline" size="sm" onClick={resetFilters}>{t('common.actions.clearFilters', 'Clear filters')}</Button>
                                 ) : undefined}
                             />
                         )}
@@ -660,7 +660,7 @@ const Marketplace = () => {
                     size="sm"
                     footer={
                         <>
-                            <Button variant="ghost" onClick={() => setRiskTarget(null)}>{t('app.marketplace.cancel', 'Cancel')}</Button>
+                            <Button variant="ghost" onClick={() => setRiskTarget(null)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button variant="destructive" onClick={confirmRiskyInstall}>
                                 {riskTarget.updatePluginId ? 'Update anyway' : 'Install anyway'}
                             </Button>
@@ -885,7 +885,7 @@ const ExtensionDetailModal = ({ entry, installing, statusVariant, onClose, onIns
                     <div className="extension-detail__heading">
                         <div className="extension-detail__badges">
                             {entry.firstParty && (
-                                <Badge variant="secondary" className="extension-firstparty">{t('app.marketplace.byServerkit3', 'by ServerKit')}</Badge>
+                                <Badge variant="secondary" className="extension-firstparty">{t('app.marketplace.byServerkit2', 'by ServerKit')}</Badge>
                             )}
                             <TrustBadge entry={entry} />
                             <SignatureBadge entry={entry} />
@@ -1039,7 +1039,7 @@ const PluginRow = ({
                     onClick={() => onInspectPermissions(plugin)}
                 >
                     <ShieldQuestion aria-hidden="true" />
-                    {t('app.marketplace.permissions', 'Permissions')}
+                    {t('common.labels.permissions', 'Permissions')}
                 </Button>
                 <Button
                     size="sm"
@@ -1103,7 +1103,7 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
             size="sm"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onClose}>{t('app.marketplace.cancel2', 'Cancel')}</Button>
+                    <Button variant="ghost" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button onClick={save} disabled={saving || values === null}>
                         {saving ? 'Saving…' : 'Save'}
                     </Button>
@@ -1111,7 +1111,7 @@ const PluginConfigDialog = ({ plugin, onClose }) => {
             }
         >
             {values === null ? (
-                <p className="text-muted">{t('app.marketplace.loading', 'Loading…')}</p>
+                <p className="text-muted">{t('common.loading', 'Loading…')}</p>
             ) : (
                 <div className="plugin-config-form">
                     {Object.entries(fields).map(([key, spec]) => {
@@ -1178,7 +1178,7 @@ const PluginUninstallDialog = ({ plugin, onCancel, onConfirm }) => {
             size="sm"
             footer={
                 <>
-                    <Button variant="ghost" onClick={onCancel}>{t('app.marketplace.cancel3', 'Cancel')}</Button>
+                    <Button variant="ghost" onClick={onCancel}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button variant="outline" onClick={() => onConfirm(false)}>{t('app.marketplace.keepData', 'Keep data')}</Button>
                     <Button variant="destructive" onClick={() => onConfirm(true)}>{t('app.marketplace.purgeData', 'Purge data')}</Button>
                 </>
@@ -1187,7 +1187,7 @@ const PluginUninstallDialog = ({ plugin, onCancel, onConfirm }) => {
             <div className="plugin-uninstall-dialog">
                 <p>{t('app.marketplace.removingThisExtensionStopsItsRoutes', 'Removing this extension stops its routes and UI contributions.')}</p>
                 <p className="text-muted">
-                    <strong>{t('app.marketplace.keepData2', 'Keep data')}</strong> {t('app.marketplace.leavesTheExtensionSDatabaseTables', 'leaves the extension\'s database tables intact so you can reinstall later.')} <strong>{t('app.marketplace.purgeData2', 'Purge data')}</strong> {t('app.marketplace.permanentlyDropsTheExtensionSTables', 'permanently drops the extension\'s tables and cannot be undone.')}
+                    <strong>{t('app.marketplace.keepData', 'Keep data')}</strong> {t('app.marketplace.leavesTheExtensionSDatabaseTables', 'leaves the extension\'s database tables intact so you can reinstall later.')} <strong>{t('app.marketplace.purgeData', 'Purge data')}</strong> {t('app.marketplace.permanentlyDropsTheExtensionSTables', 'permanently drops the extension\'s tables and cannot be undone.')}
                 </p>
             </div>
         </Modal>

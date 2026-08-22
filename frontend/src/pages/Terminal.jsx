@@ -43,7 +43,7 @@ const TERMINAL_TABS = [
     { to: '/terminal/shell', labelKey: 'app.terminal.terminal', label: 'Terminal', icon: <TerminalIcon size={15} /> },
     { to: '/terminal/journal', labelKey: 'app.terminal.systemJournal', label: 'System Journal', icon: <ScrollText size={15} /> },
     { to: '/terminal/processes', labelKey: 'app.terminal.processes', label: 'Processes', icon: <Cpu size={15} /> },
-    { to: '/terminal/services', labelKey: 'app.terminal.services', label: 'Services', icon: <Settings size={15} /> },
+    { to: '/terminal/services', labelKey: 'common.labels.services', label: 'Services', icon: <Settings size={15} /> },
 ];
 
 const Terminal = () => {
@@ -329,7 +329,7 @@ const LogFilesTab = () => {
         <div className={`lv-page ${isFullscreen ? 'fullscreen' : ''}`}>
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">{t('app.terminal.source', 'Source')}</span>
+                    <span className="lv-header-label">{t('common.labels.source', 'Source')}</span>
                     <TargetPicker
                         feature="logs"
                         value={target}
@@ -351,7 +351,7 @@ const LogFilesTab = () => {
                             </span>
                             <span className="lv-stat-divider" />
                             <span className="lv-stat">
-                                <span className="lv-stat-label">{t('app.terminal.size', 'Size')}</span>
+                                <span className="lv-stat-label">{t('common.labels.size', 'Size')}</span>
                                 <span className="lv-stat-value">{formatBytes(selectedLogObj.size)}</span>
                             </span>
                             <span className="lv-stat">
@@ -446,7 +446,7 @@ const COMMON_JOURNAL_UNITS = [
     { id: 'mariadb', labelKey: 'app.terminal.mariadb', label: 'MariaDB', kind: 'database' },
     { id: 'postgresql', labelKey: 'app.terminal.postgresql', label: 'PostgreSQL', kind: 'database' },
     { id: 'php-fpm', labelKey: 'app.terminal.phpFpm', label: 'PHP-FPM', kind: 'php' },
-    { id: 'docker', labelKey: 'app.terminal.docker', label: 'Docker', kind: 'default' },
+    { id: 'docker', labelKey: 'common.labels.docker', label: 'Docker', kind: 'default' },
     { id: 'sshd', label: 'SSH', kind: 'security' },
     { id: 'cron', labelKey: 'app.terminal.cron', label: 'Cron', kind: 'system' },
     { id: 'systemd', label: 'systemd', kind: 'system' },
@@ -455,14 +455,14 @@ const COMMON_JOURNAL_UNITS = [
 ];
 
 const PRIORITY_OPTIONS = [
-    { value: '', labelKey: 'app.terminal.all', label: 'All' },
+    { value: '', labelKey: 'common.labels.all', label: 'All' },
     { value: '0', labelKey: 'app.terminal.emergency', label: 'Emergency' },
     { value: '1', labelKey: 'app.terminal.alert', label: 'Alert' },
     { value: '2', labelKey: 'app.terminal.critical', label: 'Critical' },
     { value: '3', labelKey: 'app.terminal.error', label: 'Error' },
-    { value: '4', labelKey: 'app.terminal.warning', label: 'Warning' },
+    { value: '4', labelKey: 'common.labels.warning', label: 'Warning' },
     { value: '5', labelKey: 'app.terminal.notice', label: 'Notice' },
-    { value: '6', labelKey: 'app.terminal.info', label: 'Info' },
+    { value: '6', labelKey: 'common.labels.info', label: 'Info' },
     { value: '7', labelKey: 'app.terminal.debug', label: 'Debug' },
 ];
 
@@ -595,7 +595,7 @@ const JournalTab = () => {
                         {t('app.terminal.noSystemLogSourceWasFound', 'No system log source was found. Neither')} <code>journalctl</code>,
                         <code> /var/log/syslog</code>{t('app.terminal.norTheWindowsEventLogAre', ', nor the Windows Event Log are available.')}
                     </p>
-                    <p>{t('app.terminal.useThe', 'Use the')} <strong>{t('app.terminal.logFiles2', 'Log Files')}</strong> {t('app.terminal.tabToBrowseAvailableLogFiles', 'tab to browse available log files instead.')}</p>
+                    <p>{t('app.terminal.useThe', 'Use the')} <strong>{t('app.terminal.logFiles', 'Log Files')}</strong> {t('app.terminal.tabToBrowseAvailableLogFiles', 'tab to browse available log files instead.')}</p>
                 </div>
             </div>
         );
@@ -605,7 +605,7 @@ const JournalTab = () => {
         <div className={`lv-page ${isFullscreen ? 'fullscreen' : ''}`}>
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">{t('app.terminal.source2', 'Source')}</span>
+                    <span className="lv-header-label">{t('common.labels.source', 'Source')}</span>
                     <TargetPicker feature="logs" value={target} onChange={setTarget} />
                     {isRemote && (
                         <span className="lv-header-hint">
@@ -628,7 +628,7 @@ const JournalTab = () => {
                         </span>
                     )}
                     <span className="lv-stat">
-                        <span className="lv-stat-label">{t('app.terminal.showing2', 'Showing')}</span>
+                        <span className="lv-stat-label">{t('app.terminal.showing', 'Showing')}</span>
                         <span className="lv-stat-value">{visibleLineCount.toLocaleString()} lines</span>
                     </span>
                     {lastUpdated && (
@@ -828,7 +828,7 @@ const ProcessesTab = () => {
             setLastUpdated(new Date());
         } catch (err) {
             console.error('Failed to load processes:', err);
-            toast.error(t('app.terminal.failed2', 'Failed: {{message}}', { message: err.message }));
+            toast.error(t('app.terminal.failed', 'Failed: {{message}}', { message: err.message }));
         } finally {
             setLoading(false);
         }
@@ -872,7 +872,7 @@ const ProcessesTab = () => {
             loadProcesses();
             setSelectedProcess(null);
         } catch (err) {
-            toast.error(t('app.terminal.failed3', 'Failed: {{message}}', { message: err.message }));
+            toast.error(t('app.terminal.failed', 'Failed: {{message}}', { message: err.message }));
         }
     }
 
@@ -885,7 +885,7 @@ const ProcessesTab = () => {
         <div className="proc-page">
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">{t('app.terminal.source3', 'Source')}</span>
+                    <span className="lv-header-label">{t('common.labels.source', 'Source')}</span>
                     <TargetPicker feature="processes" value={target} onChange={setTarget} />
                     {isRemote && (
                         <span className="lv-header-hint">
@@ -902,7 +902,7 @@ const ProcessesTab = () => {
                         <span className="lv-stat-value">{totalCpu.toFixed(1)}%</span>
                     </span>
                     <span className="lv-stat">
-                        <span className="lv-stat-label">{t('app.terminal.memory', 'Memory')}</span>
+                        <span className="lv-stat-label">{t('common.labels.memory', 'Memory')}</span>
                         <span className="lv-stat-value">{totalMem.toFixed(1)}%</span>
                     </span>
                     {lastUpdated && (
@@ -976,11 +976,11 @@ const ProcessesTab = () => {
                                 <span className="meta-value mono">{selectedProcess.pid}</span>
                             </div>
                             <div className="meta-item">
-                                <span className="meta-label">{t('app.terminal.user', 'User')}</span>
+                                <span className="meta-label">{t('common.labels.user', 'User')}</span>
                                 <span className="meta-value">{procUser(selectedProcess)}</span>
                             </div>
                             <div className="meta-item">
-                                <span className="meta-label">{t('app.terminal.status', 'Status')}</span>
+                                <span className="meta-label">{t('common.labels.status', 'Status')}</span>
                                 <span className="meta-value">{selectedProcess.status}</span>
                             </div>
                             <div className="meta-item">
@@ -992,7 +992,7 @@ const ProcessesTab = () => {
                                 <span className="meta-value">{(selectedProcess.cpu_percent || 0).toFixed(2)}%</span>
                             </div>
                             <div className="meta-item">
-                                <span className="meta-label">{t('app.terminal.memory2', 'Memory')}</span>
+                                <span className="meta-label">{t('common.labels.memory', 'Memory')}</span>
                                 <span className="meta-value">{formatMemory(selectedProcess.memory_info?.rss)}</span>
                             </div>
                             <div className="meta-item meta-item-wide">
@@ -1015,7 +1015,7 @@ const ProcessesTab = () => {
                         <div className="preview-drawer-body is-padded">
                             {selectedProcess.command && (
                                 <>
-                                    <div className="meta-label is-spaced">{t('app.terminal.command', 'Command')}</div>
+                                    <div className="meta-label is-spaced">{t('common.labels.command', 'Command')}</div>
                                     <pre className="proc-command">{selectedProcess.command}</pre>
                                 </>
                             )}
@@ -1039,7 +1039,7 @@ const ServicesTab = () => {
         <div className="svc-page">
             <div className="lv-header">
                 <div className="lv-header-target">
-                    <span className="lv-header-label">{t('app.terminal.source4', 'Source')}</span>
+                    <span className="lv-header-label">{t('common.labels.source', 'Source')}</span>
                     <TargetPicker feature="services" value={target} onChange={setTarget} />
                 </div>
             </div>

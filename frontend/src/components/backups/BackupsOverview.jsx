@@ -121,7 +121,7 @@ const LATEST_COLUMNS = [
     },
     {
         key: 'size',
-        headerKey: 'app.backupsOverview.size', header: 'Size',
+        headerKey: 'common.labels.size', header: 'Size',
         sortable: true,
         sortValue: (e) => e.size || 0,
         cellClassName: 'sk-cell-mono',
@@ -129,7 +129,7 @@ const LATEST_COLUMNS = [
     },
     {
         key: 'status',
-        headerKey: 'app.backupsOverview.status', header: 'Status',
+        headerKey: 'common.labels.status', header: 'Status',
         sortable: true,
         sortValue: (e) => e.status || '',
         render: (e) => (

@@ -66,7 +66,7 @@ export function DataTableFooter({
                         onChange={(value) => onPageSizeChange(value === 'all' ? 'all' : Number(value))}
                         options={[
                             ...pageSizeOptions.map((n) => ({ value: String(n), label: String(n) })),
-                            { value: 'all', labelKey: 'app.dataTableFooter.all', label: 'All' },
+                            { value: 'all', labelKey: 'common.labels.all', label: 'All' },
                         ]}
                         aria-label={t('app.dataTableFooter.rowsPerPage', 'Rows per page')}
                     />

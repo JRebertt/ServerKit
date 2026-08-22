@@ -10,7 +10,7 @@ import {
 // into a "More" menu. All sections render from the single Security page, keyed
 // off the /security/:tab route.
 export const SECURITY_TABS = [
-    { to: '/security', labelKey: 'app.securityTabs.overview', label: 'Overview', end: true, icon: <LayoutDashboard size={15} /> },
+    { to: '/security', labelKey: 'common.labels.overview', label: 'Overview', end: true, icon: <LayoutDashboard size={15} /> },
     { to: '/security/firewall', labelKey: 'app.securityTabs.firewall', label: 'Firewall', icon: <Shield size={15} /> },
     { to: '/security/fail2ban', labelKey: 'app.securityTabs.fail2ban', label: 'Fail2ban', icon: <Ban size={15} /> },
     { to: '/security/ssh-keys', labelKey: 'app.securityTabs.sshKeys', label: 'SSH Keys', icon: <Key size={15} /> },
@@ -22,5 +22,5 @@ export const SECURITY_TABS = [
     { to: '/security/vulnerability', labelKey: 'app.securityTabs.vulnerabilityScan', label: 'Vulnerability Scan', icon: <Bug size={15} /> },
     { to: '/security/updates', labelKey: 'app.securityTabs.autoUpdates', label: 'Auto Updates', icon: <RefreshCw size={15} /> },
     { to: '/security/events', labelKey: 'app.securityTabs.events', label: 'Events', icon: <Bell size={15} /> },
-    { to: '/security/settings', labelKey: 'app.securityTabs.settings', label: 'Settings', icon: <Settings size={15} /> },
+    { to: '/security/settings', labelKey: 'common.labels.settings', label: 'Settings', icon: <Settings size={15} /> },
 ];

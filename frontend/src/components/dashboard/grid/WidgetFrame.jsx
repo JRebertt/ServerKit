@@ -78,7 +78,7 @@ export function WidgetFrame({
                             type="button"
                             className="skw-iconbtn skw-iconbtn--bare"
                             title={t('app.widgetFrame.configureWidget', 'Configure widget')}
-                            aria-label={t('app.widgetFrame.configureWidget2', 'Configure widget')}
+                            aria-label={t('app.widgetFrame.configureWidget', 'Configure widget')}
                             onClick={(event) => { event.stopPropagation(); fire('config'); }}
                         >
                             <SlidersHorizontal size={13} />
@@ -88,7 +88,7 @@ export function WidgetFrame({
                         type="button"
                         className="skw-iconbtn skw-iconbtn--bare"
                         title={t('app.widgetFrame.viewFullscreen', 'View fullscreen')}
-                        aria-label={t('app.widgetFrame.viewFullscreen2', 'View fullscreen')}
+                        aria-label={t('app.widgetFrame.viewFullscreen', 'View fullscreen')}
                         onClick={(event) => { event.stopPropagation(); fire('full'); }}
                     >
                         <Maximize2 size={13} />
@@ -98,7 +98,7 @@ export function WidgetFrame({
                             type="button"
                             className="skw-iconbtn skw-iconbtn--bare"
                             title={t('app.widgetFrame.widgetMenu', 'Widget menu')}
-                            aria-label={t('app.widgetFrame.widgetMenu2', 'Widget menu')}
+                            aria-label={t('app.widgetFrame.widgetMenu', 'Widget menu')}
                             aria-haspopup="menu"
                             aria-expanded={menuOpen}
                             onClick={(event) => { event.stopPropagation(); setMenuOpen((open) => !open); }}
@@ -117,7 +117,7 @@ export function WidgetFrame({
                                 </button>
                                 <button type="button" className="skw-menu__item" role="menuitem" onClick={() => fire('full')}>
                                     <span className="skw-menu__ic"><Maximize2 size={14} /></span>
-                                    {t('app.widgetFrame.viewFullscreen3', 'View fullscreen')}
+                                    {t('app.widgetFrame.viewFullscreen', 'View fullscreen')}
                                 </button>
                                 <div className="skw-menu__sep" role="separator" />
                                 <button
@@ -127,7 +127,7 @@ export function WidgetFrame({
                                     onClick={() => fire('del')}
                                 >
                                     <span className="skw-menu__ic"><Trash2 size={14} /></span>
-                                    {t('app.widgetFrame.remove', 'Remove')}
+                                    {t('common.actions.remove', 'Remove')}
                                 </button>
                             </div>
                         )}

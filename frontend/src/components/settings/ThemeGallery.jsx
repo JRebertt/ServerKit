@@ -120,7 +120,7 @@ const ThemeGallery = () => {
                                         disabled={busy === themeEntry.slug}
                                         onClick={(e) => { e.stopPropagation(); removeTheme(themeEntry.slug); }}
                                     >
-                                        <Trash2 size={12} /> {t('app.themeGallery.remove', 'Remove')}
+                                        <Trash2 size={12} /> {t('common.actions.remove', 'Remove')}
                                     </button>
                                 )}
                             </div>

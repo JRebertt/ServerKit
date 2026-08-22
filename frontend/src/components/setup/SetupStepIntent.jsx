@@ -82,7 +82,7 @@ const SetupStepIntent = ({ selections, onComplete }) => {
 
             <div className="wizard-nav wizard-nav--flush">
                 <button type="button" className="btn-wizard-next" onClick={handleContinue}>
-                    {t('app.setupStepIntent.continue', 'Continue')}
+                    {t('common.actions.continue', 'Continue')}
                 </button>
             </div>
         </div>

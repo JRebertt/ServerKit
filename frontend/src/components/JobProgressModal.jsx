@@ -83,7 +83,7 @@ export default function JobProgressModal({
                         {success && <span className="text-success text-sm">{t('app.jobProgressModal.completedSuccessfully', 'Completed successfully')}</span>}
                         {failure && (
                             <span className="text-destructive text-sm">
-                                {t('app.jobProgressModal.failed', 'Failed')}{done.exitCode !== null ? ` (exit ${done.exitCode})` : ''}
+                                {t('common.state.failed', 'Failed')}{done.exitCode !== null ? ` (exit ${done.exitCode})` : ''}
                                 {done.error ? `: ${done.error}` : ''}
                             </span>
                         )}

@@ -237,7 +237,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
         },
         {
             key: 'description',
-            headerKey: 'app.sharedVariableGroups.description', header: 'Description',
+            headerKey: 'common.labels.description', header: 'Description',
             sortable: true,
             value: (g) => g.description || '',
             render: (g) => g.description || <span className="wp-list__dash">—</span>,
@@ -276,7 +276,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
                     variant="ghost"
                     size="icon"
                     className="text-destructive"
-                    title={t('app.sharedVariableGroups.deleteGroup3', 'Delete group')}
+                    title={t('app.sharedVariableGroups.deleteGroup', 'Delete group')}
                     onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g.id); }}
                 >
                     <Trash2 size={14} />
@@ -289,7 +289,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
     const variableColumns = useMemo(() => [
         {
             key: 'key',
-            headerKey: 'app.sharedVariableGroups.key', header: 'Key',
+            headerKey: 'common.labels.key', header: 'Key',
             sortable: true,
             hideable: false,
             value: (v) => v.key,
@@ -303,7 +303,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
         },
         {
             key: 'value',
-            headerKey: 'app.sharedVariableGroups.value', header: 'Value',
+            headerKey: 'common.labels.value', header: 'Value',
             sortable: false,
             filterable: false,
             cellClassName: 'sk-cell-mono',
@@ -379,7 +379,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
                         </p>
                         <div className="projects-form">
                             <div className="projects-form__field">
-                                <Label htmlFor="vg-name">{t('app.sharedVariableGroups.name', 'Name')}</Label>
+                                <Label htmlFor="vg-name">{t('common.labels.name', 'Name')}</Label>
                                 <Input
                                     id="vg-name"
                                     autoFocus
@@ -400,7 +400,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
                             </div>
                         </div>
                         <div className="modal-actions">
-                            <Button type="button" variant="outline" onClick={() => setCreating(false)}>{t('app.sharedVariableGroups.cancel', 'Cancel')}</Button>
+                            <Button type="button" variant="outline" onClick={() => setCreating(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button type="submit" disabled={!newName.trim()}>{t('app.sharedVariableGroups.createGroup', 'Create group')}</Button>
                         </div>
                     </form>
@@ -440,7 +440,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
                                     size="sm"
                                     onClick={() => handleDeleteGroup(detail.id)}
                                 >
-                                    {t('app.sharedVariableGroups.deleteGroup4', 'Delete group')}
+                                    {t('app.sharedVariableGroups.deleteGroup', 'Delete group')}
                                 </Button>
                             </div>
 
@@ -463,7 +463,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
                                     type="text"
                                     value={varTarget}
                                     onChange={(e) => setVarTarget(e.target.value)}
-                                    placeholder={t('app.sharedVariableGroups.allServices2', 'all services')}
+                                    placeholder={t('app.sharedVariableGroups.allServices', 'all services')}
                                     className="shared-groups__var-target"
                                     title={t('app.sharedVariableGroups.targetComposeServiceLeaveBlankTo', 'Target compose service (leave blank to apply to all services)')}
                                 />
@@ -472,7 +472,7 @@ const SharedVariableGroups = ({ scopeType = 'workspace', scopeId = 'default' }) 
                                     <span>{t('app.sharedVariableGroups.secret', 'Secret')}</span>
                                 </label>
                                 <Button type="submit" size="sm" disabled={!varKey.trim()}>
-                                    {t('app.sharedVariableGroups.add', 'Add')}
+                                    {t('common.actions.add', 'Add')}
                                 </Button>
                             </form>
 

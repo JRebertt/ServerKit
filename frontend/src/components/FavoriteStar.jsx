@@ -22,7 +22,7 @@ export function FavoriteStar({ type, id, path, label, className }) {
             className={cn('fav-star', fav && 'is-on', className)}
             onClick={toggle}
             title={fav ? t('app.favoriteStar.removeFromFavorites', 'Remove from favorites') : t('app.favoriteStar.addToFavorites', 'Add to favorites')}
-            aria-label={fav ? t('app.favoriteStar.removeFromFavorites2', 'Remove from favorites') : t('app.favoriteStar.addToFavorites2', 'Add to favorites')}
+            aria-label={fav ? t('app.favoriteStar.removeFromFavorites', 'Remove from favorites') : t('app.favoriteStar.addToFavorites', 'Add to favorites')}
             aria-pressed={fav}
         >
             <Star size={15} fill={fav ? 'currentColor' : 'none'} />

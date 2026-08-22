@@ -53,7 +53,7 @@ const ConnectStep = ({ form }) => {
                                 </div>
                                 <Button type="button" variant="outline" onClick={() => loadGithubRepos()}>
                                     <RefreshCw size={16} className={reposLoading ? 'spinning' : ''} />
-                                    {t('app.connectStep.refresh', 'Refresh')}
+                                    {t('common.actions.refresh', 'Refresh')}
                                 </Button>
                             </div>
                             <div className="new-service-page__repo-search">
@@ -109,7 +109,7 @@ const ConnectStep = ({ form }) => {
                                 <Button type="button" variant="outline" asChild>
                                     <Link to="/settings/connections">
                                         <Settings2 size={16} />
-                                        {t('app.connectStep.settings', 'Settings')}
+                                        {t('common.labels.settings', 'Settings')}
                                     </Link>
                                 </Button>
                             </div>
@@ -216,7 +216,7 @@ const ConnectStep = ({ form }) => {
                 </div>
                 {showBranch && (
                     <div className="new-service-page__field">
-                        <Label htmlFor="branch-inline">{t('app.connectStep.branch', 'Branch')}</Label>
+                        <Label htmlFor="branch-inline">{t('common.labels.branch', 'Branch')}</Label>
                         {sourceMode === 'github' && branches.length > 0 ? (
                             <select
                                 id="branch-inline"

@@ -64,7 +64,7 @@ const CommandsTab = ({ appId, appType }) => {
                     type="text"
                     value={command}
                     onChange={(e) => setCommand(e.target.value)}
-                    placeholder={t('app.commandsTab.enterCommand', 'Enter command...')}
+                    placeholder={t('app.commandsTab.enterCommand', 'Enter command…')}
                     onKeyDown={(e) => e.key === 'Enter' && handleRun()}
                 />
                 <Button

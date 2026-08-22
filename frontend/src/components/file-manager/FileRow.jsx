@@ -56,17 +56,17 @@ function FileRow({
             <span className="col-owner">{entry.owner}</span>
             <span className="col-actions" onClick={(e) => e.stopPropagation()}>
                 {!entry.is_dir && (
-                    <button type="button" className="row-action" onClick={() => onDownload(entry)} title={t('app.fileRow.download', 'Download')}>
+                    <button type="button" className="row-action" onClick={() => onDownload(entry)} title={t('common.actions.download', 'Download')}>
                         <Download size={14} />
                     </button>
                 )}
                 <button type="button" className="row-action" onClick={() => onRename(entry)} title={t('app.fileRow.rename', 'Rename')}>
                     <Edit3 size={14} />
                 </button>
-                <button type="button" className="row-action" onClick={() => onPermissions(entry)} title={t('app.fileRow.permissions', 'Permissions')}>
+                <button type="button" className="row-action" onClick={() => onPermissions(entry)} title={t('common.labels.permissions', 'Permissions')}>
                     <Lock size={14} />
                 </button>
-                <button type="button" className="row-action danger" onClick={() => onDelete(entry)} title={t('app.fileRow.delete', 'Delete')}>
+                <button type="button" className="row-action danger" onClick={() => onDelete(entry)} title={t('common.actions.delete', 'Delete')}>
                     <Trash2 size={14} />
                 </button>
             </span>

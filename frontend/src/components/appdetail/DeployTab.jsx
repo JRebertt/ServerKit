@@ -145,7 +145,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="form" title={t('app.deployTab.loadingDeploymentConfiguration', 'Loading deployment configuration...')} />;
+        return <EmptyState loading loadingVariant="form" title={t('app.deployTab.loadingDeploymentConfiguration', 'Loading deployment configuration…')} />;
     }
 
     return (
@@ -222,7 +222,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
                             ) : (
                                 <InfoList>
                                     <InfoItem label={t('app.deployTab.repository', 'Repository')} value={config.repo_url} mono />
-                                    <InfoItem label={t('app.deployTab.branch2', 'Branch')} value={config.branch} />
+                                    <InfoItem label={t('common.labels.branch', 'Branch')} value={config.branch} />
                                     <InfoItem label={t('app.deployTab.autoDeploy', 'Auto Deploy')} value={config.auto_deploy ? 'Enabled' : 'Disabled'} />
                                 </InfoList>
                             )}
@@ -232,7 +232,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
                                 </Button>
                                 {!embedded && (
                                     <Button variant="destructive" size="sm" onClick={handleRemoveDeployment}>
-                                        {t('app.deployTab.remove', 'Remove')}
+                                        {t('common.actions.remove', 'Remove')}
                                     </Button>
                                 )}
                             </div>
@@ -265,7 +265,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
                 <DeploymentTimeline appId={appId} />
             </div>
 
-            <Modal open={showConfigModal} onClose={() => setShowConfigModal(false)} title={embedded ? t('app.deployTab.editDeployScripts', 'Edit Deploy Scripts') : t('app.deployTab.configureDeployment2', 'Configure Deployment')}>
+            <Modal open={showConfigModal} onClose={() => setShowConfigModal(false)} title={embedded ? t('app.deployTab.editDeployScripts', 'Edit Deploy Scripts') : t('app.deployTab.configureDeployment', 'Configure Deployment')}>
                         <form onSubmit={handleConfigureDeployment}>
                             {/* In embedded mode repo/branch/auto-deploy are owned by the
                                 RepoConnectForm above; only the deploy scripts are edited
@@ -284,7 +284,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
                                 />
                             </div>
                             <div className="form-group">
-                                <label>{t('app.deployTab.branch3', 'Branch')}</label>
+                                <label>{t('common.labels.branch', 'Branch')}</label>
                                 <Input
                                     type="text"
                                     value={configForm.branch}
@@ -324,7 +324,7 @@ const DeployTab = ({ appId, appPath, embedded = false }) => {
                             </div>
                             <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowConfigModal(false)}>
-                                    {t('app.deployTab.cancel', 'Cancel')}
+                                    {t('common.actions.cancel', 'Cancel')}
                                 </Button>
                                 <Button type="submit">
                                     {t('app.deployTab.saveConfiguration', 'Save Configuration')}

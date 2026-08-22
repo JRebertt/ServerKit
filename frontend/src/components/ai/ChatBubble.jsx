@@ -16,7 +16,7 @@ const ChatBubble = ({ open, unread, streaming, raised, onToggle }) => {
             ].filter(Boolean).join(' ')}
             onClick={onToggle}
             aria-label={open ? t('app.chatBubble.closeAssistantAltA', 'Close assistant (Alt+A)') : t('app.chatBubble.openAssistantAltA', 'Open assistant (Alt+A)')}
-            title={open ? t('app.chatBubble.closeAssistantAltA2', 'Close assistant (Alt+A)') : t('app.chatBubble.openAssistantAltA2', 'Open assistant (Alt+A)')}
+            title={open ? t('app.chatBubble.closeAssistantAltA', 'Close assistant (Alt+A)') : t('app.chatBubble.openAssistantAltA', 'Open assistant (Alt+A)')}
             aria-keyshortcuts="Alt+A"
             aria-expanded={open}
             aria-controls="sk-ai-drawer"

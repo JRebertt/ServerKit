@@ -179,7 +179,7 @@ const Deployments = () => {
     const columns = useMemo(() => [
         {
             key: 'status',
-            headerKey: 'app.deployments.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             hideable: false,
             // Declared, not inferred: a panel with three deploys in it fails the
@@ -223,7 +223,7 @@ const Deployments = () => {
         },
         {
             key: 'kind',
-            headerKey: 'app.deployments.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             type: 'enum',
             // Filter and sort on the word the chip prints, so a rule reads the
@@ -257,7 +257,7 @@ const Deployments = () => {
         },
         {
             key: 'target',
-            headerKey: 'app.deployments.target', header: 'Target',
+            headerKey: 'common.labels.target', header: 'Target',
             sortable: true,
             type: 'enum',
             groupable: true,

@@ -57,7 +57,7 @@ const ScheduledTasksCard = ({ appId }) => {
                 <span>{t('app.scheduledTasksCard.scheduledTasks', 'Scheduled tasks')}</span>
             </div>
             {loading ? (
-                <div className="scheduled-tasks-card__loading">{t('app.scheduledTasksCard.loading', 'Loading…')}</div>
+                <div className="scheduled-tasks-card__loading">{t('common.loading', 'Loading…')}</div>
             ) : !jobs || jobs.length === 0 ? (
                 <div className="scheduled-tasks-card__empty">{t('app.scheduledTasksCard.noScheduledTasksForThisApp', 'No scheduled tasks for this app.')}</div>
             ) : (
@@ -101,7 +101,7 @@ const ScheduledTasksCard = ({ appId }) => {
             >
                 <div className="scheduled-tasks-runs">
                     {runsLoading ? (
-                        <div className="scheduled-tasks-runs__empty">{t('app.scheduledTasksCard.loading2', 'Loading…')}</div>
+                        <div className="scheduled-tasks-runs__empty">{t('common.loading', 'Loading…')}</div>
                     ) : !runsData || runsData.runs.length === 0 ? (
                         <div className="scheduled-tasks-runs__empty">
                             {runsJob && !runsJob.tracked

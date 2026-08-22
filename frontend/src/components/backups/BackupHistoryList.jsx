@@ -152,7 +152,7 @@ export default function BackupHistoryList({
         },
         {
             key: 'size',
-            headerKey: 'app.backupHistoryList.size', header: 'Size',
+            headerKey: 'common.labels.size', header: 'Size',
             sortable: true,
             sortValue: (run) => run.size_total || 0,
             cellClassName: 'sk-cell-mono',
@@ -168,14 +168,14 @@ export default function BackupHistoryList({
         },
         {
             key: 'status',
-            headerKey: 'app.backupHistoryList.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             sortValue: (run) => run.status || '',
             render: (run) => <Pill kind={statusKind(run.status)}>{run.status}</Pill>,
         },
         {
             key: 'storage',
-            headerKey: 'app.backupHistoryList.storage', header: 'Storage',
+            headerKey: 'common.labels.storage', header: 'Storage',
             sortable: true,
             sortValue: (run) => storageLabel(run),
             render: (run) => storageIcon(run),
@@ -187,11 +187,11 @@ export default function BackupHistoryList({
             hideable: false,
             render: (run) => (
                 <div className="backup-history-list__actions" onClick={(e) => e.stopPropagation()}>
-                    <Button size="icon" variant="outline" title={t('app.backupHistoryList.restore', 'Restore')} disabled={run.status !== 'success'} onClick={() => onRestore(run)}><RotateCcw size={14} /></Button>
+                    <Button size="icon" variant="outline" title={t('common.actions.restore', 'Restore')} disabled={run.status !== 'success'} onClick={() => onRestore(run)}><RotateCcw size={14} /></Button>
                     {run.remote_key && (
                         <Button size="icon" variant="outline" title={t('app.backupHistoryList.verifyRemoteCopy', 'Verify remote copy')} onClick={() => onVerify(run)}><ShieldCheck size={14} /></Button>
                     )}
-                    <Button size="icon" variant="destructive" title={t('app.backupHistoryList.delete', 'Delete')} onClick={() => onDelete(run)}><Trash2 size={14} /></Button>
+                    <Button size="icon" variant="destructive" title={t('common.actions.delete', 'Delete')} onClick={() => onDelete(run)}><Trash2 size={14} /></Button>
                 </div>
             ),
         },

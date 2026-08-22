@@ -88,7 +88,7 @@ const WorkspaceMembersTab = ({ wsId, members, allUsers, onAddMember, onRemoveMem
             hideable: false,
             render: (m) => (
                 m.role !== 'owner' && (
-                    <Button size="sm" variant="destructive" onClick={() => onRemoveMember(m.id)}>{t('app.workspaceMembersTab.remove', 'Remove')}</Button>
+                    <Button size="sm" variant="destructive" onClick={() => onRemoveMember(m.id)}>{t('common.actions.remove', 'Remove')}</Button>
                 )
             ),
         },

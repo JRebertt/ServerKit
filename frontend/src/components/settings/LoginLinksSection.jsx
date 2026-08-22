@@ -103,7 +103,7 @@ const LoginLinksSection = ({ users, currentUserId }) => {
 
             <form className="login-links__form" onSubmit={handleMint}>
                 <label className="login-links__field">
-                    <span>{t('app.loginLinksSection.user', 'User')}</span>
+                    <span>{t('common.labels.user', 'User')}</span>
                     <select value={userId} onChange={(e) => setUserId(e.target.value)}>
                         {(users || []).map((u) => (
                             <option key={u.id} value={u.id}>

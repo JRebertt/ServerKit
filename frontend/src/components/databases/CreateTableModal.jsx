@@ -382,11 +382,11 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                         <span className="dbx-field__label">{words.fields}</span>
                         <div className="dbx-colgrid">
                             <div className="dbx-colgrid__head">
-                                <span>{t('app.createTableModal.name', 'Name')}</span>
-                                <span>{t('app.createTableModal.type', 'Type')}</span>
+                                <span>{t('common.labels.name', 'Name')}</span>
+                                <span>{t('common.labels.type', 'Type')}</span>
                                 <span>{words.key}</span>
                                 <span>{words.required}</span>
-                                <span>{t('app.createTableModal.default', 'Default')}</span>
+                                <span>{t('common.labels.default', 'Default')}</span>
                                 <span aria-hidden="true" />
                             </div>
                             <div className="dbx-colgrid__rows">
@@ -453,7 +453,7 @@ export default function CreateTableModal({ preset, engines = [], isAdmin = false
                                 ))}
                             </div>
                             <button type="button" className="dbx-inline-link dbx-colgrid__add" onClick={addCol}>
-                                <Plus size={13} aria-hidden="true" /> {t('app.createTableModal.add', 'Add')} {target?.dialect ? 'column' : 'field'}
+                                <Plus size={13} aria-hidden="true" /> {t('common.actions.add', 'Add')} {target?.dialect ? 'column' : 'field'}
                             </button>
                         </div>
                         <p className="dbx-field-hint">

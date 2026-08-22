@@ -88,7 +88,7 @@ const DeploymentTimeline = ({ appId }) => {
                             <div className="deploy-timeline__card">
                                 <div className="deploy-timeline__row">
                                     <div className="deploy-timeline__meta">
-                                        {isLatest && <Pill kind="green">{t('app.deploymentTimeline.current', 'Current')}</Pill>}
+                                        {isLatest && <Pill kind="green">{t('common.labels.current', 'Current')}</Pill>}
                                         {changed && (
                                             <Pill kind="amber" dot={false}>
                                                 {t('app.deploymentTimeline.configChanged', 'Config changed')}

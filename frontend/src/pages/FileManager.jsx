@@ -37,7 +37,7 @@ const QUICK_ACCESS = [
     { labelKey: 'app.fileManager.sites', label: 'Sites', path: '/var/www', icon: Globe },
     { labelKey: 'app.fileManager.stack', label: 'Stack', path: '/opt/serverkit', icon: Boxes },
     { labelKey: 'app.fileManager.webConfig', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
-    { labelKey: 'app.fileManager.logs', label: 'Logs', path: '/var/log', icon: FileText },
+    { labelKey: 'common.labels.logs', label: 'Logs', path: '/var/log', icon: FileText },
 ];
 
 // Remote-agent rails: the panel stack doesn't exist on an agent box, so link
@@ -47,19 +47,19 @@ const QUICK_ACCESS = [
 // with forward-slash paths, Windows included.
 const QUICK_ACCESS_AGENT = {
     linux: [
-        { labelKey: 'app.fileManager.sites2', label: 'Sites', path: '/var/www', icon: Globe },
+        { labelKey: 'app.fileManager.sites', label: 'Sites', path: '/var/www', icon: Globe },
         { labelKey: 'app.fileManager.agent', label: 'Agent', path: '/etc/serverkit-agent', icon: Boxes },
-        { labelKey: 'app.fileManager.webConfig2', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
-        { labelKey: 'app.fileManager.logs2', label: 'Logs', path: '/var/log', icon: FileText },
+        { labelKey: 'app.fileManager.webConfig', label: 'Web config', path: '/etc/nginx', icon: SlidersHorizontal },
+        { labelKey: 'common.labels.logs', label: 'Logs', path: '/var/log', icon: FileText },
     ],
     windows: [
-        { labelKey: 'app.fileManager.agent2', label: 'Agent', path: 'C:/ProgramData/ServerKit/Agent', icon: Boxes },
+        { labelKey: 'app.fileManager.agent', label: 'Agent', path: 'C:/ProgramData/ServerKit/Agent', icon: Boxes },
         { labelKey: 'app.fileManager.agentLogs', label: 'Agent logs', path: 'C:/ProgramData/ServerKit/Agent/logs', icon: FileText },
         { labelKey: 'app.fileManager.users', label: 'Users', path: 'C:/Users', icon: Home },
     ],
     darwin: [
         { labelKey: 'app.fileManager.home', label: 'Home', path: '/Users', icon: Home },
-        { labelKey: 'app.fileManager.logs3', label: 'Logs', path: '/var/log', icon: FileText },
+        { labelKey: 'common.labels.logs', label: 'Logs', path: '/var/log', icon: FileText },
     ],
 };
 
@@ -116,7 +116,7 @@ const STORAGE = {
 };
 
 const FILTER_OPTIONS = [
-    { id: 'all', labelKey: 'app.fileManager.all', label: 'All' },
+    { id: 'all', labelKey: 'common.labels.all', label: 'All' },
     { id: 'folder', labelKey: 'app.fileManager.folders', label: 'Folders' },
     { id: 'image', labelKey: 'app.fileManager.images', label: 'Images' },
     { id: 'code', labelKey: 'app.fileManager.code', label: 'Code' },
@@ -617,7 +617,7 @@ function FileManager() {
         setConfirmDialog({
             titleKey: 'app.fileManager.deleteConfirmation', title: 'Delete Confirmation',
             message,
-            confirmTextKey: 'app.fileManager.delete', confirmText: 'Delete',
+            confirmTextKey: 'common.actions.delete', confirmText: 'Delete',
             variant: 'danger',
             onConfirm: async () => {
                 const failures = [];
@@ -813,7 +813,7 @@ function FileManager() {
 
     const sortValue = `${sortBy}-${sortDir}`;
     const filterLabels = {
-        all: t('app.fileManager.all', 'All'),
+        all: t('common.labels.all', 'All'),
         folder: t('app.fileManager.folders', 'Folders'),
         image: t('app.fileManager.images', 'Images'),
         code: t('app.fileManager.code', 'Code'),
@@ -964,7 +964,7 @@ function FileManager() {
                         {activeUploads.length > 0 && (
                             <span className="upload-tray-percent">{Math.round(totalUploadProgress)}%</span>
                         )}
-                        <button type="button" className="toolbar-icon-btn small" onClick={() => setUploads([])} title={t('app.fileManager.clear', 'Clear')}>
+                        <button type="button" className="toolbar-icon-btn small" onClick={() => setUploads([])} title={t('common.actions.clear', 'Clear')}>
                             <X size={14} />
                         </button>
                     </div>
@@ -994,7 +994,7 @@ function FileManager() {
                         {sidebarVisible ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
                     </button>
                     <div className="nav-buttons">
-                        <button type="button" className="nav-btn" onClick={goBack} disabled={historyIdx === 0} title={t('app.fileManager.back', 'Back')}>
+                        <button type="button" className="nav-btn" onClick={goBack} disabled={historyIdx === 0} title={t('common.actions.back', 'Back')}>
                             <ArrowLeft size={14} />
                         </button>
                         <button type="button" className="nav-btn" onClick={goForward} disabled={historyIdx >= history.length - 1} title={t('app.fileManager.forward', 'Forward')}>
@@ -1003,7 +1003,7 @@ function FileManager() {
                         <button type="button" className="nav-btn" onClick={goUp} disabled={!parentPath} title="Up">
                             <ArrowUp size={14} />
                         </button>
-                        <button type="button" className="nav-btn" onClick={() => navigateTo(isS3 ? '/' : '/home')} title={t('app.fileManager.home2', 'Home')}>
+                        <button type="button" className="nav-btn" onClick={() => navigateTo(isS3 ? '/' : '/home')} title={t('app.fileManager.home', 'Home')}>
                             <Home size={14} />
                         </button>
                     </div>
@@ -1056,7 +1056,7 @@ function FileManager() {
                             <option value="modified-asc">{t('app.fileManager.oldest', 'Oldest')}</option>
                             <option value="size-desc">{t('app.fileManager.largest', 'Largest')}</option>
                             <option value="size-asc">{t('app.fileManager.smallest', 'Smallest')}</option>
-                            <option value="type-asc">{t('app.fileManager.type', 'Type')}</option>
+                            <option value="type-asc">{t('common.labels.type', 'Type')}</option>
                             <option value="type-desc">{t('app.fileManager.typeZA', 'Type Z-A')}</option>
                         </select>
                         <ChevronDown size={12} />
@@ -1074,7 +1074,7 @@ function FileManager() {
                             <button type="button"
                                 className="search-field-clear"
                                 onClick={() => { setSearchResults(null); setSearchQuery(''); }}
-                                title={t('app.fileManager.clear2', 'Clear')}
+                                title={t('common.actions.clear', 'Clear')}
                             >
                                 <X size={12} />
                             </button>
@@ -1106,7 +1106,7 @@ function FileManager() {
                     <button type="button"
                         className="toolbar-icon-btn"
                         onClick={() => loadDirectory(currentPath)}
-                        title={t('app.fileManager.refresh', 'Refresh')}
+                        title={t('common.actions.refresh', 'Refresh')}
                     >
                         <RefreshCw size={14} className={loading ? 'spinning' : ''} />
                     </button>
@@ -1121,7 +1121,7 @@ function FileManager() {
                     </div>
                     <div className="bulk-bar-actions">
                         <button type="button" className="bulk-btn" onClick={downloadSelected}>
-                            <Download size={14} /> {t('app.fileManager.download', 'Download')}
+                            <Download size={14} /> {t('common.actions.download', 'Download')}
                         </button>
                         {selectedEntries.length === 1 && (
                             <>
@@ -1134,10 +1134,10 @@ function FileManager() {
                             </>
                         )}
                         <button type="button" className="bulk-btn danger" onClick={() => handleDelete(selectedEntries)}>
-                            <Trash2 size={14} /> {t('app.fileManager.delete2', 'Delete')}
+                            <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                         </button>
                         <button type="button" className="bulk-btn ghost" onClick={clearSelection}>
-                            <X size={14} /> {t('app.fileManager.clear3', 'Clear')}
+                            <X size={14} /> {t('common.actions.clear', 'Clear')}
                         </button>
                     </div>
                 </div>
@@ -1159,7 +1159,7 @@ function FileManager() {
                                 feature="files"
                                 value={target}
                                 onChange={setTarget}
-                                extraOptions={s3Available ? [{ value: 's3', labelKey: 'app.fileManager.s3Bucket2', label: 'S3 bucket' }] : []}
+                                extraOptions={s3Available ? [{ value: 's3', labelKey: 'app.fileManager.s3Bucket', label: 'S3 bucket' }] : []}
                             />
                             <div className="file-manager-source__meta">
                                 <span className={`file-manager-source__dot${isS3 ? ' is-cloud' : ''}`} aria-hidden="true" />
@@ -1180,7 +1180,7 @@ function FileManager() {
                                         <HardDrive size={13} />
                                         <span>{t('app.fileManager.volumes', 'Volumes')}</span>
                                     </span>
-                                    <button type="button" className="sidebar-action-btn" onClick={loadDiskMounts} disabled={diskLoading} title={t('app.fileManager.refresh2', 'Refresh')}>
+                                    <button type="button" className="sidebar-action-btn" onClick={loadDiskMounts} disabled={diskLoading} title={t('common.actions.refresh', 'Refresh')}>
                                         <RefreshCw size={12} className={diskLoading ? 'spinning' : ''} />
                                     </button>
                                 </div>
@@ -1244,7 +1244,7 @@ function FileManager() {
                                     type="button"
                                     className="sidebar-section-toggle"
                                     onClick={() => setTreeCollapsed(!treeCollapsed)}
-                                    title={t('app.fileManager.folders2', 'Folders')}
+                                    title={t('app.fileManager.folders', 'Folders')}
                                 >
                                     <FolderTreeIcon size={16} />
                                     <span>{t('app.fileManager.fileSystem', 'File system')}</span>
@@ -1341,12 +1341,12 @@ function FileManager() {
                                             </span>
                                         </button>
                                     </span>
-                                    <span className="col-name">{t('app.fileManager.name', 'Name')}</span>
-                                    <span className="col-size">{t('app.fileManager.size', 'Size')}</span>
+                                    <span className="col-name">{t('common.labels.name', 'Name')}</span>
+                                    <span className="col-size">{t('common.labels.size', 'Size')}</span>
                                     <span className="col-modified">{t('app.fileManager.modified', 'Modified')}</span>
-                                    <span className="col-permissions">{t('app.fileManager.permissions', 'Permissions')}</span>
+                                    <span className="col-permissions">{t('common.labels.permissions', 'Permissions')}</span>
                                     <span className="col-owner">{t('app.fileManager.owner', 'Owner')}</span>
-                                    <span className="col-actions">{t('app.fileManager.actions', 'Actions')}</span>
+                                    <span className="col-actions">{t('common.labels.actions', 'Actions')}</span>
                                 </div>
                                 {sortedFiltered.map((entry) => (
                                     <FileRow
@@ -1406,7 +1406,7 @@ function FileManager() {
                         <>
                             <span className="status-divider" />
                             <span className="status-item">
-                                <span className="status-label">{t('app.fileManager.size2', 'Size')}</span>
+                                <span className="status-label">{t('common.labels.size', 'Size')}</span>
                                 <span className="status-value">{formatBytes(stats.totalBytes)}</span>
                             </span>
                         </>
@@ -1415,7 +1415,7 @@ function FileManager() {
                 <div className="status-bar-right">
                     {stats.selectedCount > 0 && (
                         <span className="status-selection">
-                            {stats.selectedCount} {t('app.fileManager.selected2', 'selected ·')} {formatBytes(stats.selectedBytes)}
+                            {stats.selectedCount} {t('app.fileManager.selected', 'selected ·')} {formatBytes(stats.selectedBytes)}
                         </span>
                     )}
                     <span className="status-shortcuts" title={t('app.fileManager.keyboardShortcuts', 'Keyboard shortcuts')}>
@@ -1451,7 +1451,7 @@ function FileManager() {
                             </div>
                             <p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowNewFileModal(false)}>{t('app.fileManager.cancel', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowNewFileModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleCreateFile}>{t('app.fileManager.createFile', 'Create File')}</Button>
                         </div>
             </Modal>
@@ -1468,9 +1468,9 @@ function FileManager() {
                                     onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
                                 />
                             </div>
-                            <p className="text-muted">{t('app.fileManager.willBeCreatedIn2', 'Will be created in:')} <code>{currentPath}</code></p>
+                            <p className="text-muted">{t('app.fileManager.willBeCreatedIn', 'Will be created in:')} <code>{currentPath}</code></p>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>{t('app.fileManager.cancel2', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowNewFolderModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleCreateFolder}>{t('app.fileManager.createFolder', 'Create Folder')}</Button>
                         </div>
             </Modal>
@@ -1487,8 +1487,8 @@ function FileManager() {
                                 />
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowRenameModal(false)}>{t('app.fileManager.cancel3', 'Cancel')}</Button>
-                            <Button onClick={handleRename}>{t('app.fileManager.rename3', 'Rename')}</Button>
+                            <Button variant="outline" onClick={() => setShowRenameModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                            <Button onClick={handleRename}>{t('app.fileManager.rename', 'Rename')}</Button>
                         </div>
             </Modal>
 
@@ -1514,7 +1514,7 @@ function FileManager() {
                                 </ul>
                             </div>
                         <div className="modal-actions">
-                            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>{t('app.fileManager.cancel4', 'Cancel')}</Button>
+                            <Button variant="outline" onClick={() => setShowPermissionsModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button onClick={handleChangePermissions}>{t('app.fileManager.apply', 'Apply')}</Button>
                         </div>
             </Modal>

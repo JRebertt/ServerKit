@@ -98,7 +98,7 @@ export default function SuccessBanner({ job, appUrl, engineTarget = null, armAut
                         to={returnTo}
                         title={t('app.successBanner.openInTheDatabaseExplorer', 'Open {{returnLabel}} in the Database Explorer', { returnLabel: returnLabel })}
                     >
-                        <Database size={14} /> {t('app.successBanner.open', 'Open')} {returnLabel} {t('app.successBanner.inDatabases', 'in Databases')}
+                        <Database size={14} /> {t('common.actions.open', 'Open')} {returnLabel} {t('app.successBanner.inDatabases', 'in Databases')}
                     </Link>
                 )}
                 {appUrl && (

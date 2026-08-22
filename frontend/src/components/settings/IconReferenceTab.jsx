@@ -93,7 +93,7 @@ const IconReferenceTab = () => {
                         <Search size={16} className="icon-search-ico" />
                         <Input
                             type="text"
-                            placeholder={t('app.iconReferenceTab.searchIcons', 'Search icons...')}
+                            placeholder={t('app.iconReferenceTab.searchIcons', 'Search icons…')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />

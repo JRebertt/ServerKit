@@ -38,7 +38,7 @@ const POLL_MS = 15000;
 
 const SECTIONS = [
     { value: 'performance', labelKey: 'app.monitorDetail.performance', label: 'Performance', icon: <Activity size={14} /> },
-    { value: 'uptime', labelKey: 'app.monitorDetail.uptime', label: 'Uptime', icon: <BarChart3 size={14} /> },
+    { value: 'uptime', labelKey: 'common.labels.uptime', label: 'Uptime', icon: <BarChart3 size={14} /> },
     { value: 'checks', labelKey: 'app.monitorDetail.checkLog', label: 'Check log', icon: <Rows3 size={14} /> },
     { value: 'config', labelKey: 'app.monitorDetail.configuration', label: 'Configuration', icon: <SlidersHorizontal size={14} /> },
 ];
@@ -208,7 +208,7 @@ export default function MonitorDetail() {
     const checkColumns = useMemo(() => [
         {
             key: 'checked_at',
-            headerKey: 'app.monitorDetail.time', header: 'Time',
+            headerKey: 'common.labels.time', header: 'Time',
             sortable: true,
             hideable: false,
             type: 'date',
@@ -303,7 +303,7 @@ export default function MonitorDetail() {
 
     if (notFound || !monitor) {
         return (
-            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title={t('app.monitorDetail.monitor2', 'Monitor')}>
+            <PageLayout className="monitor-detail" icon={<ArrowLeft size={18} />} title={t('app.monitorDetail.monitor', 'Monitor')}>
                 <EmptyState
                     icon={ShieldAlert}
                     title={t('app.monitorDetail.monitorNotFound', 'Monitor not found')}
@@ -355,7 +355,7 @@ export default function MonitorDetail() {
         const ok = await confirm({
             title: t('app.monitorDetail.deleteThisMonitor', 'Delete this monitor?'),
             message: t('app.monitorDetail.andItsCheckHistoryWillBe', '“{{name}}” and its check history will be removed. Any open incident is resolved first.', { name: monitor.name }),
-            confirmText: t('app.monitorDetail.delete', 'Delete'),
+            confirmText: t('common.actions.delete', 'Delete'),
             variant: 'danger',
         });
         if (!ok) return;
@@ -528,7 +528,7 @@ export default function MonitorDetail() {
                                             : `${selectedDay.checks} checks · ${selectedDay.down_checks} failed · ${formatUptime(selectedDay.uptime)} uptime`}
                                     </span>
                                 </div>
-                                <Button variant="ghost" size="sm" onClick={() => setSelectedDay(null)}>{t('app.monitorDetail.close', 'Close')}</Button>
+                                <Button variant="ghost" size="sm" onClick={() => setSelectedDay(null)}>{t('common.actions.close', 'Close')}</Button>
                             </div>
                         </div>
                     )}
@@ -536,7 +536,7 @@ export default function MonitorDetail() {
                     <div className="mon-panel">
                         <div className="mon-panel__header">
                             <div>
-                                <h3>{t('app.monitorDetail.certificate2', 'Certificate')}</h3>
+                                <h3>{t('app.monitorDetail.certificate', 'Certificate')}</h3>
                                 <span className="mon-panel-sub">{t('app.monitorDetail.readFromTheLastHttpsProbe', 'Read from the last https probe')}</span>
                             </div>
                             {certDays != null && (
@@ -583,7 +583,7 @@ export default function MonitorDetail() {
                                     <Pill kind="cyan">{newSinceFreeze} new</Pill>
                                 )}
                                 <Button variant="outline" size="sm" onClick={() => setFrozen(frozen ? null : checks)}>
-                                    {frozen ? <><Play size={14} /> {t('app.monitorDetail.resume2', 'Resume')}</> : <><Pause size={14} /> {t('app.monitorDetail.hold', 'Hold')}</>}
+                                    {frozen ? <><Play size={14} /> {t('app.monitorDetail.resume', 'Resume')}</> : <><Pause size={14} /> {t('app.monitorDetail.hold', 'Hold')}</>}
                                 </Button>
                                 <GridFilterButton
                                     count={chrome.filterCount}
@@ -631,8 +631,8 @@ export default function MonitorDetail() {
                     <div className="mon-panel">
                         <div className="mon-panel__header"><div><h3>{t('app.monitorDetail.check', 'Check')}</h3></div></div>
                         <dl className="mon-inforows">
-                            <div><dt>{t('app.monitorDetail.type', 'Type')}</dt><dd>{monitor.check_type}</dd></div>
-                            <div><dt>{t('app.monitorDetail.target', 'Target')}</dt><dd>{monitor.check_target || 'bound site'}</dd></div>
+                            <div><dt>{t('common.labels.type', 'Type')}</dt><dd>{monitor.check_type}</dd></div>
+                            <div><dt>{t('common.labels.target', 'Target')}</dt><dd>{monitor.check_target || 'bound site'}</dd></div>
                             <div><dt>{t('app.monitorDetail.interval', 'Interval')}</dt><dd>{monitor.check_interval}s</dd></div>
                             <div><dt>{t('app.monitorDetail.timeout', 'Timeout')}</dt><dd>{monitor.check_timeout}s</dd></div>
                             {isHttpish && <div><dt>{t('app.monitorDetail.method', 'Method')}</dt><dd>{monitor.check_method}</dd></div>}

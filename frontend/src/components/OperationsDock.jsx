@@ -187,17 +187,17 @@ function ServiceLogDetail({ session, lines, error, onClear, onClose, logRef, t }
             )}
             <div className="operations-dock__logs" ref={logRef}>
                 {lines.length === 0 ? (
-                    <span className="operations-dock__logs-empty">{t('app.logsDrawer.waitingForLogs', 'Waiting for logs...')}</span>
+                    <span className="operations-dock__logs-empty">{t('app.logsDrawer.waitingForLogs', 'Waiting for logs…')}</span>
                 ) : lines.slice(-250).map((line, index) => (
                     <div key={index} className="operations-dock__log-line">{line}</div>
                 ))}
             </div>
             <footer className="operations-dock__footer operations-dock__footer--end">
                 <Button type="button" variant="ghost" size="sm" onClick={onClear}>
-                    {t('app.logsDrawer.clear', 'Clear')}
+                    {t('common.actions.clear', 'Clear')}
                 </Button>
                 <Button type="button" variant="outline" size="sm" onClick={onClose}>
-                    {t('app.logsDrawer.close', 'Close')}
+                    {t('common.actions.close', 'Close')}
                 </Button>
             </footer>
         </div>
@@ -499,7 +499,7 @@ export default function OperationsDock({ hideLauncher = false, statusbarMode = f
                                     )}
                                     {selectedOperation.canCancel && (
                                         <Button type="button" variant="destructive" size="sm" onClick={cancelSelected}>
-                                            <Square size={13} /> {t('app.operationsDock.cancel', 'Cancel')}
+                                            <Square size={13} /> {t('common.actions.cancel', 'Cancel')}
                                         </Button>
                                     )}
                                 </div>

@@ -168,7 +168,7 @@ const CloudflareZoneSettings = () => {
                         description={error}
                     />
                     <div className="cf-zone__error-actions">
-                        <Button variant="outline" onClick={loadSettings}>{t('app.cloudflareZoneSettings.retry', 'Retry')}</Button>
+                        <Button variant="outline" onClick={loadSettings}>{t('common.actions.retry', 'Retry')}</Button>
                         <Link to="/dns"><Button variant="ghost">{t('app.cloudflareZoneSettings.backToDnsZones', 'Back to DNS Zones')}</Button></Link>
                     </div>
                 </div>
@@ -198,8 +198,8 @@ const CloudflareZoneSettings = () => {
                         <TabsTrigger value="waf"><Flame size={15} />WAF</TabsTrigger>
                         <TabsTrigger value="workers"><Zap size={15} />{t('app.cloudflareZoneSettings.workers', 'Workers')}</TabsTrigger>
                         <TabsTrigger value="tunnels"><Network size={15} />{t('app.cloudflareZoneSettings.tunnels', 'Tunnels')}</TabsTrigger>
-                        <TabsTrigger value="storage"><HardDrive size={15} />{t('app.cloudflareZoneSettings.storage', 'Storage')}</TabsTrigger>
-                        <TabsTrigger value="actions"><Wand2 size={15} />{t('app.cloudflareZoneSettings.actions', 'Actions')}</TabsTrigger>
+                        <TabsTrigger value="storage"><HardDrive size={15} />{t('common.labels.storage', 'Storage')}</TabsTrigger>
+                        <TabsTrigger value="actions"><Wand2 size={15} />{t('common.labels.actions', 'Actions')}</TabsTrigger>
                     </TabsList>
 
                     {tabGroups.map(g => (

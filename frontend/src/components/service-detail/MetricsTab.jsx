@@ -47,7 +47,7 @@ const MetricsTab = ({ app }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title={t('app.metricsTab.loadingMetrics', 'Loading metrics...')} />;
+        return <EmptyState loading title={t('app.metricsTab.loadingMetrics', 'Loading metrics…')} />;
     }
 
     if (isDocker && stats) {
@@ -128,7 +128,7 @@ const MetricsTab = ({ app }) => {
                     {processInfo.memory && (
                         <div className="metrics-tab__card">
                             <div className="metrics-tab__card-header">
-                                <h4>{t('app.metricsTab.memory', 'Memory')}</h4>
+                                <h4>{t('common.labels.memory', 'Memory')}</h4>
                                 <span>{processInfo.memory}</span>
                             </div>
                         </div>
@@ -137,7 +137,7 @@ const MetricsTab = ({ app }) => {
                     {processInfo.uptime && (
                         <div className="metrics-tab__card">
                             <div className="metrics-tab__card-header">
-                                <h4>{t('app.metricsTab.uptime', 'Uptime')}</h4>
+                                <h4>{t('common.labels.uptime', 'Uptime')}</h4>
                             </div>
                             <div className="metrics-tab__info">{processInfo.uptime}</div>
                         </div>

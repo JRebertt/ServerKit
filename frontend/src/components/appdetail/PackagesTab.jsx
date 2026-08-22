@@ -56,7 +56,7 @@ const PackagesTab = ({ appId }) => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title={t('app.packagesTab.loadingPackages', 'Loading packages...')} />;
+        return <EmptyState loading loadingVariant="table" title={t('app.packagesTab.loadingPackages', 'Loading packages…')} />;
     }
 
     return (

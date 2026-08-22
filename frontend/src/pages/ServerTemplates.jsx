@@ -390,7 +390,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'servers',
-            headerKey: 'app.serverTemplates.servers', header: 'Servers',
+            headerKey: 'common.labels.servers', header: 'Servers',
             sortable: true,
             type: 'num',
             // A template with no assignments reads 0 rather than a dash, so the
@@ -432,7 +432,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'version',
-            headerKey: 'app.serverTemplates.version', header: 'Version',
+            headerKey: 'common.labels.version', header: 'Version',
             sortable: true,
             type: 'num',
             value: (tmpl) => tmpl.version ?? 1,
@@ -454,7 +454,7 @@ const ServerTemplates = () => {
         },
         {
             key: 'services',
-            headerKey: 'app.serverTemplates.services', header: 'Services',
+            headerKey: 'common.labels.services', header: 'Services',
             sortable: true,
             type: 'num',
             value: (tmpl) => tmpl.services?.length ?? 0,
@@ -502,7 +502,7 @@ const ServerTemplates = () => {
                     </Button>
                     {user?.is_admin && (
                         <Button size="sm" variant="destructive" onClick={() => setDeleteConfirm(tmpl)}>
-                            {t('app.serverTemplates.delete', 'Delete')}
+                            {t('common.actions.delete', 'Delete')}
                         </Button>
                     )}
                 </div>
@@ -631,24 +631,24 @@ const ServerTemplates = () => {
             <Modal
                 open={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
-                title={t('app.serverTemplates.createTemplate2', 'Create Template')}
+                title={t('app.serverTemplates.createTemplate', 'Create Template')}
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateModal(false)}>{t('app.serverTemplates.cancel', 'Cancel')}</Button>
-                        <Button onClick={handleCreate} disabled={!form.name}>{t('app.serverTemplates.create', 'Create')}</Button>
+                        <Button variant="outline" onClick={() => setShowCreateModal(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
+                        <Button onClick={handleCreate} disabled={!form.name}>{t('common.actions.create', 'Create')}</Button>
                     </>
                 )}
             >
                 <div className="form-group">
-                    <label>{t('app.serverTemplates.name', 'Name')}</label>
+                    <label>{t('common.labels.name', 'Name')}</label>
                     <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
                 </div>
                 <div className="form-group">
-                    <label>{t('app.serverTemplates.description', 'Description')}</label>
+                    <label>{t('common.labels.description', 'Description')}</label>
                     <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2} />
                 </div>
                 <div className="form-group">
-                    <label>{t('app.serverTemplates.category2', 'Category')}</label>
+                    <label>{t('app.serverTemplates.category', 'Category')}</label>
                     <select className="form-select" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>
                         {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>

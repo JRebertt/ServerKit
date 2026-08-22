@@ -102,7 +102,7 @@ function AnalysisReport({ analysis }) {
                     <div className="import-wizard__table-wrap">
                         <table className="import-wizard__table">
                             <thead>
-                                <tr><th>{t('app.importWizard.domain', 'Domain')}</th><th>{t('app.importWizard.type', 'Type')}</th><th>{t('app.importWizard.docroot', 'Docroot')}</th></tr>
+                                <tr><th>{t('common.labels.domain', 'Domain')}</th><th>{t('common.labels.type', 'Type')}</th><th>{t('app.importWizard.docroot', 'Docroot')}</th></tr>
                             </thead>
                             <tbody>
                                 {domains.map((d) => (
@@ -126,7 +126,7 @@ function AnalysisReport({ analysis }) {
                     <div className="import-wizard__table-wrap">
                         <table className="import-wizard__table">
                             <thead>
-                                <tr><th>{t('app.importWizard.name', 'Name')}</th><th>{t('app.importWizard.engine', 'Engine')}</th><th>{t('app.importWizard.size', 'Size')}</th><th>{t('app.importWizard.dump', 'Dump')}</th></tr>
+                                <tr><th>{t('common.labels.name', 'Name')}</th><th>{t('app.importWizard.engine', 'Engine')}</th><th>{t('common.labels.size', 'Size')}</th><th>{t('app.importWizard.dump', 'Dump')}</th></tr>
                             </thead>
                             <tbody>
                                 {databases.map((db) => (
@@ -319,7 +319,7 @@ function ImportWizard() {
         const ok = await confirm({
             title: t('app.importWizard.deleteImport', 'Delete import?'),
             message: t('app.importWizard.thisRemovesTheImportRecordAnd', 'This removes the import record{{value}} and its uploaded archive.', { value: record.status === 'running' ? ' (currently running)' : '' }),
-            confirmText: t('app.importWizard.delete', 'Delete'),
+            confirmText: t('common.actions.delete', 'Delete'),
             variant: 'danger',
         });
         if (!ok) return;
@@ -494,7 +494,7 @@ function ImportWizard() {
 
                         <div className="import-wizard__actions">
                             <Button variant="outline" onClick={() => setStep(1)} disabled={busy}>
-                                <ArrowLeft size={14} /> {t('app.importWizard.back', 'Back')}
+                                <ArrowLeft size={14} /> {t('common.actions.back', 'Back')}
                             </Button>
                             <Button onClick={startAnalyse} disabled={busy || !canContinueFromBackup}>
                                 {busy ? <><Spinner size="sm" /> {inputMode === 'upload' ? 'Uploading…' : 'Starting…'}</> : <>{t('app.importWizard.analyseBackup', 'Analyse backup')} <ArrowRight size={14} /></>}
@@ -525,7 +525,7 @@ function ImportWizard() {
                         {analysis && <AnalysisReport analysis={analysis} />}
                         <div className="import-wizard__actions">
                             <Button variant="outline" onClick={resetWizard}>
-                                <ArrowLeft size={14} /> {t('app.importWizard.startOver2', 'Start over')}
+                                <ArrowLeft size={14} /> {t('app.importWizard.startOver', 'Start over')}
                             </Button>
                             {status === 'failed' && (
                                 <Button variant="outline" onClick={async () => {
@@ -618,7 +618,7 @@ function ImportWizard() {
                             <div className="import-wizard__callout import-wizard__callout--success">
                                 <CheckCircle2 size={16} aria-hidden="true" />
                                 <div>
-                                    <p>{t('app.importWizard.importCompletedTheNewServicesAre', 'Import completed. The new services are on the')} <Link to="/services">{t('app.importWizard.services', 'Services')}</Link> page.</p>
+                                    <p>{t('app.importWizard.importCompletedTheNewServicesAre', 'Import completed. The new services are on the')} <Link to="/services">{t('common.labels.services', 'Services')}</Link> page.</p>
                                 </div>
                             </div>
                         )}
@@ -633,7 +633,7 @@ function ImportWizard() {
                             </Button>
                             {imp.status === 'failed' && (
                                 <Button onClick={() => startRun(imp.current_step)} disabled={busy}>
-                                    {busy ? <><Spinner size="sm" /> {t('app.importWizard.starting2', 'Starting…')}</> : <><RotateCcw size={14} /> {t('app.importWizard.retryFromFailedStep', 'Retry from failed step')}</>}
+                                    {busy ? <><Spinner size="sm" /> {t('app.importWizard.starting', 'Starting…')}</> : <><RotateCcw size={14} /> {t('app.importWizard.retryFromFailedStep', 'Retry from failed step')}</>}
                                 </Button>
                             )}
                             {imp.status === 'completed' && (
@@ -649,7 +649,7 @@ function ImportWizard() {
                 <section className="import-wizard__history">
                     <h2>{t('app.importWizard.previousImports', 'Previous imports')}</h2>
                     {historyLoading ? (
-                        <p className="import-wizard__muted">{t('app.importWizard.loading', 'Loading…')}</p>
+                        <p className="import-wizard__muted">{t('common.loading', 'Loading…')}</p>
                     ) : history.length === 0 ? (
                         <p className="import-wizard__muted">{t('app.importWizard.noImportsYet', 'No imports yet.')}</p>
                     ) : (

@@ -173,7 +173,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
                     type="button"
                     className="dbx-tree-more"
                     onClick={(e) => { e.stopPropagation(); handlers.onContext(e, node); }}
-                    aria-label={t('app.sourceTree.actions', 'Actions')}
+                    aria-label={t('common.labels.actions', 'Actions')}
                     tabIndex={-1}
                 >
                     <MoreHorizontal size={14} aria-hidden="true" />
@@ -183,7 +183,7 @@ function TreeRow({ node, depth, expanded, childrenCache, loading, activeKey, sel
             {node.expandable && isOpen && (
                 <ul className="dbx-tree-children" role="group">
                     {isLoading && childNodes.length === 0 && (
-                        <li className="dbx-tree-leaf-msg" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>{t('app.sourceTree.loading', 'Loading…')}</li>
+                        <li className="dbx-tree-leaf-msg" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>{t('common.loading', 'Loading…')}</li>
                     )}
                     {hadError && (
                         <li className="dbx-tree-leaf-msg is-error" style={{ paddingLeft: `${(depth + 1) * 14 + 22}px` }}>

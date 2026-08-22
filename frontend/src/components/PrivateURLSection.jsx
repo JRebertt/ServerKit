@@ -157,7 +157,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                                 </svg>
-                                {t('app.privateURLSection.copy', 'Copy')}
+                                {t('common.actions.copy', 'Copy')}
                             </button>
                             <button type="button"
                                 className="btn btn-secondary btn-sm"
@@ -195,7 +195,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                                 className="btn btn-primary btn-sm"
                                 disabled={loading || !customSlug}
                             >
-                                {t('app.privateURLSection.save', 'Save')}
+                                {t('common.actions.save', 'Save')}
                             </button>
                             <button
                                 type="button"
@@ -205,7 +205,7 @@ const PrivateURLSection = ({ app, onUpdate }) => {
                                     setCustomSlug('');
                                 }}
                             >
-                                {t('app.privateURLSection.cancel', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </button>
                         </form>
                     ) : (

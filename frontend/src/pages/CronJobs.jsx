@@ -133,7 +133,7 @@ function formatDuration(seconds) {
 // the two questions the list exists to answer.
 function jobState(job) {
     if (!job.enabled) return { key: 'paused', kind: 'gray', labelKey: 'app.cronJobs.paused', label: 'Paused' };
-    if (job.last_status === 'failure') return { key: 'failed', kind: 'red', labelKey: 'app.cronJobs.failed', label: 'Failed' };
+    if (job.last_status === 'failure') return { key: 'failed', kind: 'red', labelKey: 'common.state.failed', label: 'Failed' };
     if (job.last_status === 'success') return { key: 'active', kind: 'green', labelKey: 'app.cronJobs.healthy', label: 'Healthy' };
     // Enabled but nothing recorded: either never fired yet, or not tracked.
     return { key: 'active', kind: 'cyan', label: job.tracked ? 'No runs yet' : 'Untracked' };
@@ -317,7 +317,7 @@ const CronJobs = () => {
         },
         {
             key: 'schedule',
-            headerKey: 'app.cronJobs.schedule', header: 'Schedule',
+            headerKey: 'common.labels.schedule', header: 'Schedule',
             sortable: true,
             sortValue: (job) => describeSchedule(job),
             render: (job) => (
@@ -349,7 +349,7 @@ const CronJobs = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.cronJobs.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -425,7 +425,7 @@ const CronJobs = () => {
             actions={(
                 <>
                     <Button variant="outline" size="sm" onClick={loadData}>
-                        <RefreshCw size={15} /> {t('app.cronJobs.refresh', 'Refresh')}
+                        <RefreshCw size={15} /> {t('common.actions.refresh', 'Refresh')}
                     </Button>
                     <Button size="sm" onClick={openCreateDrawer}>
                         <Plus size={15} /> {t('app.cronJobs.newCronJob', 'New cron job')}
@@ -453,7 +453,7 @@ const CronJobs = () => {
             )}
 
             {loading ? (
-                <EmptyState loading loadingVariant="table" title={t('app.cronJobs.loadingCronJobs', 'Loading cron jobs...')} />
+                <EmptyState loading loadingVariant="table" title={t('app.cronJobs.loadingCronJobs', 'Loading cron jobs…')} />
             ) : jobs.length === 0 ? (
                 <EmptyState
                     icon={Clock}
@@ -567,7 +567,7 @@ const CronJobs = () => {
                     </div>
                 )}
                 <div className="modal-actions">
-                    <Button variant="outline" onClick={() => setRunOutput(null)}>{t('app.cronJobs.close', 'Close')}</Button>
+                    <Button variant="outline" onClick={() => setRunOutput(null)}>{t('common.actions.close', 'Close')}</Button>
                 </div>
             </Modal>
             <GridFilterDrawer {...chrome.drawerProps} />
@@ -648,7 +648,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                         onClick={() => onRun(job.id)}
                         disabled={running}
                     >
-                        {running ? <span className="spinner-inline" /> : <Play size={14} />} {t('app.cronJobs.runNow2', 'Run now')}
+                        {running ? <span className="spinner-inline" /> : <Play size={14} />} {t('app.cronJobs.runNow', 'Run now')}
                     </Button>
                 </div>
             )}
@@ -659,25 +659,25 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                     <h3 className="cron-drawer__sectiontitle">{t('app.cronJobs.configuration', 'Configuration')}</h3>
                     <div className="cron-drawer__info">
                         <div className="cron-inforow">
-                            <span className="k">{t('app.cronJobs.schedule2', 'Schedule')}</span>
+                            <span className="k">{t('common.labels.schedule', 'Schedule')}</span>
                             <span className="v">{job.schedule}</span>
                         </div>
                         <div className="cron-inforow">
-                            <span className="k">{t('app.cronJobs.command', 'Command')}</span>
+                            <span className="k">{t('common.labels.command', 'Command')}</span>
                             <span className="v cron-inforow__cmd">{job.command}</span>
                         </div>
                         {job.description && (
                             <div className="cron-inforow">
-                                <span className="k">{t('app.cronJobs.description', 'Description')}</span>
+                                <span className="k">{t('common.labels.description', 'Description')}</span>
                                 <span className="v">{job.description}</span>
                             </div>
                         )}
                         <div className="cron-inforow">
-                            <span className="k">{t('app.cronJobs.nextRun2', 'Next run')}</span>
+                            <span className="k">{t('app.cronJobs.nextRun', 'Next run')}</span>
                             <span className="v">{job.enabled ? formatWhen(job.next_run) : 'paused'}</span>
                         </div>
                         <div className="cron-inforow">
-                            <span className="k">{t('app.cronJobs.status2', 'Status')}</span>
+                            <span className="k">{t('common.labels.status', 'Status')}</span>
                             <span className="v"><Pill kind={state.kind}>{state.label}</Pill></span>
                         </div>
                     </div>
@@ -700,7 +700,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                             </Button>
                         </div>
                     ) : historyLoading ? (
-                        <EmptyState loading loadingVariant="table" title={t('app.cronJobs.loadingRunHistory', 'Loading run history...')} />
+                        <EmptyState loading loadingVariant="table" title={t('app.cronJobs.loadingRunHistory', 'Loading run history…')} />
                     ) : runs.length === 0 ? (
                         <p className="cron-drawer__hint">{t('app.cronJobs.noRunsRecordedYet', 'No runs recorded yet.')}</p>
                     ) : (
@@ -716,7 +716,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                     </div>
                                 </div>
                                 <div className="cron-spec">
-                                    <div className="l">{t('app.cronJobs.lastRun2', 'Last run')}</div>
+                                    <div className="l">{t('app.cronJobs.lastRun', 'Last run')}</div>
                                     <div className="v">{formatWhen(stats.last_run)}</div>
                                     <div className="s">{stats.last_status || 'unknown'}</div>
                                 </div>
@@ -736,7 +736,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                     columns={[
                                         {
                                             key: 'when',
-                                            headerKey: 'app.cronJobs.when', header: 'When',
+                                            headerKey: 'common.labels.when', header: 'When',
                                             sortable: true,
                                             sortValue: (r) => timeValue(r.finished_at || r.started_at),
                                             render: (r) => formatWhen(r.finished_at || r.started_at),
@@ -759,7 +759,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                         },
                                         {
                                             key: 'status',
-                                            headerKey: 'app.cronJobs.status3', header: 'Status',
+                                            headerKey: 'common.labels.status', header: 'Status',
                                             sortable: true,
                                             sortValue: (r) => r.status,
                                             render: (r) => (
@@ -792,10 +792,10 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                 <section className="cron-drawer__section cron-drawer__danger">
                     <div className="cron-drawer__actions">
                         <Button variant="outline" size="sm" onClick={() => onEdit(job)}>
-                            <Pencil size={14} /> {t('app.cronJobs.edit', 'Edit')}
+                            <Pencil size={14} /> {t('common.actions.edit', 'Edit')}
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => onToggle(job.id, job.enabled)}>
-                            {job.enabled ? <><Pause size={14} /> {t('app.cronJobs.disable', 'Disable')}</> : <><Play size={14} /> {t('app.cronJobs.enable', 'Enable')}</>}
+                            {job.enabled ? <><Pause size={14} /> {t('common.actions.disable', 'Disable')}</> : <><Play size={14} /> {t('common.actions.enable', 'Enable')}</>}
                         </Button>
                         {job.tracked && (
                             <Button variant="outline" size="sm" onClick={handleTracking} disabled={trackingBusy}>
@@ -803,7 +803,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                             </Button>
                         )}
                         <Button variant="destructive" size="sm" onClick={() => onDelete(job)}>
-                            <Trash2 size={14} /> {t('app.cronJobs.delete', 'Delete')}
+                            <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                         </Button>
                     </div>
                 </section>
@@ -871,7 +871,7 @@ function CronFormDrawer({ open, job, onClose, onSaved }) {
         <Drawer
             open={open}
             onOpenChange={(o) => { if (!o) onClose(); }}
-            title={job ? t('app.cronJobs.editCronJob', 'Edit cron job') : t('app.cronJobs.newCronJob2', 'New cron job')}
+            title={job ? t('app.cronJobs.editCronJob', 'Edit cron job') : t('app.cronJobs.newCronJob', 'New cron job')}
             subtitle={job ? job.name : t('app.cronJobs.scheduleACommandOnThisServer', 'Schedule a command on this server')}
             icon={<Clock size={18} />}
             width={640}
@@ -890,7 +890,7 @@ function CronFormDrawer({ open, job, onClose, onSaved }) {
                 </div>
 
                 <div className="cron-form__field">
-                    <label htmlFor="cron-command">{t('app.cronJobs.command2', 'Command')}</label>
+                    <label htmlFor="cron-command">{t('common.labels.command', 'Command')}</label>
                     <input
                         id="cron-command"
                         className="cron-form__input cron-form__input--mono"
@@ -905,7 +905,7 @@ function CronFormDrawer({ open, job, onClose, onSaved }) {
                 </div>
 
                 <div className="cron-form__field">
-                    <label htmlFor="cron-schedule-picker">{t('app.cronJobs.schedule3', 'Schedule')}</label>
+                    <label htmlFor="cron-schedule-picker">{t('common.labels.schedule', 'Schedule')}</label>
                     <div id="cron-schedule-picker">
                         <SchedulePicker
                             value={form.schedule}
@@ -936,13 +936,13 @@ function CronFormDrawer({ open, job, onClose, onSaved }) {
                 </div>
 
                 <div className="cron-form__actions">
-                    <Button type="button" variant="outline" onClick={onClose}>{t('app.cronJobs.cancel', 'Cancel')}</Button>
+                    <Button type="button" variant="outline" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
                     <Button type="submit" disabled={!canSave || saving}>
                         {saving
                             ? 'Saving…'
                             : job
                                 ? 'Save changes'
-                                : <><Plus size={15} /> {t('app.cronJobs.createJob2', 'Create job')}</>}
+                                : <><Plus size={15} /> {t('app.cronJobs.createJob', 'Create job')}</>}
                     </Button>
                 </div>
             </form>

@@ -123,7 +123,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                     tone={app.isRunning ? 'green' : 'amber'}
                     icon={<Activity size={16} />}
                     value={app.isRunning ? 'Live' : 'Stopped'}
-                    label={t('app.overviewTab.status', 'Status')}
+                    label={t('common.labels.status', 'Status')}
                 />
                 <MetricCard
                     tone="accent"
@@ -141,7 +141,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                     tone="red"
                     icon={<XCircle size={16} />}
                     value={failedDeploys.length}
-                    label={t('app.overviewTab.failed', 'Failed')}
+                    label={t('common.state.failed', 'Failed')}
                 />
             </KpiBand>
 
@@ -151,7 +151,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                     <h3 className="overview-tab__card-title">{t('app.overviewTab.serviceInfo', 'Service Info')}</h3>
                     <div className="overview-tab__info-list">
                         <div className="sk-info-row">
-                            <span className="k">{t('app.overviewTab.type', 'Type')}</span>
+                            <span className="k">{t('common.labels.type', 'Type')}</span>
                             <span className="v">
                                 <span
                                     className="overview-tab__info-badge"
@@ -163,7 +163,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                         </div>
                         {app.domain && (
                             <div className="sk-info-row">
-                                <span className="k">{t('app.overviewTab.domain', 'Domain')}</span>
+                                <span className="k">{t('common.labels.domain', 'Domain')}</span>
                                 <span className="v">
                                     <a
                                         href={`https://${app.domain}`}
@@ -183,7 +183,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                         )}
                         {app.port && (
                             <div className="sk-info-row">
-                                <span className="k">{t('app.overviewTab.port', 'Port')}</span>
+                                <span className="k">{t('common.labels.port', 'Port')}</span>
                                 <span className="v">
                                     {/* A port with no domain in front of it is
                                         still reachable — the number alone made
@@ -204,7 +204,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                             </div>
                         )}
                         <div className="sk-info-row">
-                            <span className="k">{t('app.overviewTab.created', 'Created')}</span>
+                            <span className="k">{t('common.labels.created', 'Created')}</span>
                             <span className="v">
                                 {new Date(app.created_at).toLocaleDateString('en-US', {
                                     year: 'numeric', month: 'short', day: 'numeric'
@@ -235,7 +235,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                 <div className="overview-tab__card">
                     <h3 className="overview-tab__card-title">{t('app.overviewTab.resourceUsage', 'Resource Usage')}</h3>
                     {metricsLoading ? (
-                        <div className="overview-tab__loading">{t('app.overviewTab.loadingMetrics', 'Loading metrics...')}</div>
+                        <div className="overview-tab__loading">{t('app.overviewTab.loadingMetrics', 'Loading metrics…')}</div>
                     ) : isDocker && metrics ? (
                         <div className="overview-tab__metrics">
                             <div className="overview-tab__metric">
@@ -247,7 +247,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                             </div>
                             <div className="overview-tab__metric">
                                 <div className="overview-tab__metric-header">
-                                    <span>{t('app.overviewTab.memory', 'Memory')}</span>
+                                    <span>{t('common.labels.memory', 'Memory')}</span>
                                     <span className="overview-tab__metric-value">{metrics.memory.toFixed(1)}%</span>
                                 </div>
                                 <Gauge value={metrics.memory} />
@@ -268,7 +268,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                         <div className="overview-tab__metrics">
                             <div className="overview-tab__metric-row">
                                 <div className="overview-tab__metric-item">
-                                    <span className="overview-tab__metric-item-label">{t('app.overviewTab.status2', 'Status')}</span>
+                                    <span className="overview-tab__metric-item-label">{t('common.labels.status', 'Status')}</span>
                                     <span className="overview-tab__metric-item-value">
                                         {metrics.active ? 'Active' : 'Inactive'}
                                     </span>
@@ -283,7 +283,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                             {metrics.memory && (
                                 <div className="overview-tab__metric-row">
                                     <div className="overview-tab__metric-item">
-                                        <span className="overview-tab__metric-item-label">{t('app.overviewTab.memory2', 'Memory')}</span>
+                                        <span className="overview-tab__metric-item-label">{t('common.labels.memory', 'Memory')}</span>
                                         <span className="overview-tab__metric-item-value">{metrics.memory}</span>
                                     </div>
                                     {metrics.workers && (
@@ -297,7 +297,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                             {metrics.uptime && (
                                 <div className="overview-tab__metric-row">
                                     <div className="overview-tab__metric-item">
-                                        <span className="overview-tab__metric-item-label">{t('app.overviewTab.uptime', 'Uptime')}</span>
+                                        <span className="overview-tab__metric-item-label">{t('common.labels.uptime', 'Uptime')}</span>
                                         <span className="overview-tab__metric-item-value">{metrics.uptime}</span>
                                     </div>
                                 </div>
@@ -347,7 +347,7 @@ const OverviewTab = ({ app, deployConfig }) => {
                     )}
                 </div>
                 {deploymentsLoading ? (
-                    <div className="overview-tab__loading">{t('app.overviewTab.loading', 'Loading...')}</div>
+                    <div className="overview-tab__loading">{t('common.loading', 'Loading…')}</div>
                 ) : deployments.length === 0 ? (
                     <div className="overview-tab__no-deploys">
                         <p>{t('app.overviewTab.noDeploymentsYetDeployYourService', 'No deployments yet. Deploy your service to see history here.')}</p>
@@ -403,7 +403,7 @@ const RelatedResourcesCard = ({ app, related }) => {
         <div className="overview-tab__card">
             <h3 className="overview-tab__card-title">{t('app.overviewTab.relatedResources', 'Related Resources')}</h3>
             {!related ? (
-                <div className="overview-tab__loading">{t('app.overviewTab.loading2', 'Loading...')}</div>
+                <div className="overview-tab__loading">{t('common.loading', 'Loading…')}</div>
             ) : !hasAny ? (
                 <div className="overview-tab__no-metrics">
                     <p>{t('app.overviewTab.noRelatedResourcesYet', 'No related resources yet.')}</p>
@@ -413,7 +413,7 @@ const RelatedResourcesCard = ({ app, related }) => {
                     {domains.length > 0 && (
                         <div className="overview-tab__related-group">
                             <span className="overview-tab__related-label">
-                                <Globe size={14} /> {t('app.overviewTab.domains', 'Domains')}
+                                <Globe size={14} /> {t('common.labels.domains', 'Domains')}
                             </span>
                             <div className="overview-tab__related-items">
                                 {domains.map((d) => (
@@ -428,7 +428,7 @@ const RelatedResourcesCard = ({ app, related }) => {
                     {databases.length > 0 && (
                         <div className="overview-tab__related-group">
                             <span className="overview-tab__related-label">
-                                <Database size={14} /> {t('app.overviewTab.databases', 'Databases')}
+                                <Database size={14} /> {t('common.labels.databases', 'Databases')}
                             </span>
                             <div className="overview-tab__related-items">
                                 {databases.map((m) => (
@@ -441,7 +441,7 @@ const RelatedResourcesCard = ({ app, related }) => {
                     )}
                     {backup?.enabled && (
                         <div className="sk-info-row">
-                            <span className="k">{t('app.overviewTab.backups', 'Backups')}</span>
+                            <span className="k">{t('common.labels.backups', 'Backups')}</span>
                             <span className="v">
                                 {backup.frequency || 'scheduled'}
                                 {backup.last_status && <Pill kind={backup.last_status === 'success' ? 'green' : 'amber'}>{backup.last_status}</Pill>}

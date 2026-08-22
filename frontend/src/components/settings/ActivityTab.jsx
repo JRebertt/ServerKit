@@ -118,7 +118,7 @@ const ActivityTab = () => {
     }
 
     if (loading) {
-        return <div className="activity-tab"><div className="loading-state">{t('app.activityTab.loadingActivity', 'Loading activity...')}</div></div>;
+        return <div className="activity-tab"><div className="loading-state">{t('app.activityTab.loadingActivity', 'Loading activity…')}</div></div>;
     }
 
     const maxCount = summary?.top_users?.length
@@ -206,7 +206,7 @@ const ActivityTab = () => {
                                 <SelectValue placeholder={t('app.activityTab.allActions', 'All Actions')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="__all__">{t('app.activityTab.allActions2', 'All Actions')}</SelectItem>
+                                <SelectItem value="__all__">{t('app.activityTab.allActions', 'All Actions')}</SelectItem>
                                 {actions.map(action => (
                                     <SelectItem key={action} value={action}>{formatActionName(action)}</SelectItem>
                                 ))}
@@ -214,7 +214,7 @@ const ActivityTab = () => {
                         </Select>
                     </div>
                     <div className="filter-group">
-                        <label><UserIcon size={12} /> {t('app.activityTab.user', 'User')}</label>
+                        <label><UserIcon size={12} /> {t('common.labels.user', 'User')}</label>
                         <Select
                             value={filters.user_id || '__all__'}
                             onValueChange={(val) => handleFilterChange('user_id', val === '__all__' ? '' : val)}
@@ -223,7 +223,7 @@ const ActivityTab = () => {
                                 <SelectValue placeholder={t('app.activityTab.allUsers', 'All Users')} />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="__all__">{t('app.activityTab.allUsers2', 'All Users')}</SelectItem>
+                                <SelectItem value="__all__">{t('app.activityTab.allUsers', 'All Users')}</SelectItem>
                                 {users.map(u => (
                                     <SelectItem key={u.id} value={String(u.id)}>{u.username}</SelectItem>
                                 ))}
@@ -239,7 +239,7 @@ const ActivityTab = () => {
                                 setPagination(prev => ({ ...prev, page: 1 }));
                             }}
                         >
-                            <X size={14} /> {t('app.activityTab.clear', 'Clear')}
+                            <X size={14} /> {t('common.actions.clear', 'Clear')}
                         </Button>
                     )}
                 </div>
@@ -247,7 +247,7 @@ const ActivityTab = () => {
                 {feedLoading ? (
                     <div className="loading-state">
                         <div className="spinner" />
-                        {t('app.activityTab.loadingLogs', 'Loading logs...')}
+                        {t('app.activityTab.loadingLogs', 'Loading logs…')}
                     </div>
                 ) : logs.length === 0 ? (
                     <EmptyState icon={Search} title={t('app.activityTab.noAuditLogsFound', 'No audit logs found')} />

@@ -61,7 +61,7 @@ const AgentFleet = () => {
     useTopbarActions(() =>
         <Button size="sm" onClick={fetchData} disabled={loading}>
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            {t('app.agentFleet.refresh', 'Refresh')}
+            {t('common.actions.refresh', 'Refresh')}
         </Button>,
         [loading]
     );
@@ -106,7 +106,7 @@ const AgentFleet = () => {
     const startDiscovery = async () => {
         setIsScanning(true);
         try {
-            toast.info(t('app.agentFleet.scanningNetworkForAgents', 'Scanning network for agents...'));
+            toast.info(t('app.agentFleet.scanningNetworkForAgents', 'Scanning network for agents…'));
             await api.startDiscovery(10);
             const data = await api.getDiscoveredAgents();
             setDiscoveredAgents(data);
@@ -201,7 +201,7 @@ const AgentFleet = () => {
     const versionColumns = [
         {
             key: 'version',
-            headerKey: 'app.agentFleet.version', header: 'Version',
+            headerKey: 'common.labels.version', header: 'Version',
             sortable: true,
             hideable: false,
             sortValue: (v) => v.version || '',
@@ -231,7 +231,7 @@ const AgentFleet = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.agentFleet.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             sortValue: (v) => (v.is_active ? 'Active' : 'Inactive'),
             render: (v) => (
@@ -245,7 +245,7 @@ const AgentFleet = () => {
     const rolloutColumns = [
         {
             key: 'version',
-            headerKey: 'app.agentFleet.version2', header: 'Version',
+            headerKey: 'common.labels.version', header: 'Version',
             sortable: true,
             hideable: false,
             sortValue: (r) => r.version || '',
@@ -282,7 +282,7 @@ const AgentFleet = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.agentFleet.status2', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             sortValue: (r) => r.status || '',
             render: (r) => (
@@ -299,7 +299,7 @@ const AgentFleet = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.agentFleet.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions',
@@ -313,7 +313,7 @@ const AgentFleet = () => {
                             onClick={() => cancelRollout(r.id)}
                             title={t('app.agentFleet.cancelRollout', 'Cancel Rollout')}
                         >
-                            <XCircle size={14} /> {t('app.agentFleet.cancel', 'Cancel')}
+                            <XCircle size={14} /> {t('common.actions.cancel', 'Cancel')}
                         </Button>
                     )}
                     {r.error && (
@@ -329,7 +329,7 @@ const AgentFleet = () => {
     const queueColumns = [
         {
             key: 'server',
-            headerKey: 'app.agentFleet.server', header: 'Server',
+            headerKey: 'common.labels.server', header: 'Server',
             sortable: true,
             hideable: false,
             sortValue: (cmd) => cmd.server_id || '',
@@ -337,7 +337,7 @@ const AgentFleet = () => {
         },
         {
             key: 'command',
-            headerKey: 'app.agentFleet.command', header: 'Command',
+            headerKey: 'common.labels.command', header: 'Command',
             sortable: true,
             sortValue: (cmd) => cmd.command_type || '',
             cellClassName: 'font-mono text-sm',
@@ -364,7 +364,7 @@ const AgentFleet = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.agentFleet.actions2', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions',
@@ -375,7 +375,7 @@ const AgentFleet = () => {
                     onClick={() => retryCommand(cmd.id)}
                     title={t('app.agentFleet.retryNow', 'Retry now')}
                 >
-                    <RotateCcw size={14} /> {t('app.agentFleet.retry', 'Retry')}
+                    <RotateCcw size={14} /> {t('common.actions.retry', 'Retry')}
                 </Button>
             ),
         },
@@ -393,7 +393,7 @@ const AgentFleet = () => {
         },
         {
             key: 'ip',
-            headerKey: 'app.agentFleet.ipAddress', header: 'IP Address',
+            headerKey: 'common.labels.ipAddress', header: 'IP Address',
             sortable: true,
             sortValue: (server) => server.ip_address || '',
             render: (server) => server.ip_address || 'N/A',
@@ -414,7 +414,7 @@ const AgentFleet = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.agentFleet.actions3', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions',
@@ -586,7 +586,7 @@ const AgentFleet = () => {
                                             value={selectedVersion}
                                             onChange={e => setSelectedVersion(e.target.value)}
                                         >
-                                            <option value="">{t('app.agentFleet.selectVersion', 'Select version...')}</option>
+                                            <option value="">{t('app.agentFleet.selectVersion', 'Select version…')}</option>
                                             {versions.map(v => (
                                                 <option key={v.id} value={v.id}>v{v.version} ({v.channel})</option>
                                             ))}
@@ -668,7 +668,7 @@ const AgentFleet = () => {
                 {activeTab === 'queue' && (
                     <div className="card">
                         <div className="card-header flex justify-between items-center">
-                            <h2>{t('app.agentFleet.queuedCommands2', 'Queued Commands')}</h2>
+                            <h2>{t('app.agentFleet.queuedCommands', 'Queued Commands')}</h2>
                             <p className="text-sm text-gray-500">{t('app.agentFleet.commandsWaitingToBeDeliveredWhen', 'Commands waiting to be delivered when agents reconnect')}</p>
                         </div>
                         {queuedCommands.length > 0 ? (
@@ -805,7 +805,7 @@ const AgentFleet = () => {
                             <div className="p-6 space-y-6">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-sm text-gray-500">{t('app.agentFleet.status3', 'Status')}</label>
+                                        <label className="text-sm text-gray-500">{t('common.labels.status', 'Status')}</label>
                                         <p className="font-semibold flex items-center gap-2">
                                             {diagnostics.connection.is_connected ? (
                                                 <><Wifi size={16} className="text-green-500" /> {t('app.agentFleet.connected', 'Connected')}</>
@@ -815,7 +815,7 @@ const AgentFleet = () => {
                                         </p>
                                     </div>
                                     <div>
-                                        <label className="text-sm text-gray-500">{t('app.agentFleet.agentVersion3', 'Agent Version')}</label>
+                                        <label className="text-sm text-gray-500">{t('app.agentFleet.agentVersion', 'Agent Version')}</label>
                                         <p className="font-semibold">v{diagnostics.agent_version || 'Unknown'}</p>
                                     </div>
                                     <div>
@@ -835,7 +835,7 @@ const AgentFleet = () => {
                                         </p>
                                     </div>
                                     <div>
-                                        <label className="text-sm text-gray-500">{t('app.agentFleet.ipAddress2', 'IP Address')}</label>
+                                        <label className="text-sm text-gray-500">{t('common.labels.ipAddress', 'IP Address')}</label>
                                         <p className="font-semibold">{diagnostics.connection.ip_address || 'N/A'}</p>
                                     </div>
                                     <div>
@@ -861,7 +861,7 @@ const AgentFleet = () => {
                                         </div>
                                         <div className="fleet-statbox is-red">
                                             <div className="text-lg font-bold text-red-600">{diagnostics.commands_24h.failed}</div>
-                                            <div className="text-xs text-gray-500">{t('app.agentFleet.failed', 'Failed')}</div>
+                                            <div className="text-xs text-gray-500">{t('common.state.failed', 'Failed')}</div>
                                         </div>
                                         <div className="fleet-statbox is-amber">
                                             <div className="text-lg font-bold text-yellow-600">{diagnostics.commands_24h.timeout}</div>

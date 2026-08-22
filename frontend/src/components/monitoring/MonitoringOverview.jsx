@@ -283,8 +283,8 @@ export default function MonitoringOverview({
                             <span className="mon-panel-sub">{scopeLabel} {t('app.monitoringOverview.percentUsedLast', '· percent used · last')} {period}</span>
                         </div>
                         <div className="mon-legend">
-                            <span><i className="is-memory" />{t('app.monitoringOverview.memory', 'Memory')}</span>
-                            <span><i className="is-disk" />{t('app.monitoringOverview.disk', 'Disk')}</span>
+                            <span><i className="is-memory" />{t('common.labels.memory', 'Memory')}</span>
+                            <span><i className="is-disk" />{t('common.labels.disk', 'Disk')}</span>
                         </div>
                     </div>
                     <ChartBody loading={loading} values={series?.memory}>

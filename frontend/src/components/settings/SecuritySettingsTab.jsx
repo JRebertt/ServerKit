@@ -316,7 +316,7 @@ Keep these codes in a safe place.`;
                 </div>
 
                 {twoFALoading && !twoFAStatus ? (
-                    <div className="loading-sm">{t('app.securitySettingsTab.loading', 'Loading...')}</div>
+                    <div className="loading-sm">{t('common.loading', 'Loading…')}</div>
                 ) : twoFAStatus?.enabled ? (
                     <div className="two-fa-enabled">
                         <div className="two-fa-status">
@@ -428,7 +428,7 @@ Keep these codes in a safe place.`;
                             <span className="session-details">{t('app.securitySettingsTab.thisDeviceActiveNow', 'This device - Active now')}</span>
                         </div>
                     </div>
-                    <Badge variant="success">{t('app.securitySettingsTab.current', 'Current')}</Badge>
+                    <Badge variant="success">{t('common.labels.current', 'Current')}</Badge>
                 </div>
             </div>
 
@@ -484,7 +484,7 @@ Keep these codes in a safe place.`;
                             </div>
                         <div className="modal-footer">
                             <Button variant="outline" onClick={() => setShowSetupModal(false)}>
-                                {t('app.securitySettingsTab.cancel', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </Button>
                             <Button
                                 variant="default"
@@ -521,7 +521,7 @@ Keep these codes in a safe place.`;
                             </div>
                         <div className="modal-footer">
                             <Button variant="outline" onClick={() => setShowDisableModal(false)}>
-                                {t('app.securitySettingsTab.cancel2', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </Button>
                             <Button
                                 variant="destructive"
@@ -536,7 +536,7 @@ Keep these codes in a safe place.`;
 
             {/* Backup Codes Modal */}
             {showBackupCodesModal && (
-                <Modal open={true} onClose={() => setShowBackupCodesModal(false)} title={backupCodes.length > 0 ? t('app.securitySettingsTab.yourBackupCodes', 'Your Backup Codes') : t('app.securitySettingsTab.regenerateBackupCodes2', 'Regenerate Backup Codes')} size="md">
+                <Modal open={true} onClose={() => setShowBackupCodesModal(false)} title={backupCodes.length > 0 ? t('app.securitySettingsTab.yourBackupCodes', 'Your Backup Codes') : t('app.securitySettingsTab.regenerateBackupCodes', 'Regenerate Backup Codes')} size="md">
                             {backupCodes.length > 0 ? (
                                 <>
                                     <div className="warning-box">
@@ -557,14 +557,14 @@ Keep these codes in a safe place.`;
                                             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                                             </svg>
-                                            {t('app.securitySettingsTab.download', 'Download')}
+                                            {t('common.actions.download', 'Download')}
                                         </Button>
                                         <Button variant="outline" onClick={copyBackupCodes}>
                                             <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                                             </svg>
-                                            {t('app.securitySettingsTab.copy', 'Copy')}
+                                            {t('common.actions.copy', 'Copy')}
                                         </Button>
                                     </div>
                                 </>

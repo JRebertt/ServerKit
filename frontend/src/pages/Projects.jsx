@@ -98,7 +98,7 @@ const Projects = () => {
     const columns = useMemo(() => [
         {
             key: 'name',
-            headerKey: 'app.projects.project', header: 'Project',
+            headerKey: 'common.labels.project', header: 'Project',
             sortable: true,
             hideable: false,
             value: (p) => p.name,
@@ -114,7 +114,7 @@ const Projects = () => {
         },
         {
             key: 'description',
-            headerKey: 'app.projects.description', header: 'Description',
+            headerKey: 'common.labels.description', header: 'Description',
             sortable: true,
             value: (p) => p.description || '',
             render: (p) => p.description || <span className="wp-list__dash">—</span>,
@@ -134,7 +134,7 @@ const Projects = () => {
         },
         {
             key: 'apps',
-            headerKey: 'app.projects.services', header: 'Services',
+            headerKey: 'common.labels.services', header: 'Services',
             type: 'number',
             sortable: true,
             width: 120,
@@ -217,7 +217,7 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
     }
 
     return (
-        <Modal open={open} onClose={() => { reset(); onOpenChange(false); }} title={t('app.projects.newProject2', 'New Project')}>
+        <Modal open={open} onClose={() => { reset(); onOpenChange(false); }} title={t('app.projects.newProject', 'New Project')}>
             <form onSubmit={handleSubmit}>
                 <p className="sk-modal__subtitle">
                     {t('app.projects.aProjectGroupsYourApplicationsIt', 'A project groups your applications. It starts with a default "production" environment you can rename or expand.')}
@@ -225,7 +225,7 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
 
                 <div className="projects-form">
                         <div className="projects-form__field">
-                            <Label htmlFor="project-name">{t('app.projects.name', 'Name')}</Label>
+                            <Label htmlFor="project-name">{t('common.labels.name', 'Name')}</Label>
                             <Input
                                 id="project-name"
                                 value={name}
@@ -249,7 +249,7 @@ const CreateProjectDialog = ({ open, onOpenChange, onCreated }) => {
 
                     <div className="modal-actions">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            {t('app.projects.cancel', 'Cancel')}
+                            {t('common.actions.cancel', 'Cancel')}
                         </Button>
                         <Button type="submit" disabled={submitting || !name.trim()}>
                             {submitting ? 'Creating…' : 'Create Project'}

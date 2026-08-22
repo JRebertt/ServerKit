@@ -103,7 +103,7 @@ const AppearanceTab = () => {
                                 <div className="preview-card"></div>
                             </div>
                         </div>
-                        <span>{t('app.appearanceTab.system', 'System')}</span>
+                        <span>{t('common.labels.system', 'System')}</span>
                     </button>
                 </div>
             </div>
@@ -111,7 +111,7 @@ const AppearanceTab = () => {
             <div {...register('appearance-theme-gallery', 'settings-card')}>
                 <div className="theme-gallery-header">
                     <div>
-                        <h3>{t('app.appearanceTab.theme2', 'Theme')}</h3>
+                        <h3>{t('app.appearanceTab.theme', 'Theme')}</h3>
                         <p>{t('app.appearanceTab.pickAColorThemeAppliesInstantly', 'Pick a color theme. Applies instantly and stays your personal choice; the dark/light toggle above still works on top of it.')}</p>
                     </div>
                     <div className="theme-gallery-actions">

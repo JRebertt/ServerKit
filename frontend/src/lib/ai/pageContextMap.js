@@ -3,24 +3,24 @@
 // prompts for the empty state. Ordered: first matching pattern wins.
 
 const ROUTES = [
-    { re: /^\/docker(\/|$)/, labelKey: 'app.pageContextMap.docker', label: 'Docker', entity: 'docker' },
-    { re: /^\/services\/([^/]+)$/, labelKey: 'app.pageContextMap.service', label: 'Service', entity: 'service', idKey: 'service_id' },
-    { re: /^\/services(\/|$)/, labelKey: 'app.pageContextMap.services', label: 'Services', entity: 'services' },
+    { re: /^\/docker(\/|$)/, labelKey: 'common.labels.docker', label: 'Docker', entity: 'docker' },
+    { re: /^\/services\/([^/]+)$/, labelKey: 'common.labels.service', label: 'Service', entity: 'service', idKey: 'service_id' },
+    { re: /^\/services(\/|$)/, labelKey: 'common.labels.services', label: 'Services', entity: 'services' },
     { re: /^\/apps\/([^/]+)/, labelKey: 'app.pageContextMap.application', label: 'Application', entity: 'app', idKey: 'app_id' },
     { re: /^\/apps(\/|$)/, labelKey: 'app.pageContextMap.applications', label: 'Applications', entity: 'apps' },
-    { re: /^\/databases(\/|$)/, labelKey: 'app.pageContextMap.databases', label: 'Databases', entity: 'databases' },
+    { re: /^\/databases(\/|$)/, labelKey: 'common.labels.databases', label: 'Databases', entity: 'databases' },
     { re: /^\/wordpress\/([^/]+)/, labelKey: 'app.pageContextMap.wordpressSite', label: 'WordPress site', entity: 'wp_site', idKey: 'site_id' },
     { re: /^\/wordpress(\/|$)/, labelKey: 'app.pageContextMap.wordpress', label: 'WordPress', entity: 'wordpress' },
-    { re: /^\/servers\/([^/]+)/, labelKey: 'app.pageContextMap.server', label: 'Server', entity: 'server', idKey: 'server_id' },
-    { re: /^\/servers(\/|$)/, labelKey: 'app.pageContextMap.servers', label: 'Servers', entity: 'servers' },
+    { re: /^\/servers\/([^/]+)/, labelKey: 'common.labels.server', label: 'Server', entity: 'server', idKey: 'server_id' },
+    { re: /^\/servers(\/|$)/, labelKey: 'common.labels.servers', label: 'Servers', entity: 'servers' },
     { re: /^\/fleet/, labelKey: 'app.pageContextMap.fleet', label: 'Fleet', entity: 'fleet' },
-    { re: /^\/monitoring(\/|$)/, labelKey: 'app.pageContextMap.monitoring', label: 'Monitoring', entity: 'monitoring' },
-    { re: /^\/security(\/|$)/, labelKey: 'app.pageContextMap.security', label: 'Security', entity: 'security' },
-    { re: /^\/backups(\/|$)/, labelKey: 'app.pageContextMap.backups', label: 'Backups', entity: 'backups' },
+    { re: /^\/monitoring(\/|$)/, labelKey: 'common.labels.monitoring', label: 'Monitoring', entity: 'monitoring' },
+    { re: /^\/security(\/|$)/, labelKey: 'common.labels.security', label: 'Security', entity: 'security' },
+    { re: /^\/backups(\/|$)/, labelKey: 'common.labels.backups', label: 'Backups', entity: 'backups' },
     { re: /^\/dns(\/|$)/, label: 'DNS', entity: 'dns' },
-    { re: /^\/domains(\/|$)/, labelKey: 'app.pageContextMap.domains', label: 'Domains', entity: 'domains' },
+    { re: /^\/domains(\/|$)/, labelKey: 'common.labels.domains', label: 'Domains', entity: 'domains' },
     { re: /^\/files(\/|$)/, labelKey: 'app.pageContextMap.fileManager', label: 'File Manager', entity: 'files' },
-    { re: /^\/extensions/, labelKey: 'app.pageContextMap.extensions', label: 'Extensions', entity: 'marketplace' },
+    { re: /^\/extensions/, labelKey: 'common.labels.extensions', label: 'Extensions', entity: 'marketplace' },
     { re: /^\/$/, labelKey: 'app.pageContextMap.dashboard', label: 'Dashboard', entity: 'dashboard' },
 ];
 
@@ -49,7 +49,7 @@ export function getCoreContext(pathname, params = {}) {
         }
         return { route: pathname, label: entry.label, entity: entry.entity, ids };
     }
-    return { route: pathname, labelKey: 'app.pageContextMap.dashboard2', label: 'Dashboard', entity: 'dashboard', ids: {} };
+    return { route: pathname, labelKey: 'app.pageContextMap.dashboard', label: 'Dashboard', entity: 'dashboard', ids: {} };
 }
 
 export function getSuggestedPrompts(entity) {

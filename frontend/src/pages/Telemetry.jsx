@@ -198,7 +198,7 @@ export default function Telemetry() {
         const confirmed = await confirm({
             title: t('app.telemetry.cleanUpOldEvents', 'Clean Up Old Events'),
             message: t('app.telemetry.deleteTelemetryEventsOlderThan90', 'Delete telemetry events older than 90 days? This cannot be undone.'),
-            confirmText: t('app.telemetry.delete', 'Delete'),
+            confirmText: t('common.actions.delete', 'Delete'),
             variant: 'danger',
         });
         if (!confirmed) {
@@ -232,7 +232,7 @@ export default function Telemetry() {
                 </Button>
             )}
             <Button variant="outline" size="sm" onClick={() => fetchEvents(1, true)} disabled={loading}>
-                <RefreshCw size={14} className={loading ? 'spin' : ''} /> {t('app.telemetry.refresh', 'Refresh')}
+                <RefreshCw size={14} className={loading ? 'spin' : ''} /> {t('common.actions.refresh', 'Refresh')}
             </Button>
         </>
     ), [q, activeFilterCount, isAdmin, loading, fetchEvents]);
@@ -240,7 +240,7 @@ export default function Telemetry() {
     const filterGroups = useMemo(() => ([
         {
             key: 'source',
-            labelKey: 'app.telemetry.source', label: 'Source',
+            labelKey: 'common.labels.source', label: 'Source',
             type: 'single',
             options: sources.map((s) => ({ value: s, label: s })),
         },
@@ -252,7 +252,7 @@ export default function Telemetry() {
         },
         {
             key: 'severity',
-            labelKey: 'app.telemetry.severity', label: 'Severity',
+            labelKey: 'common.labels.severity', label: 'Severity',
             type: 'single',
             options: SEVERITY_ORDER.map((s) => ({ value: s, label: SEVERITY_LABEL[s] })),
         },
@@ -261,7 +261,7 @@ export default function Telemetry() {
     const columns = [
         {
             key: 'severity',
-            headerKey: 'app.telemetry.severity2', header: 'Severity',
+            headerKey: 'common.labels.severity', header: 'Severity',
             sortable: true,
             type: 'enum',
             // Sorting and filtering want DIFFERENT values here, so both are
@@ -327,7 +327,7 @@ export default function Telemetry() {
         },
         {
             key: 'timestamp',
-            headerKey: 'app.telemetry.when', header: 'When',
+            headerKey: 'common.labels.when', header: 'When',
             sortable: true,
             sortValue: (event) => (event.timestamp ? new Date(event.timestamp).getTime() : null),
             cellClassName: 'telemetry-cell__when',
@@ -390,7 +390,7 @@ export default function Telemetry() {
                         size="sm"
                         onClick={() => setFilters((f) => ({ ...f, correlation_id: '' }))}
                     >
-                        {t('app.telemetry.clear', 'Clear')}
+                        {t('common.actions.clear', 'Clear')}
                     </Button>
                 </div>
             )}
@@ -415,7 +415,7 @@ export default function Telemetry() {
                                     chrome.api.resetToView();
                                 }}
                             >
-                                {t('app.telemetry.clearFilters', 'Clear filters')}
+                                {t('common.actions.clearFilters', 'Clear filters')}
                             </Button>
                         )
                         : undefined}
@@ -507,7 +507,7 @@ export default function Telemetry() {
             <Drawer
                 open={Boolean(selectedEvent)}
                 onOpenChange={(open) => { if (!open) setSelectedEvent(null); }}
-                title={selectedEvent?.message || selectedEvent?.event_type || t('app.telemetry.event2', 'Event')}
+                title={selectedEvent?.message || selectedEvent?.event_type || t('app.telemetry.event', 'Event')}
                 subtitle={selectedEvent
                     ? `${selectedEvent.source} · ${new Date(selectedEvent.timestamp).toLocaleString()}`
                     : ''}
@@ -517,9 +517,9 @@ export default function Telemetry() {
                     <div className="telemetry-detail">
                         <dl className="mon-inforows">
                             <div><dt>ID</dt><dd><code>{selectedEvent.id}</code></dd></div>
-                            <div><dt>{t('app.telemetry.type', 'Type')}</dt><dd>{selectedEvent.event_type}</dd></div>
+                            <div><dt>{t('common.labels.type', 'Type')}</dt><dd>{selectedEvent.event_type}</dd></div>
                             <div>
-                                <dt>{t('app.telemetry.severity3', 'Severity')}</dt>
+                                <dt>{t('common.labels.severity', 'Severity')}</dt>
                                 <dd>
                                     <Pill kind={statusKind(selectedEvent.severity in SEVERITY_LABEL ? selectedEvent.severity : 'info')}>
                                         {selectedEvent.severity}

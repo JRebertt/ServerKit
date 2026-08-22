@@ -127,7 +127,7 @@ function ActiveWalkthrough({ walkthrough, progress, currentStep, onBrowse, t }) 
                     <p>{currentStep.description}</p>
                     <Button type="button" onClick={performAction} disabled={checking}>
                         {checking
-                            ? t('app.walkthroughs.checking', 'Checking…')
+                            ? t('common.checking', 'Checking…')
                             : currentStep.action}
                         {!checking && <ArrowRight size={15} />}
                     </Button>

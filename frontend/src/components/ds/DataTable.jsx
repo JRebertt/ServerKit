@@ -461,7 +461,7 @@ export function DataTable({
                                     type="button"
                                     onClick={() => setFilters({ match: filters.match, rules: [] })}
                                 >
-                                    {t('app.dataTable.clearFilters', 'Clear filters')}
+                                    {t('common.actions.clearFilters', 'Clear filters')}
                                 </button>
                             </TableCell>
                         </TableRow>

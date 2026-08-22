@@ -382,7 +382,7 @@ const DoctorPanel = () => {
                 )}
                 <div className="doctor-confirm__actions">
                     <Button variant="outline" onClick={() => setConfirm(null)} disabled={repairing}>
-                        {t('app.doctorPanel.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button onClick={() => doRepair(confirm)} disabled={repairing}>
                         <Wrench size={14} />

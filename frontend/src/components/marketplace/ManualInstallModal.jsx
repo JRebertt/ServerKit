@@ -166,7 +166,7 @@ const PreviewConsent = ({ preview, installing, onInstall, onCancel }) => {
 
             <div className="plugin-install-consent__actions">
                 <Button variant="secondary" onClick={onCancel} disabled={installing}>
-                    {t('app.manualInstallModal.back', 'Back')}
+                    {t('common.actions.back', 'Back')}
                 </Button>
                 <Button
                     onClick={onInstall}
@@ -251,10 +251,10 @@ const ManualInstallModal = ({ defaultSource = 'url', onClose, onInstalled }) => 
         setInstalling(true);
         try {
             const result = await action();
-            toast.success(t('app.manualInstallModal.extensionInstalledRestartBackendToActivate2', 'Extension "{{displayname}}" installed. Restart backend to activate routes.', { displayname: result.display_name }));
+            toast.success(t('app.manualInstallModal.extensionInstalledRestartBackendToActivate', 'Extension "{{displayname}}" installed. Restart backend to activate routes.', { displayname: result.display_name }));
             onInstalled();
         } catch (err) {
-            toast.error(err.message || t('app.manualInstallModal.extensionInstallationFailed2', 'Extension installation failed'));
+            toast.error(err.message || t('app.manualInstallModal.extensionInstallationFailed', 'Extension installation failed'));
         } finally {
             setInstalling(false);
         }

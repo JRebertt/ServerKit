@@ -234,7 +234,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                 </p>
 
                 <div className="cf-waf__field">
-                    <label className="cf-waf__label">{t('app.cloudflareWafPanel.description', 'Description')}</label>
+                    <label className="cf-waf__label">{t('common.labels.description', 'Description')}</label>
                     <Input
                         value={customDescription}
                         placeholder={t('app.cloudflareWafPanel.blockAdminFromOutsideTheOffice', 'Block admin from outside the office')}
@@ -255,7 +255,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                 </div>
 
                 <div className="cf-waf__field">
-                    <label className="cf-waf__label">{t('app.cloudflareWafPanel.action', 'Action')}</label>
+                    <label className="cf-waf__label">{t('common.labels.action', 'Action')}</label>
                     <Select
                         value={customAction}
                         onValueChange={setCustomAction}
@@ -325,7 +325,7 @@ export default function CloudflareWafPanel({ zoneId, isAdmin }) {
                                         onClick={() => handleDeleteRule(rule)}
                                         disabled={writeDisabled}
                                     >
-                                        {t('app.cloudflareWafPanel.delete', 'Delete')}
+                                        {t('common.actions.delete', 'Delete')}
                                     </Button>
                                 </div>
                             </li>

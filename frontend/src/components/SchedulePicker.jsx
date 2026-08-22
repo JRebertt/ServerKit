@@ -280,10 +280,10 @@ export default function SchedulePicker({ value = '', onChange, compact = false, 
                             value={builder.frequency}
                             onChange={(e) => patchBuilder({ frequency: e.target.value })}
                         >
-                            <option value="hourly">{t('app.schedulePicker.hourly2', 'Hourly')}</option>
-                            <option value="daily">{t('app.schedulePicker.daily2', 'Daily')}</option>
-                            <option value="weekly">{t('app.schedulePicker.weekly2', 'Weekly')}</option>
-                            <option value="monthly">{t('app.schedulePicker.monthly2', 'Monthly')}</option>
+                            <option value="hourly">{t('app.schedulePicker.hourly', 'Hourly')}</option>
+                            <option value="daily">{t('app.schedulePicker.daily', 'Daily')}</option>
+                            <option value="weekly">{t('app.schedulePicker.weekly', 'Weekly')}</option>
+                            <option value="monthly">{t('app.schedulePicker.monthly', 'Monthly')}</option>
                         </select>
                     </div>
 

@@ -56,7 +56,7 @@ function StorageSection({
                             onClick={handleCreate}
                             disabled={writeDisabled || !value.trim()}
                         >
-                            {t('app.storagePanel.add', 'Add')}
+                            {t('common.actions.add', 'Add')}
                         </Button>
                     </div>
 
@@ -75,7 +75,7 @@ function StorageSection({
                                             onClick={() => onDelete(item)}
                                             disabled={writeDisabled}
                                         >
-                                            {t('app.storagePanel.delete', 'Delete')}
+                                            {t('common.actions.delete', 'Delete')}
                                         </Button>
                                     </li>
                                 );
@@ -174,7 +174,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.deleteCloudflareKvNamespace(zoneId, namespace.id);
-            toast.success(t('app.storagePanel.deleted2', 'Deleted'));
+            toast.success(t('app.storagePanel.deleted', 'Deleted'));
             await loadData();
         } catch (err) {
             toast.error(err.message);
@@ -201,7 +201,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         setWorking(true);
         try {
             await api.deleteCloudflareD1Database(zoneId, database.uuid);
-            toast.success(t('app.storagePanel.deleted3', 'Deleted'));
+            toast.success(t('app.storagePanel.deleted', 'Deleted'));
             await loadData();
         } catch (err) {
             toast.error(err.message);

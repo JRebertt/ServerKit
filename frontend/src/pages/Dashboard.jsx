@@ -338,7 +338,7 @@ const Dashboard = () => {
     });
     useShortcut({
         id: 'dashboard-save',
-        label: t('app.dashboard.done', 'Done'),
+        label: t('common.actions.done', 'Done'),
         group: 'dashboard',
         keys: [{ key: 'Enter', ctrlOrMeta: true }],
         enabled: edit && isDirty && editing.saveState !== 'saving',
@@ -440,7 +440,7 @@ const Dashboard = () => {
         : metrics?.time?.current_time_formatted?.split(' ')[1] || '--:--:--';
 
     if (boardsLoading && metricsLoading) {
-        return <EmptyState loading loadingVariant="chart" title={t('app.dashboard.loadingDashboard', 'Loading dashboard...')} />;
+        return <EmptyState loading loadingVariant="chart" title={t('app.dashboard.loadingDashboard', 'Loading dashboard…')} />;
     }
 
     const grid = (
@@ -543,7 +543,7 @@ const Dashboard = () => {
                         className="skw-tab skw-tab--add"
                         onClick={handleCreateBoard}
                         aria-label={t('app.dashboard.newDashboard', 'New dashboard')}
-                        title={t('app.dashboard.newDashboard2', 'New dashboard')}
+                        title={t('app.dashboard.newDashboard', 'New dashboard')}
                     >
                         <Plus size={14} />
                     </button>
@@ -614,7 +614,7 @@ const Dashboard = () => {
                             value={refreshInterval}
                             onChange={(e) => handleRefreshIntervalChange(parseInt(e.target.value, 10))}
                             title={t('app.dashboard.autoRefreshInterval', 'Auto-refresh interval')}
-                            aria-label={t('app.dashboard.autoRefreshInterval2', 'Auto-refresh interval')}
+                            aria-label={t('app.dashboard.autoRefreshInterval', 'Auto-refresh interval')}
                         >
                             {REFRESH_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>↻ {opt.label}</option>
@@ -625,7 +625,7 @@ const Dashboard = () => {
                         type="button"
                         className="skw-iconbtn"
                         title={t('app.dashboard.refreshNow', 'Refresh now')}
-                        aria-label={t('app.dashboard.refreshNow2', 'Refresh now')}
+                        aria-label={t('app.dashboard.refreshNow', 'Refresh now')}
                         onClick={() => { setTick((k) => k + 1); if (isRemote) fetchRemote(); else refreshMetrics(); }}
                     >
                         <RefreshCw size={15} />
@@ -634,7 +634,7 @@ const Dashboard = () => {
                         type="button"
                         className="skw-iconbtn"
                         title={t('app.dashboard.tvMode', 'TV mode')}
-                        aria-label={t('app.dashboard.tvMode2', 'TV mode')}
+                        aria-label={t('app.dashboard.tvMode', 'TV mode')}
                         onClick={() => setTvMode(true)}
                     >
                         <Maximize2 size={15} />
@@ -660,14 +660,14 @@ const Dashboard = () => {
                                 className="skw-iconbtn"
                                 onClick={handleReset}
                                 title={t('app.dashboard.restoreTheShippedLayout', 'Restore the shipped layout')}
-                                aria-label={t('app.dashboard.restoreTheShippedLayout2', 'Restore the shipped layout')}
+                                aria-label={t('app.dashboard.restoreTheShippedLayout', 'Restore the shipped layout')}
                             >
                                 <History size={14} />
                             </button>
                         </>
                     ) : (
                         <button type="button" className="skw-barbtn" onClick={startEdit}>
-                            <SlidersHorizontal size={14} /> {t('app.dashboard.edit', 'Edit')}
+                            <SlidersHorizontal size={14} /> {t('common.actions.edit', 'Edit')}
                         </button>
                     )}
                 </div>

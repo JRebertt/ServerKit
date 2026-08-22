@@ -61,7 +61,7 @@ function VolumeRow({ volume, appRunning, onDetach }) {
                             />
                             <span>{t('app.volumesPanel.alsoDeleteData', 'Also delete data')}{appRunning ? ' (stop the app first)' : ' — cannot be undone'}</span>
                         </label>
-                        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>{t('app.volumesPanel.cancel', 'Cancel')}</Button>
+                        <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => setConfirming(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button type="button" size="sm" variant={wipe ? 'destructive' : 'default'} disabled={busy} onClick={detach}>
                             {busy ? 'Detaching…' : (wipe ? 'Detach + wipe' : 'Detach')}
                         </Button>
@@ -153,8 +153,8 @@ const VolumesPanel = ({ app, onChanged }) => {
                         <div className="app-volumes__table">
                             <div className="app-volumes__row app-volumes__row--head">
                                 <div className="app-volumes__cell">{t('app.volumesPanel.nameMountPath', 'Name & mount path')}</div>
-                                <div className="app-volumes__cell">{t('app.volumesPanel.size', 'Size')}</div>
-                                <div className="app-volumes__cell">{t('app.volumesPanel.status', 'Status')}</div>
+                                <div className="app-volumes__cell">{t('common.labels.size', 'Size')}</div>
+                                <div className="app-volumes__cell">{t('common.labels.status', 'Status')}</div>
                                 <div className="app-volumes__cell" />
                             </div>
                             {volumes.map((v) => (
@@ -166,7 +166,7 @@ const VolumesPanel = ({ app, onChanged }) => {
                     <form className="app-volumes__attach" onSubmit={attach}>
                         <div className="app-volumes__attach-fields">
                             <div className="container-ops__input">
-                                <Label htmlFor={`vol-name-${app.id}`}>{t('app.volumesPanel.name', 'Name')}</Label>
+                                <Label htmlFor={`vol-name-${app.id}`}>{t('common.labels.name', 'Name')}</Label>
                                 <Input
                                     id={`vol-name-${app.id}`}
                                     value={form.name}

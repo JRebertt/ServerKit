@@ -22,7 +22,7 @@ const PACKAGE_COLUMNS = [
     },
     {
         key: 'version',
-        headerKey: 'app.packagesTab.version', header: 'Version',
+        headerKey: 'common.labels.version', header: 'Version',
         sortable: true,
         cellClassName: 'sk-cell-mono',
         sortValue: (pkg) => pkg.version || '',
@@ -79,7 +79,7 @@ const PackagesTab = ({ appId }) => {
     }
 
     if (loading) {
-        return <EmptyState loading title={t('app.packagesTab.loadingPackages', 'Loading packages...')} />;
+        return <EmptyState loading title={t('app.packagesTab.loadingPackages', 'Loading packages…')} />;
     }
 
     return (

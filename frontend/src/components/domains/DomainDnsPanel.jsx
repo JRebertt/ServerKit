@@ -189,7 +189,7 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
         if (!await confirm({
             title: t('app.domainDnsPanel.disableDynamicDns', 'Disable Dynamic DNS'),
             message: t('app.domainDnsPanel.disableDynamicDnsForItsUpdate', 'Disable Dynamic DNS for {{hostname}}? Its update token will stop working.', { hostname: host.hostname }),
-            confirmText: t('app.domainDnsPanel.disableDynamicDns2', 'Disable Dynamic DNS'),
+            confirmText: t('app.domainDnsPanel.disableDynamicDns', 'Disable Dynamic DNS'),
         })) return;
         try {
             await api.deleteDdnsHost(host.id);
@@ -252,7 +252,7 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
     const columns = [
         {
             key: 'type',
-            headerKey: 'app.domainDnsPanel.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             className: 'ddp__c-type',
             sortValue: (r) => r.type || '',
@@ -260,7 +260,7 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
         },
         {
             key: 'name',
-            headerKey: 'app.domainDnsPanel.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             className: 'ddp__c-name',
@@ -299,12 +299,12 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
         }] : []),
         ...(canLive ? [{
             key: 'source',
-            headerKey: 'app.domainDnsPanel.source', header: 'Source',
+            headerKey: 'common.labels.source', header: 'Source',
             sortable: true,
             className: 'ddp__c-src',
             sortValue: (r) => (r.source === 'serverkit' ? 'ServerKit' : 'External'),
             render: (r) => (r.source === 'serverkit'
-                ? <span className="ddp__src ddp__src--sk">{t('app.domainDnsPanel.serverkit', 'ServerKit')}</span>
+                ? <span className="ddp__src ddp__src--sk">{t('common.labels.serverKit', 'ServerKit')}</span>
                 : <span className="ddp__src">{t('app.domainDnsPanel.external', 'External')}</span>),
         }] : []),
         ...(showActions ? [{
@@ -327,8 +327,8 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
                                 <Button variant="ghost" size="sm" className="ddp__iconbtn" title={t('app.domainDnsPanel.regenerateToken', 'Regenerate token')} onClick={() => handleRegenerate(host)}>
                                     <RefreshCw size={13} />
                                 </Button>
-                                <Button variant="ghost" size="sm" className="ddp__stopbtn" title={t('app.domainDnsPanel.disableDynamicDns5', 'Disable Dynamic DNS')} onClick={() => handleStopDynamic(host)}>
-                                    {t('app.domainDnsPanel.stop', 'Stop')}
+                                <Button variant="ghost" size="sm" className="ddp__stopbtn" title={t('app.domainDnsPanel.disableDynamicDns', 'Disable Dynamic DNS')} onClick={() => handleStopDynamic(host)}>
+                                    {t('common.actions.stop', 'Stop')}
                                 </Button>
                             </>
                         )}
@@ -386,17 +386,17 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
             {showAdd && isAdmin && (
                 <div className="ddp__form">
                     <FormRow>
-                        <FormField label={t('app.domainDnsPanel.type2', 'Type')}>
+                        <FormField label={t('common.labels.type', 'Type')}>
                             <Select value={form.record_type} onValueChange={(v) => setForm({ ...form, record_type: v })}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>{RECORD_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                             </Select>
                         </FormField>
-                        <FormField label={t('app.domainDnsPanel.name2', 'Name')}>
+                        <FormField label={t('common.labels.name', 'Name')}>
                             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t('app.domainDnsPanel.orSubdomain', '@ or subdomain')} />
                         </FormField>
                     </FormRow>
-                    <FormField label={t('app.domainDnsPanel.content2', 'Content')}>
+                    <FormField label={t('app.domainDnsPanel.content', 'Content')}>
                         <Input value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder={t('app.domainDnsPanel.ipAddressOrTarget', 'IP address or target')} />
                     </FormField>
                     <FormRow>
@@ -416,7 +416,7 @@ export default function DomainDnsPanel({ domain, isAdmin }) {
                         </label>
                     )}
                     <div className="ddp__form-actions">
-                        <Button variant="outline" size="sm" onClick={() => setShowAdd(false)}>{t('app.domainDnsPanel.cancel', 'Cancel')}</Button>
+                        <Button variant="outline" size="sm" onClick={() => setShowAdd(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button size="sm" disabled={!form.content || saving} onClick={handleAdd}>
                             {saving ? 'Adding…' : 'Add record'}
                         </Button>

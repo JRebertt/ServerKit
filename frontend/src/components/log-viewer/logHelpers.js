@@ -4,10 +4,10 @@
 export const LOG_GROUPS = [
     { id: 'web',      labelKey: 'app.logHelpers.webServers', label: 'Web Servers', match: (p) => /(nginx|apache2|httpd)/i.test(p) },
     { id: 'app',      labelKey: 'app.logHelpers.applications', label: 'Applications', match: (p) => /(php-fpm|gunicorn|uwsgi|node|app)/i.test(p) && !/nginx|apache/i.test(p) },
-    { id: 'database', labelKey: 'app.logHelpers.databases', label: 'Databases', match: (p) => /(mysql|mariadb|postgres|redis|mongo)/i.test(p) },
-    { id: 'system',   labelKey: 'app.logHelpers.system', label: 'System', match: (p) => /(syslog|messages|auth|secure|kern|dmesg|boot|cron)/i.test(p) },
+    { id: 'database', labelKey: 'common.labels.databases', label: 'Databases', match: (p) => /(mysql|mariadb|postgres|redis|mongo)/i.test(p) },
+    { id: 'system',   labelKey: 'common.labels.system', label: 'System', match: (p) => /(syslog|messages|auth|secure|kern|dmesg|boot|cron)/i.test(p) },
     { id: 'mail',     labelKey: 'app.logHelpers.mail', label: 'Mail', match: (p) => /(mail|postfix|dovecot|exim)/i.test(p) },
-    { id: 'security', labelKey: 'app.logHelpers.security', label: 'Security', match: (p) => /(fail2ban|ufw|iptables|audit)/i.test(p) },
+    { id: 'security', labelKey: 'common.labels.security', label: 'Security', match: (p) => /(fail2ban|ufw|iptables|audit)/i.test(p) },
 ];
 
 export function categoriseLog(log) {

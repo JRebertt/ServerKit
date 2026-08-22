@@ -18,13 +18,13 @@ import { translateLabel } from '../i18n/labels';
 // `?focus=create:<kind>` deep link, which the destination page opens via
 // useFocusParam.
 const CREATE_ITEMS = [
-    { kind: 'service', labelKey: 'app.quickCreate.service', label: 'Service', icon: Boxes, path: '/services/new' },
-    { kind: 'server', labelKey: 'app.quickCreate.server', label: 'Server', icon: Server, path: '/servers?focus=create:server' },
+    { kind: 'service', labelKey: 'common.labels.service', label: 'Service', icon: Boxes, path: '/services/new' },
+    { kind: 'server', labelKey: 'common.labels.server', label: 'Server', icon: Server, path: '/servers?focus=create:server' },
     { kind: 'monitor', labelKey: 'app.quickCreate.monitor', label: 'Monitor', icon: Activity, path: '/monitoring/monitors?focus=create:monitor' },
-    { kind: 'domain', labelKey: 'app.quickCreate.domain', label: 'Domain', icon: Globe, path: '/domains?focus=create:domain' },
+    { kind: 'domain', labelKey: 'common.labels.domain', label: 'Domain', icon: Globe, path: '/domains?focus=create:domain' },
     { kind: 'cron', labelKey: 'app.quickCreate.cronJob', label: 'Cron job', icon: Clock, path: '/cron?focus=create:cron' },
-    { kind: 'workspace', labelKey: 'app.quickCreate.workspace', label: 'Workspace', icon: LayoutGrid, path: '/workspaces?focus=create:workspace' },
-    { kind: 'project', labelKey: 'app.quickCreate.project', label: 'Project', icon: FolderKanban, path: '/projects?focus=create:project' },
+    { kind: 'workspace', labelKey: 'common.labels.workspace', label: 'Workspace', icon: LayoutGrid, path: '/workspaces?focus=create:workspace' },
+    { kind: 'project', labelKey: 'common.labels.project', label: 'Project', icon: FolderKanban, path: '/projects?focus=create:project' },
 ];
 
 export function QuickCreate({ className, variant = 'icon' }) {

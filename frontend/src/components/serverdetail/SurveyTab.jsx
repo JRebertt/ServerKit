@@ -264,7 +264,7 @@ const SurveyTab = ({ serverId, serverStatus, server }) => {
             {map ? (
                 <>
                     <section className="survey-tab__section">
-                        <h3 className="survey-tab__section-title"><Boxes size={15} aria-hidden="true" /> {t('app.surveyTab.services', 'Services')}</h3>
+                        <h3 className="survey-tab__section-title"><Boxes size={15} aria-hidden="true" /> {t('common.labels.services', 'Services')}</h3>
                         <ServiceGrid services={map.services} />
                     </section>
 
@@ -274,7 +274,7 @@ const SurveyTab = ({ serverId, serverStatus, server }) => {
                     </section>
 
                     <SimpleList
-                        icon={Database} title={t('app.surveyTab.databases', 'Databases')} items={map.databases}
+                        icon={Database} title={t('common.labels.databases', 'Databases')} items={map.databases}
                         empty="No database engines detected."
                         render={(d) => (
                             <>
@@ -404,7 +404,7 @@ function ServiceGrid({ services }) {
 const SITE_COLUMNS = [
     {
         key: 'domain',
-        headerKey: 'app.surveyTab.domain', header: 'Domain',
+        headerKey: 'common.labels.domain', header: 'Domain',
         sortable: true,
         hideable: false,
         sortValue: (s) => s.domain || '',

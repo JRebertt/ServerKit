@@ -39,7 +39,7 @@ const SetupHealthWidget = () => {
                 <span>{t('app.setupHealthWidget.setupHealth', 'Setup Health')}</span>
                 <span className="setup-health-widget__muted">
                     {loading
-                        ? t('app.setupHealthWidget.checking', 'Checking…')
+                        ? t('common.checking', 'Checking…')
                         : t('app.setupHealthWidget.unavailable', 'Unavailable')}
                 </span>
             </div>
@@ -74,7 +74,7 @@ const SetupHealthWidget = () => {
     return (
         <div className="setup-health-widget">
             <ShieldAlert size={16} className="setup-health-widget__icon" />
-            <span className="setup-health-widget__title">{t('app.setupHealthWidget.setupHealth3', 'Setup Health')}</span>
+            <span className="setup-health-widget__title">{t('app.setupHealthWidget.setupHealth', 'Setup Health')}</span>
             <span className="setup-health-widget__score mono">{summary.score}%</span>
             <progress max="100" value={summary.score} aria-label={t('app.setupHealthWidget.progress', 'Setup health progress')} />
             <span className="setup-health-widget__summary">

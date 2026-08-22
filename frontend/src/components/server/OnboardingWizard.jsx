@@ -17,7 +17,7 @@ const ONBOARDING_POLL_MS = 3000;
 const STEPS = [
     { id: 'validating', labelKey: 'app.onboardingWizard.validate', label: 'Validate', descriptionKey: 'app.onboardingWizard.checkServerDetailsCompatibility', description: 'Check server details & compatibility' },
     { id: 'installing_prerequisites', labelKey: 'app.onboardingWizard.prerequisites', label: 'Prerequisites', descriptionKey: 'app.onboardingWizard.installBasePackages', description: 'Install base packages' },
-    { id: 'installing_docker', labelKey: 'app.onboardingWizard.docker', label: 'Docker', descriptionKey: 'app.onboardingWizard.ensureDockerIsAvailable', description: 'Ensure Docker is available' },
+    { id: 'installing_docker', labelKey: 'common.labels.docker', label: 'Docker', descriptionKey: 'app.onboardingWizard.ensureDockerIsAvailable', description: 'Ensure Docker is available' },
     { id: 'pairing_agent', labelKey: 'app.onboardingWizard.pairAgent', label: 'Pair Agent', descriptionKey: 'app.onboardingWizard.connectTheManagementAgent', description: 'Connect the management agent' },
     { id: 'ready', labelKey: 'app.onboardingWizard.ready', label: 'Ready', descriptionKey: 'app.onboardingWizard.serverIsProvisioned', description: 'Server is provisioned' },
 ];

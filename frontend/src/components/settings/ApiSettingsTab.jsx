@@ -167,7 +167,7 @@ const ApiKeysSection = () => {
     const keyColumns = [
         {
             key: 'name',
-            headerKey: 'app.apiSettingsTab.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -178,7 +178,7 @@ const ApiKeysSection = () => {
         },
         {
             key: 'key',
-            headerKey: 'app.apiSettingsTab.key', header: 'Key',
+            headerKey: 'common.labels.key', header: 'Key',
             // Searchable by prefix: that is the only part of a key that ever
             // appears again after creation, so it is how a log line gets
             // matched back to a row here.
@@ -235,7 +235,7 @@ const ApiKeysSection = () => {
         },
         {
             key: 'status',
-            headerKey: 'app.apiSettingsTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: keyStatus,
@@ -250,7 +250,7 @@ const ApiKeysSection = () => {
         },
         {
             key: 'actions',
-            headerKey: 'app.apiSettingsTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'api-settings__actions',
@@ -329,7 +329,7 @@ const ApiKeysSection = () => {
             <GridChips {...chrome.chipProps} />
 
             {loading ? (
-                <div className="settings-card__loading">{t('app.apiSettingsTab.loading', 'Loading...')}</div>
+                <div className="settings-card__loading">{t('common.loading', 'Loading…')}</div>
             ) : keys.length === 0 ? (
                 <EmptyState
                     icon={Key}
@@ -466,7 +466,7 @@ const DELIVERY_COLUMNS = [
     },
     {
         key: 'status',
-        headerKey: 'app.apiSettingsTab.status2', header: 'Status',
+        headerKey: 'common.labels.status', header: 'Status',
         sortable: true,
         sortValue: (d) => d.status || '',
         render: (d) => (
@@ -491,7 +491,7 @@ const DELIVERY_COLUMNS = [
     },
     {
         key: 'time',
-        headerKey: 'app.apiSettingsTab.time', header: 'Time',
+        headerKey: 'common.labels.time', header: 'Time',
         sortable: true,
         sortValue: (d) => (d.created_at ? new Date(d.created_at).getTime() : null),
         cellClassName: 'api-settings__muted',
@@ -580,7 +580,7 @@ const WebhookSection = () => {
             </div>
 
             {loading ? (
-                <div className="settings-card__loading">{t('app.apiSettingsTab.loading2', 'Loading...')}</div>
+                <div className="settings-card__loading">{t('common.loading', 'Loading…')}</div>
             ) : subscriptions.length === 0 ? (
                 <EmptyState
                     icon={Zap}
@@ -615,10 +615,10 @@ const WebhookSection = () => {
                                 <div className="api-settings__webhook-details">
                                     <div className="api-settings__webhook-actions">
                                         <Button variant="outline" size="sm" onClick={() => handleTest(sub.id)}>
-                                            <Send size={14} /> {t('app.apiSettingsTab.test', 'Test')}
+                                            <Send size={14} /> {t('common.actions.test', 'Test')}
                                         </Button>
                                         <Button variant="outline" size="sm" onClick={() => setEditingSub(sub)}>
-                                            {t('app.apiSettingsTab.edit', 'Edit')}
+                                            {t('common.actions.edit', 'Edit')}
                                         </Button>
                                         <Button
                                             variant="ghost"
@@ -626,7 +626,7 @@ const WebhookSection = () => {
                                             onClick={() => handleDelete(sub.id)}
                                             className="text-destructive hover:text-destructive"
                                         >
-                                            <Trash2 size={14} /> {t('app.apiSettingsTab.delete', 'Delete')}
+                                            <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                                         </Button>
                                         <Button variant="ghost" size="sm" onClick={() => loadDeliveries(sub.id)}>
                                             <RefreshCw size={14} />
@@ -766,7 +766,7 @@ const AnalyticsSection = () => {
             </div>
 
             {loading ? (
-                <div className="settings-card__loading">{t('app.apiSettingsTab.loading3', 'Loading...')}</div>
+                <div className="settings-card__loading">{t('common.loading', 'Loading…')}</div>
             ) : (
                 <>
                     {overview && (

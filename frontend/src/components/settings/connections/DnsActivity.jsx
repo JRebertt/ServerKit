@@ -59,8 +59,8 @@ export default function DnsActivity({ configId, limit = 25 }) {
             <table className="dns-activity__table">
                 <thead>
                     <tr>
-                        <th>{t('app.dnsActivity.time', 'Time')}</th>
-                        <th>{t('app.dnsActivity.action', 'Action')}</th>
+                        <th>{t('common.labels.time', 'Time')}</th>
+                        <th>{t('common.labels.action', 'Action')}</th>
                         <th>{t('app.dnsActivity.record', 'Record')}</th>
                         <th>{t('app.dnsActivity.result', 'Result')}</th>
                     </tr>

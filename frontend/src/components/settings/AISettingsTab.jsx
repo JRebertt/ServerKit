@@ -100,7 +100,7 @@ const AISettingsTab = () => {
         return <div className="settings-section"><p>{t('app.aISettingsTab.adminAccessRequired', 'Admin access required.')}</p></div>;
     }
     if (loading) {
-        return <div className="settings-section"><p>{t('app.aISettingsTab.loading', 'Loading…')}</p></div>;
+        return <div className="settings-section"><p>{t('common.loading', 'Loading…')}</p></div>;
     }
 
     const activeProvider = providers.find((p) => p.id === settings.provider);

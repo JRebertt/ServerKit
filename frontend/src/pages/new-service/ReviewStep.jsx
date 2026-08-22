@@ -121,7 +121,7 @@ const ReviewStep = ({ form }) => {
                                 {(activeManifest.manifest_v1.databases || []).length > 0 && (
                                     <div className="new-service-page__manifest-row">
                                         <span className="new-service-page__manifest-row-label">
-                                            <Database size={13} /> {t('app.reviewStep.databases', 'Databases')}
+                                            <Database size={13} /> {t('common.labels.databases', 'Databases')}
                                         </span>
                                         <div className="new-service-page__manifest-tags">
                                             {activeManifest.manifest_v1.databases.map(db => <span key={db}>{db}</span>)}
@@ -131,7 +131,7 @@ const ReviewStep = ({ form }) => {
                                 {(activeManifest.manifest_v1.domains || []).length > 0 && (
                                     <div className="new-service-page__manifest-row">
                                         <span className="new-service-page__manifest-row-label">
-                                            <Globe size={13} /> {t('app.reviewStep.domains', 'Domains')}
+                                            <Globe size={13} /> {t('common.labels.domains', 'Domains')}
                                         </span>
                                         <div className="new-service-page__manifest-tags">
                                             {activeManifest.manifest_v1.domains.map(domain => (
@@ -144,9 +144,9 @@ const ReviewStep = ({ form }) => {
                         ) : (
                             <>
                                 <div className="new-service-page__manifest-grid">
-                                    <div><span>{t('app.reviewStep.type', 'Type')}</span><strong>{formatAppType(recommended.app_type)}</strong></div>
+                                    <div><span>{t('common.labels.type', 'Type')}</span><strong>{formatAppType(recommended.app_type)}</strong></div>
                                     <div><span>{t('app.reviewStep.build', 'Build')}</span><strong>{formatBuildMethod(recommended.build_method)}</strong></div>
-                                    <div><span>{t('app.reviewStep.port', 'Port')}</span><strong>{recommended.port || 'Auto'}</strong></div>
+                                    <div><span>{t('common.labels.port', 'Port')}</span><strong>{recommended.port || 'Auto'}</strong></div>
                                 </div>
                                 {(activeManifest.manifests || []).length > 0 && (
                                     <div className="new-service-page__manifest-files">
@@ -211,7 +211,7 @@ const ReviewStep = ({ form }) => {
                 </div>
                 {showBuild && (
                     <div className="new-service-page__field">
-                        <Label htmlFor="review-branch">{t('app.reviewStep.branch', 'Branch')}</Label>
+                        <Label htmlFor="review-branch">{t('common.labels.branch', 'Branch')}</Label>
                         <Input
                             id="review-branch"
                             value={branch}
@@ -279,7 +279,7 @@ const ReviewStep = ({ form }) => {
             <div className="new-service-page__fields-grid">
                 <div className="new-service-page__field">
                     <Label>
-                        {t('app.reviewStep.project', 'Project')} <span className="new-service-page__optional">(optional)</span>
+                        {t('common.labels.project', 'Project')} <span className="new-service-page__optional">(optional)</span>
                     </Label>
                     <ResourcePicker
                         value={selectedProjectResource}
@@ -288,7 +288,7 @@ const ReviewStep = ({ form }) => {
                         scope={resourceScope}
                         staticOptions={[noProjectOption]}
                         icon={FolderKanban}
-                        label={t('app.reviewStep.project', 'Project')}
+                        label={t('common.labels.project', 'Project')}
                         placeholder={t('app.reviewStep.noProject', 'No project')}
                         searchPlaceholder={t('app.projects.searchProjects', 'Search projects…')}
                         className="new-service-page__resource-picker"
@@ -296,16 +296,16 @@ const ReviewStep = ({ form }) => {
                 </div>
                 {selectedProjectId && (
                     <div className="new-service-page__field">
-                        <Label>{t('app.reviewStep.environment2', 'Environment')}</Label>
+                        <Label>{t('app.reviewStep.environment', 'Environment')}</Label>
                         <ResourcePicker
                             value={selectedEnvironmentResource}
                             onChange={(resource) => setSelectedEnvironmentId(resource.id)}
                             types={['environment']}
                             scope={{ ...resourceScope, projectId: selectedProjectId }}
                             icon={Layers3}
-                            label={t('app.reviewStep.environment2', 'Environment')}
-                            placeholder={t('app.reviewStep.environment2', 'Environment')}
-                            searchPlaceholder={t('app.reviewStep.environment2', 'Environment')}
+                            label={t('app.reviewStep.environment', 'Environment')}
+                            placeholder={t('app.reviewStep.environment', 'Environment')}
+                            searchPlaceholder={t('app.reviewStep.environment', 'Environment')}
                             className="new-service-page__resource-picker"
                         />
                     </div>

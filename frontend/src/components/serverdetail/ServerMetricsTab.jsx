@@ -18,11 +18,11 @@ const ServerMetricsTab = ({ serverId, metrics }) => {
                                 <span className="live-stat-value">{(metrics.cpu_percent || 0).toFixed(1)}%</span>
                             </div>
                             <div className="live-stat">
-                                <span className="live-stat-label">{t('app.serverMetricsTab.memory', 'Memory')}</span>
+                                <span className="live-stat-label">{t('common.labels.memory', 'Memory')}</span>
                                 <span className="live-stat-value">{(metrics.memory_percent || 0).toFixed(1)}%</span>
                             </div>
                             <div className="live-stat">
-                                <span className="live-stat-label">{t('app.serverMetricsTab.disk', 'Disk')}</span>
+                                <span className="live-stat-label">{t('common.labels.disk', 'Disk')}</span>
                                 <span className="live-stat-value">{(metrics.disk_percent || 0).toFixed(1)}%</span>
                             </div>
                             <div className="live-stat">

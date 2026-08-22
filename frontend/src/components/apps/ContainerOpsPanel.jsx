@@ -435,7 +435,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
             toast.success(t('app.containerOpsPanel.autoScalePolicySaved', 'Auto-scale policy saved.'));
             onChanged?.();
         } catch (err) {
-            toast.error(err.message || t('app.containerOpsPanel.failedToSavePolicy2', 'Failed to save policy'));
+            toast.error(err.message || t('app.containerOpsPanel.failedToSavePolicy', 'Failed to save policy'));
         } finally {
             setSaving(false);
         }

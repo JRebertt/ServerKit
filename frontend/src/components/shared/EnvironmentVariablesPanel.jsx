@@ -179,9 +179,9 @@ const EnvironmentVariablesPanel = ({ resourceType, resourceId }) => {
                 <table className="shared-vars-table">
                     <thead>
                         <tr>
-                            <th>{t('app.environmentVariablesPanel.key', 'Key')}</th>
-                            <th>{t('app.environmentVariablesPanel.value', 'Value')}</th>
-                            <th>{t('app.environmentVariablesPanel.source', 'Source')}</th>
+                            <th>{t('common.labels.key', 'Key')}</th>
+                            <th>{t('common.labels.value', 'Value')}</th>
+                            <th>{t('common.labels.source', 'Source')}</th>
                         </tr>
                     </thead>
                     <tbody>

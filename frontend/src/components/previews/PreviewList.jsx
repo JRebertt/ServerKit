@@ -117,7 +117,7 @@ const PreviewList = ({ appId }) => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="cards" title={t('app.previewList.loadingPreviews', 'Loading previews...')} />;
+        return <EmptyState loading loadingVariant="cards" title={t('app.previewList.loadingPreviews', 'Loading previews…')} />;
     }
 
     const enabled = !!settings?.enabled;
@@ -163,7 +163,7 @@ const PreviewList = ({ appId }) => {
                                 onClick={handleSaveTemplate}
                                 disabled={saving || template === settings?.domain_template}
                             >
-                                {t('app.previewList.save', 'Save')}
+                                {t('common.actions.save', 'Save')}
                             </Button>
                         </div>
                         <p className="preview-settings__hint">
@@ -223,7 +223,7 @@ const PreviewList = ({ appId }) => {
                                     <Button variant="ghost" size="sm" asChild>
                                         <a href={p.url} target="_blank" rel="noopener noreferrer">
                                             <ExternalLink size={15} />
-                                            {t('app.previewList.open', 'Open')}
+                                            {t('common.actions.open', 'Open')}
                                         </a>
                                     </Button>
                                 )}
@@ -243,7 +243,7 @@ const PreviewList = ({ appId }) => {
                                     disabled={busyId === p.id}
                                 >
                                     <Trash2 size={15} />
-                                    {t('app.previewList.destroy3', 'Destroy')}
+                                    {t('app.previewList.destroy', 'Destroy')}
                                 </Button>
                             </div>
                         </li>

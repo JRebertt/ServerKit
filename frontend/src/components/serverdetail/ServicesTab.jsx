@@ -198,7 +198,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                     ? t('app.servicesTab.stopUnitConfirm', 'Stop {{unit}}?', { unit: unit })
                     : t('app.servicesTab.restartUnitConfirm', 'Restart {{unit}}?', { unit: unit }),
                 variant: 'warning',
-                confirmText: action === 'stop' ? t('app.servicesTab.stop', 'Stop') : t('app.servicesTab.restart', 'Restart'),
+                confirmText: action === 'stop' ? t('common.actions.stop', 'Stop') : t('common.actions.restart', 'Restart'),
             });
             if (!ok) return;
         }
@@ -304,7 +304,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
         },
         {
             key: 'state',
-            headerKey: 'app.servicesTab.state', header: 'State',
+            headerKey: 'common.labels.state', header: 'State',
             sortable: true,
             // Declared, not inferred: systemd's ACTIVE vocabulary is six words
             // wide, but a host where every unit is active offers ONE distinct
@@ -334,7 +334,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
             render: (u) => u.pid ?? '—',
         }] : [{
             key: 'description',
-            headerKey: 'app.servicesTab.description', header: 'Description',
+            headerKey: 'common.labels.description', header: 'Description',
             sortable: true,
             type: 'text',
             value: (u) => u.description || '',
@@ -354,21 +354,21 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                         size="sm" variant="outline"
                         disabled={busyUnit === u.unit}
                         onClick={() => control(u.unit, 'start')}
-                    >{t('app.servicesTab.start', 'Start')}</Button>
+                    >{t('common.actions.start', 'Start')}</Button>
                     <Button
                         size="sm" variant="outline"
                         disabled={busyUnit === u.unit}
                         onClick={() => control(u.unit, 'stop')}
-                    >{t('app.servicesTab.stop2', 'Stop')}</Button>
+                    >{t('common.actions.stop', 'Stop')}</Button>
                     <Button
                         size="sm" variant="outline"
                         disabled={busyUnit === u.unit}
                         onClick={() => control(u.unit, 'restart')}
-                    >{t('app.servicesTab.restart2', 'Restart')}</Button>
+                    >{t('common.actions.restart', 'Restart')}</Button>
                     <Button
                         size="sm" variant="outline"
                         onClick={() => openLogs(u.unit)}
-                    >{t('app.servicesTab.logs', 'Logs')}</Button>
+                    >{t('common.labels.logs', 'Logs')}</Button>
                 </>
             ),
         },
@@ -448,7 +448,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
             <GridChips {...chrome.chipProps} />
 
             {loading ? (
-                <p className="text-muted-foreground">{t('app.servicesTab.loading', 'Loading…')}</p>
+                <p className="text-muted-foreground">{t('common.loading', 'Loading…')}</p>
             ) : filtered.length === 0 ? (
                 <p className="text-muted-foreground">{t('app.servicesTab.noMatchingUnits', 'No matching units.')}</p>
             ) : (
@@ -489,7 +489,7 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                     <>
                         <div className="preview-drawer-meta">
                             <div className="meta-item">
-                                <span className="meta-label">{t('app.servicesTab.state2', 'State')}</span>
+                                <span className="meta-label">{t('common.labels.state', 'State')}</span>
                                 <span className="meta-value">
                                     {logsUnit.active || logsUnit.sub || 'unknown'}
                                 </span>
@@ -507,17 +507,17 @@ const ServicesTab = ({ serverId = null, serverStatus = 'online' }) => {
                                 className="drawer-action-btn"
                                 onClick={() => control(logsFor.unit, 'start')}
                                 disabled={busyUnit === logsFor.unit}
-                            >{t('app.servicesTab.start2', 'Start')}</button>
+                            >{t('common.actions.start', 'Start')}</button>
                             <button type="button"
                                 className="drawer-action-btn"
                                 onClick={() => control(logsFor.unit, 'stop')}
                                 disabled={busyUnit === logsFor.unit}
-                            >{t('app.servicesTab.stop3', 'Stop')}</button>
+                            >{t('common.actions.stop', 'Stop')}</button>
                             <button type="button"
                                 className="drawer-action-btn"
                                 onClick={() => control(logsFor.unit, 'restart')}
                                 disabled={busyUnit === logsFor.unit}
-                            >{t('app.servicesTab.restart3', 'Restart')}</button>
+                            >{t('common.actions.restart', 'Restart')}</button>
                         </div>
 
                         <LogToolbar

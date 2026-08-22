@@ -351,7 +351,7 @@ const Sidebar = ({ mobileOpen = false, isMobile = false, onMobileClose = () => {
                     <div className="brand-logo">
                         <Server size={19} strokeWidth={2} aria-hidden="true" />
                     </div>
-                    <span className="brand-text">{t('app.sidebar.serverkit', 'ServerKit')}</span>
+                    <span className="brand-text">{t('common.labels.serverKit', 'ServerKit')}</span>
                     <a
                         href="https://github.com/jhd3197/ServerKit"
                         target="_blank"

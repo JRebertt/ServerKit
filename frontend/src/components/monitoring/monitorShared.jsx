@@ -7,7 +7,7 @@ import { statusKind } from '@/components/ds/status';
 export const CHECK_TYPES = [
     { value: 'http', label: 'HTTP', hintKey: 'app.monitorShared.statusCodeOfAUrl', hint: 'status code of a URL' },
     { value: 'keyword', labelKey: 'app.monitorShared.keyword', label: 'Keyword', hintKey: 'app.monitorShared.urlMustContainAPhrase', hint: 'URL must contain a phrase' },
-    { value: 'tcp', labelKey: 'app.monitorShared.port', label: 'Port', hintKey: 'app.monitorShared.hostPortAcceptsAConnection', hint: 'host:port accepts a connection' },
+    { value: 'tcp', labelKey: 'common.labels.port', label: 'Port', hintKey: 'app.monitorShared.hostPortAcceptsAConnection', hint: 'host:port accepts a connection' },
     { value: 'ping', labelKey: 'app.monitorShared.ping', label: 'Ping', hintKey: 'app.monitorShared.hostAnswersIcmp', hint: 'host answers ICMP' },
     { value: 'dns', label: 'DNS', hintKey: 'app.monitorShared.nameResolves', hint: 'name resolves' },
     { value: 'smtp', label: 'SMTP', hintKey: 'app.monitorShared.mailServerGreets', hint: 'mail server greets' },
@@ -26,17 +26,17 @@ export const MONITOR_STATUS = [
 // outage. Resolve it here, once.
 export function monitorStateOf(monitor) {
     if (!monitor) return { key: 'unknown', labelKey: 'app.monitorShared.unknown', label: 'Unknown', tone: 'gray' };
-    if (monitor.is_paused) return { key: 'paused', labelKey: 'app.monitorShared.paused2', label: 'Paused', tone: 'gray' };
+    if (monitor.is_paused) return { key: 'paused', labelKey: 'app.monitorShared.paused', label: 'Paused', tone: 'gray' };
     switch (monitor.status) {
         case 'operational':
-            return { key: 'up', labelKey: 'app.monitorShared.operational2', label: 'Operational', tone: 'green' };
+            return { key: 'up', labelKey: 'app.monitorShared.operational', label: 'Operational', tone: 'green' };
         case 'degraded':
         case 'partial_outage':
-            return { key: 'degraded', labelKey: 'app.monitorShared.degraded2', label: 'Degraded', tone: 'amber' };
+            return { key: 'degraded', labelKey: 'app.monitorShared.degraded', label: 'Degraded', tone: 'amber' };
         case 'major_outage':
-            return { key: 'down', labelKey: 'app.monitorShared.down2', label: 'Down', tone: 'red' };
+            return { key: 'down', labelKey: 'app.monitorShared.down', label: 'Down', tone: 'red' };
         case 'maintenance':
-            return { key: 'maintenance', labelKey: 'app.monitorShared.maintenance2', label: 'Maintenance', tone: 'cyan' };
+            return { key: 'maintenance', labelKey: 'app.monitorShared.maintenance', label: 'Maintenance', tone: 'cyan' };
         default:
             return { key: 'unknown', label: monitor.status || 'Unknown', tone: 'gray' };
     }

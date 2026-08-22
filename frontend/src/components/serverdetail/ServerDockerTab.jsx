@@ -80,14 +80,14 @@ const IMAGE_COLUMNS = [
     },
     {
         key: 'size',
-        headerKey: 'app.serverDockerTab.size', header: 'Size',
+        headerKey: 'common.labels.size', header: 'Size',
         sortable: true,
         sortValue: (image) => parseDockerSize(image.size),
         render: (image) => image.size,
     },
     {
         key: 'created',
-        headerKey: 'app.serverDockerTab.created', header: 'Created',
+        headerKey: 'common.labels.created', header: 'Created',
         sortable: true,
         sortValue: (image) => image.created || null,
         render: (image) => image.created,
@@ -198,7 +198,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
     const containerColumns = [
         {
             key: 'name',
-            headerKey: 'app.serverDockerTab.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             sortValue: (container) => container.name || '',
@@ -218,7 +218,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
         },
         {
             key: 'status',
-            headerKey: 'app.serverDockerTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             sortValue: (container) => container.state || '',
             render: (container) => {
@@ -242,7 +242,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
         },
         {
             key: 'actions',
-            headerKey: 'app.serverDockerTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             cellClassName: 'actions-cell',
@@ -253,14 +253,14 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
                         <button type="button"
                             className="btn-icon"
                             onClick={() => handleContainerAction(container.id, 'restart')}
-                            title={t('app.serverDockerTab.restart', 'Restart')}
+                            title={t('common.actions.restart', 'Restart')}
                         >
                             <RefreshIcon />
                         </button>
                         <button type="button"
                             className="btn-icon danger"
                             onClick={() => handleContainerAction(container.id, 'stop')}
-                            title={t('app.serverDockerTab.stop', 'Stop')}
+                            title={t('common.actions.stop', 'Stop')}
                         >
                             <StopIcon />
                         </button>
@@ -270,14 +270,14 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
                         <button type="button"
                             className="btn-icon success"
                             onClick={() => handleContainerAction(container.id, 'start')}
-                            title={t('app.serverDockerTab.start', 'Start')}
+                            title={t('common.actions.start', 'Start')}
                         >
                             <PlayIcon />
                         </button>
                         <button type="button"
                             className="btn-icon danger"
                             onClick={() => handleContainerAction(container.id, 'remove')}
-                            title={t('app.serverDockerTab.remove', 'Remove')}
+                            title={t('common.actions.remove', 'Remove')}
                         >
                             <TrashIcon />
                         </button>
@@ -292,7 +292,7 @@ const ServerDockerTab = ({ serverId, serverStatus, server }) => {
             {loadError && (
                 <div className="docker-tab__error">
                     <strong>{t('app.serverDockerTab.couldnTLoadDockerData', 'Couldn\'t load Docker data:')}</strong> {loadError}
-                    <Button size="sm" variant="outline" onClick={loadDockerData}>{t('app.serverDockerTab.retry', 'Retry')}</Button>
+                    <Button size="sm" variant="outline" onClick={loadDockerData}>{t('common.actions.retry', 'Retry')}</Button>
                 </div>
             )}
             <div className="docker-sub-tabs">

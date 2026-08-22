@@ -186,10 +186,10 @@ const templateColumns = [
         // the moment anyone renamed the labels.
         sortValue: (t) => (isFeatured(t.id) ? 1 : 0),
     },
-    { key: 'kind', headerKey: 'app.templates.type', header: 'Type', type: 'enum', enumOrder: ['One-click', 'Git repo'], value: kindLabel, sortValue: kindLabel },
-    { key: 'version', headerKey: 'app.templates.version', header: 'Version', type: 'text', value: (t) => t.version || '', sortValue: (t) => t.version || '' },
+    { key: 'kind', headerKey: 'common.labels.type', header: 'Type', type: 'enum', enumOrder: ['One-click', 'Git repo'], value: kindLabel, sortValue: kindLabel },
+    { key: 'version', headerKey: 'common.labels.version', header: 'Version', type: 'text', value: (t) => t.version || '', sortValue: (t) => t.version || '' },
     { key: 'categories', headerKey: 'app.templates.categories', header: 'Categories', type: 'text', value: (t) => (t.categories || []).join(', ') },
-    { key: 'description', headerKey: 'app.templates.description', header: 'Description', type: 'text', value: (t) => t.description || '' },
+    { key: 'description', headerKey: 'common.labels.description', header: 'Description', type: 'text', value: (t) => t.description || '' },
 ];
 
 // Sort orders are built-in saved views now. The two-button Featured / A–Z strip
@@ -465,7 +465,7 @@ const Templates = () => {
                 setShowInstallModal(true);
             }
         } catch (err) {
-            toast.error(t('app.templates.failedToLoadTemplateDetails2', 'Failed to load template details'));
+            toast.error(t('app.templates.failedToLoadTemplateDetails', 'Failed to load template details'));
         }
     }
 
@@ -501,7 +501,7 @@ const Templates = () => {
     const filterGroups = [
         {
             key: 'kind',
-            labelKey: 'app.templates.type2', label: 'Type',
+            labelKey: 'common.labels.type', label: 'Type',
             type: 'single',
             options: KIND_OPTIONS.map(o => ({ ...o, count: optionCounts.byKind[o.value] || 0 })),
         },
@@ -623,7 +623,7 @@ const Templates = () => {
                         return (
                             <div key={template.id} className="tpl-card" onClick={() => handleDeploy(template)}>
                                 {isFeatured(template.id) && (
-                                    <span className="tpl-ft" title={t('app.templates.featured2', 'Featured')}>
+                                    <span className="tpl-ft" title={t('app.templates.featured', 'Featured')}>
                                         <Star size={14} />
                                     </span>
                                 )}
@@ -940,7 +940,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                         thing the template cannot decide for you. */}
                     {isRepo && (
                         <div className="sk-formdrawer__field">
-                            <label htmlFor="tpl-deploy-branch">{t('app.templates.branch', 'Branch')}</label>
+                            <label htmlFor="tpl-deploy-branch">{t('common.labels.branch', 'Branch')}</label>
                             <div className="sk-formdrawer__input">
                                 <GitBranch size={15} />
                                 <input
@@ -962,7 +962,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                         field would be worse than none. */}
                     {domainPreview && (
                         <div className="sk-formdrawer__field">
-                            <span className="sk-formdrawer__label">{t('app.templates.domain', 'Domain')}</span>
+                            <span className="sk-formdrawer__label">{t('common.labels.domain', 'Domain')}</span>
                             <div className="sk-formdrawer__input sk-formdrawer__input--readonly">
                                 <Globe size={15} />
                                 <span className="sk-formdrawer__domain">{domainPreview}</span>
@@ -1002,7 +1002,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                                             onChange={(e) => setVariables({...variables, [variable.name]: e.target.value})}
                                             required={variable.required}
                                         >
-                                            <option value="">{t('app.templates.select', 'Select...')}</option>
+                                            <option value="">{t('app.templates.select', 'Select…')}</option>
                                             {variable.options.map(opt => (
                                                 <option key={opt} value={opt}>{opt}</option>
                                             ))}
@@ -1035,7 +1035,7 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
 
                 <div className="sk-formdrawer__foot">
                     <Button type="button" variant="outline" onClick={onClose} disabled={installing}>
-                        {t('app.templates.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button type="submit" disabled={installing}>
                         <Rocket size={15} />

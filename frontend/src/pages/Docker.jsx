@@ -167,7 +167,7 @@ const Docker = () => {
     }
 
     if (loading) {
-        return <EmptyState loading loadingVariant="table" title={t('app.docker.checkingDockerStatus', 'Checking Docker status...')} />;
+        return <EmptyState loading loadingVariant="table" title={t('app.docker.checkingDockerStatus', 'Checking Docker status…')} />;
     }
 
     // No page header here: the unavailable panel below is its own heading, and
@@ -296,11 +296,11 @@ const Docker = () => {
                                 <strong>{stats.containers.stopped}</strong>
                             </div>
                             <div className="dx-inventory-item">
-                                <span>{t('app.docker.images2', 'Images')}</span>
+                                <span>{t('app.docker.images', 'Images')}</span>
                                 <strong>{stats.images.size}</strong>
                             </div>
                             <div className="dx-inventory-item">
-                                <span>{t('app.docker.volumes2', 'Volumes')}</span>
+                                <span>{t('app.docker.volumes', 'Volumes')}</span>
                                 <strong>{stats.volumes.total}</strong>
                             </div>
                         </div>
@@ -319,18 +319,18 @@ const Docker = () => {
 
                 <main className="dx-main">
                     <KpiBand>
-                        <MetricCard tone="accent" icon={<Box size={16} />} value={stats.containers.total} label={t('app.docker.containers2', 'Containers')}>
+                        <MetricCard tone="accent" icon={<Box size={16} />} value={stats.containers.total} label={t('app.docker.containers', 'Containers')}>
                             <div className="sk-kpi__sub"><span>{stats.containers.running} running</span></div>
                         </MetricCard>
-                        <MetricCard tone="cyan" icon={<Layers size={16} />} value={stats.images.total} label={t('app.docker.images3', 'Images')}>
+                        <MetricCard tone="cyan" icon={<Layers size={16} />} value={stats.images.total} label={t('app.docker.images', 'Images')}>
                             <div className="sk-kpi__sub"><span>{stats.images.size}</span></div>
                         </MetricCard>
-                        <MetricCard tone="violet" icon={<HardDrive size={16} />} value={stats.volumes.total} label={t('app.docker.volumes3', 'Volumes')} />
-                        <MetricCard tone="green" icon={<NetworkIcon size={16} />} value={stats.networks.total} label={t('app.docker.networks2', 'Networks')} />
+                        <MetricCard tone="violet" icon={<HardDrive size={16} />} value={stats.volumes.total} label={t('app.docker.volumes', 'Volumes')} />
+                        <MetricCard tone="green" icon={<NetworkIcon size={16} />} value={stats.networks.total} label={t('app.docker.networks', 'Networks')} />
                     </KpiBand>
                     <div className="dx-workbar">
                         <div className="dx-workbar-title">
-                            <span>{t('app.docker.docker', 'Docker')}</span>
+                            <span>{t('common.labels.docker', 'Docker')}</span>
                             <strong>{activeTabMeta.label}</strong>
                             {hasMultipleTargets && <em>{selectedServer.name || selectedServer.id}</em>}
                         </div>

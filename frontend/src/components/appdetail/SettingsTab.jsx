@@ -114,7 +114,7 @@ const SettingsTab = ({ app, onUpdate }) => {
                                 <option value="production">{t('app.settingsTab.production', 'Production')}</option>
                             </select>
                         )}
-                        {savingEnvironment && <span className="settings-saving">{t('app.settingsTab.saving', 'Saving...')}</span>}
+                        {savingEnvironment && <span className="settings-saving">{t('common.editing.saving', 'Saving…')}</span>}
                     </div>
                 </div>
 

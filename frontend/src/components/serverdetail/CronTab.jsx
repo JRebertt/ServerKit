@@ -196,7 +196,7 @@ const CronTab = ({ serverId, serverStatus }) => {
     const cronColumns = [
         {
             key: 'schedule',
-            headerKey: 'app.cronTab.schedule', header: 'Schedule',
+            headerKey: 'common.labels.schedule', header: 'Schedule',
             sortable: true,
             hideable: false,
             // A cron expression is a fragment you type ('0 3'), not a value you
@@ -215,7 +215,7 @@ const CronTab = ({ serverId, serverStatus }) => {
         },
         {
             key: 'command',
-            headerKey: 'app.cronTab.command', header: 'Command',
+            headerKey: 'common.labels.command', header: 'Command',
             sortable: true,
             // Paths and flags: high cardinality, so contains/starts-with is the
             // useful control here too.
@@ -231,7 +231,7 @@ const CronTab = ({ serverId, serverStatus }) => {
         },
         {
             key: 'status',
-            headerKey: 'app.cronTab.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a crontab with two entries fails the enum
             // cardinality test and would fall back to text, which turns the
@@ -249,7 +249,7 @@ const CronTab = ({ serverId, serverStatus }) => {
         },
         {
             key: 'actions',
-            headerKey: 'app.cronTab.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             className: 'actions-cell',
@@ -259,14 +259,14 @@ const CronTab = ({ serverId, serverStatus }) => {
                     <button type="button"
                         className="btn-icon"
                         onClick={() => handleToggle(job)}
-                        title={job.enabled ? t('app.cronTab.disable', 'Disable') : t('app.cronTab.enable', 'Enable')}
+                        title={job.enabled ? t('common.actions.disable', 'Disable') : t('common.actions.enable', 'Enable')}
                     >
                         {job.enabled ? <StopIcon /> : <PlayIcon />}
                     </button>
                     <button type="button"
                         className="btn-icon danger"
                         onClick={() => handleRemove(job)}
-                        title={t('app.cronTab.remove', 'Remove')}
+                        title={t('common.actions.remove', 'Remove')}
                     >
                         <TrashIcon />
                     </button>
@@ -320,7 +320,7 @@ const CronTab = ({ serverId, serverStatus }) => {
                         the rows it is counting. */}
                 </div>
                 <div className="cron-tab__actions">
-                    <Button variant="outline" onClick={loadJobs}>{t('app.cronTab.refresh', 'Refresh')}</Button>
+                    <Button variant="outline" onClick={loadJobs}>{t('common.actions.refresh', 'Refresh')}</Button>
                     <Button onClick={() => setShowAddModal(true)} disabled={status?.available === false}>
                         {t('app.cronTab.addJob', 'Add Job')}
                     </Button>
@@ -405,7 +405,7 @@ const CronTab = ({ serverId, serverStatus }) => {
                             />
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="cron-schedule">{t('app.cronTab.schedule2', 'Schedule')}</Label>
+                            <Label htmlFor="cron-schedule">{t('common.labels.schedule', 'Schedule')}</Label>
                             <Select
                                 value={Object.keys(PRESET_LABELS).includes(form.schedule) ? form.schedule : 'custom'}
                                 onValueChange={(value) => {
@@ -433,7 +433,7 @@ const CronTab = ({ serverId, serverStatus }) => {
                             <p className="text-xs text-muted-foreground">{t('app.cronTab.5FieldsMinuteHourDayMonth', '5 fields: minute, hour, day, month, weekday.')}</p>
                         </div>
                         <div className="space-y-1.5">
-                            <Label htmlFor="cron-command">{t('app.cronTab.command2', 'Command')}</Label>
+                            <Label htmlFor="cron-command">{t('common.labels.command', 'Command')}</Label>
                             <Textarea
                                 id="cron-command"
                                 rows={3}
@@ -445,7 +445,7 @@ const CronTab = ({ serverId, serverStatus }) => {
                             <p className="text-xs text-muted-foreground">{t('app.cronTab.absolutePathShellOperatorsAreNot', 'Absolute path. Shell operators (;, &&, |, $(), >, <) are not allowed.')}</p>
                         </div>
                         <div className="modal-actions">
-                            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={submitting}>{t('app.cronTab.cancel', 'Cancel')}</Button>
+                            <Button type="button" variant="outline" onClick={() => setShowAddModal(false)} disabled={submitting}>{t('common.actions.cancel', 'Cancel')}</Button>
                             <Button type="submit" disabled={submitting}>{submitting ? 'Adding…' : 'Add Job'}</Button>
                         </div>
                     </form>

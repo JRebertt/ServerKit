@@ -86,7 +86,7 @@ const WhiteLabelTab = () => {
                                                     size="sm"
                                                     onClick={(e) => { e.stopPropagation(); setWhiteLabel({ logoData: '' }); }}
                                                 >
-                                                    <X size={12} /> {t('app.whiteLabelTab.remove', 'Remove')}
+                                                    <X size={12} /> {t('common.actions.remove', 'Remove')}
                                                 </Button>
                                             </div>
                                         ) : (
@@ -125,7 +125,7 @@ const WhiteLabelTab = () => {
                                 {whiteLabel.mode === 'image_full' ? (
                                     <div className="brand-custom-banner">
                                         {whiteLabel.logoData ? (
-                                            <img src={whiteLabel.logoData} alt={t('app.whiteLabelTab.preview2', 'Preview')} />
+                                            <img src={whiteLabel.logoData} alt={t('app.whiteLabelTab.preview', 'Preview')} />
                                         ) : (
                                             <Layers size={24} />
                                         )}
@@ -138,7 +138,7 @@ const WhiteLabelTab = () => {
                                     <>
                                         <div className="brand-custom-logo">
                                             {whiteLabel.logoData ? (
-                                                <img src={whiteLabel.logoData} alt={t('app.whiteLabelTab.preview3', 'Preview')} />
+                                                <img src={whiteLabel.logoData} alt={t('app.whiteLabelTab.preview', 'Preview')} />
                                             ) : (
                                                 <Layers size={16} />
                                             )}

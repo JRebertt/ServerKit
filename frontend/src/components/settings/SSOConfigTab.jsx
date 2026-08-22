@@ -146,7 +146,7 @@ const SSOConfigTab = () => {
     }
 
     if (loading) {
-        return <div className="settings-section"><p>{t('app.sSOConfigTab.loadingSsoConfiguration', 'Loading SSO configuration...')}</p></div>;
+        return <div className="settings-section"><p>{t('app.sSOConfigTab.loadingSsoConfiguration', 'Loading SSO configuration…')}</p></div>;
     }
 
     return (
@@ -275,7 +275,7 @@ const SSOConfigTab = () => {
                             <div className="sso-provider-config__body">
                                 <div className="settings-row">
                                     <div className="settings-label">
-                                        <Label>{t('app.sSOConfigTab.enable', 'Enable')} {provider.name}</Label>
+                                        <Label>{t('common.actions.enable', 'Enable')} {provider.name}</Label>
                                     </div>
                                     <div className="settings-control">
                                         <Switch
@@ -300,7 +300,7 @@ const SSOConfigTab = () => {
                                                 type={field.includes('secret') ? 'password' : 'text'}
                                                 value={getFieldValue(provider.id, field)}
                                                 onChange={e => setFieldValue(provider.id, field, e.target.value)}
-                                                placeholder={t('app.sSOConfigTab.enter2', 'Enter {{value}}', { value: FIELD_LABELS[field] })}
+                                                placeholder={t('app.sSOConfigTab.enter', 'Enter {{value}}', { value: FIELD_LABELS[field] })}
                                             />
                                         )}
                                     </div>

@@ -275,7 +275,7 @@ const ServiceDetail = () => {
                 title={(
                     <>
                         <span className="svc-crumbs">
-                            <Link to="/services">{t('app.serviceDetail.services', 'Services')}</Link>
+                            <Link to="/services">{t('common.labels.services', 'Services')}</Link>
                             <span className="svc-crumbs__sep">/</span>
                             <span className="svc-crumbs__cur">{service.name}</span>
                         </span>
@@ -385,7 +385,7 @@ const ServiceDetail = () => {
                                         <polyline points="3 6 5 6 21 6"/>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                     </svg>
-                                    {t('app.serviceDetail.deleteService3', 'Delete Service')}
+                                    {t('app.serviceDetail.deleteService', 'Delete Service')}
                                 </button>
                             </div>
                         )}
@@ -435,17 +435,17 @@ const ServiceDetail = () => {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="svc-detail__portlink"
-                                    title={t('app.serviceDetail.open2', 'Open {{openUrl}}', { openUrl: openUrl })}
+                                    title={t('app.serviceDetail.open', 'Open {{openUrl}}', { openUrl: openUrl })}
                                 >
-                                    {t('app.serviceDetail.port', 'Port')} {service.port}
+                                    {t('common.labels.port', 'Port')} {service.port}
                                     <ExternalLink size={12} />
                                 </a>
                             ) : (
-                                <span>{t('app.serviceDetail.port2', 'Port')} {service.port}</span>
+                                <span>{t('common.labels.port', 'Port')} {service.port}</span>
                             )
                         )}
                         {service.port && <span className="separator">&middot;</span>}
-                        <span>{t('app.serviceDetail.created', 'Created')} {new Date(service.created_at).toLocaleDateString()}</span>
+                        <span>{t('common.labels.created', 'Created')} {new Date(service.created_at).toLocaleDateString()}</span>
                         {primaryDomain && (
                             <>
                                 <span className="separator">&middot;</span>
@@ -473,7 +473,7 @@ const ServiceDetail = () => {
                         </svg>
                         <span className="svc-detail__repo-url">{t('app.serviceDetail.upload', 'Upload')}</span>
                         <span className="svc-detail__repo-arrow">&rarr;</span>
-                        <span className="svc-detail__repo-branch">{t('app.serviceDetail.version', 'Version')} {service.version || 1}</span>
+                        <span className="svc-detail__repo-branch">{t('common.labels.version', 'Version')} {service.version || 1}</span>
                     </span>
                 ) : isManual ? (
                     <span className="svc-detail__repo-pill svc-detail__repo-pill--static">
@@ -531,7 +531,7 @@ const ServiceDetail = () => {
                         </label>
                     </div>
                     {versionsLoading ? (
-                        <div className="svc-detail__versions-loading">{t('app.serviceDetail.loadingVersions', 'Loading versions...')}</div>
+                        <div className="svc-detail__versions-loading">{t('app.serviceDetail.loadingVersions', 'Loading versions…')}</div>
                     ) : (
                         <ul className="svc-detail__versions-list">
                             {versions.slice().reverse().map(v => (
@@ -539,7 +539,7 @@ const ServiceDetail = () => {
                                     <span className="svc-detail__version-name">v{v.version}</span>
                                     <span className="svc-detail__version-date">{new Date(v.created_at).toLocaleString()}</span>
                                     {v.version === currentVersion ? (
-                                        <span className="svc-detail__version-current">{t('app.serviceDetail.current', 'Current')}</span>
+                                        <span className="svc-detail__version-current">{t('common.labels.current', 'Current')}</span>
                                     ) : (
                                         <Button
                                             variant="outline"

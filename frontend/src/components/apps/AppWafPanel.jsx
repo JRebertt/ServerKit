@@ -130,7 +130,7 @@ const AppWafPanel = ({ app, onChanged }) => {
             }
             await loadStatus();
         } catch (err) {
-            toast.error(err.message || t('app.appWafPanel.failedToInstallModsecurity2', 'Failed to install ModSecurity'));
+            toast.error(err.message || t('app.appWafPanel.failedToInstallModsecurity', 'Failed to install ModSecurity'));
         } finally {
             setInstalling(false);
         }
@@ -205,7 +205,7 @@ const AppWafPanel = ({ app, onChanged }) => {
                 toast.success(result?.message || t('app.appWafPanel.wafRulesAppliedAndNginxReloaded', 'WAF rules applied and nginx reloaded.'));
             }
         } catch (err) {
-            toast.error(err.message || t('app.appWafPanel.failedToApplyWafRules2', 'Failed to apply WAF rules'));
+            toast.error(err.message || t('app.appWafPanel.failedToApplyWafRules', 'Failed to apply WAF rules'));
         } finally {
             setApplying(false);
         }
@@ -306,7 +306,7 @@ const AppWafPanel = ({ app, onChanged }) => {
                                 onClick={handleAddRule}
                                 disabled={loading || !ruleInput.trim()}
                             >
-                                {t('app.appWafPanel.add', 'Add')}
+                                {t('common.actions.add', 'Add')}
                             </Button>
                         </div>
                         {policy.disabled_rule_ids.length > 0 ? (
@@ -360,11 +360,11 @@ const AppWafPanel = ({ app, onChanged }) => {
                                 <thead>
                                     <tr>
                                         <th>{t('app.appWafPanel.ruleId', 'Rule ID')}</th>
-                                        <th>{t('app.appWafPanel.severity', 'Severity')}</th>
+                                        <th>{t('common.labels.severity', 'Severity')}</th>
                                         <th>{t('app.appWafPanel.message', 'Message')}</th>
                                         <th>URI</th>
                                         <th>{t('app.appWafPanel.client', 'Client')}</th>
-                                        <th>{t('app.appWafPanel.time', 'Time')}</th>
+                                        <th>{t('common.labels.time', 'Time')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>

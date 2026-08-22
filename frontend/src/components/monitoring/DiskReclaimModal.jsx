@@ -83,7 +83,7 @@ const DiskReclaimModal = ({ open, onClose }) => {
             footer={(
                 <>
                     <Button variant="outline" onClick={onClose} disabled={running}>
-                        {t('app.diskReclaim.cancel', 'Cancel')}
+                        {t('common.actions.cancel', 'Cancel')}
                     </Button>
                     <Button onClick={reclaim} disabled={running || loading || Boolean(error) || candidates.length === 0}>
                         <HardDrive size={14} />
@@ -104,7 +104,7 @@ const DiskReclaimModal = ({ open, onClose }) => {
                 <div className="disk-reclaim__state disk-reclaim__state--error">
                     <p>{error}</p>
                     <Button size="sm" variant="outline" onClick={loadReport}>
-                        {t('app.diskReclaim.retry', 'Retry')}
+                        {t('common.actions.retry', 'Retry')}
                     </Button>
                 </div>
             ) : candidates.length === 0 ? (

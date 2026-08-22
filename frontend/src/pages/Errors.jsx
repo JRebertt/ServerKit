@@ -135,7 +135,7 @@ export default function Errors() {
             <>
                 <SearchField value={q} onSearch={onSearch} placeholder={t('app.errors.searchMessagesOrTypes', 'Search messages or types…')} />
                 <Button variant="outline" size="sm" onClick={refresh} disabled={loading}>
-                    <RefreshCw size={14} className={loading ? 'spin' : ''} /> {t('app.errors.refresh', 'Refresh')}
+                    <RefreshCw size={14} className={loading ? 'spin' : ''} /> {t('common.actions.refresh', 'Refresh')}
                 </Button>
             </>
         );
@@ -165,7 +165,7 @@ export default function Errors() {
         const confirmed = await confirm({
             title: t('app.errors.deleteError', 'Delete error'),
             message: t('app.errors.deleteAndItsHistoryThisCannot', 'Delete "{{value}}" and its history? This cannot be undone.', { value: entry.exception_type || 'this error' }),
-            confirmText: t('app.errors.delete', 'Delete'),
+            confirmText: t('common.actions.delete', 'Delete'),
             variant: 'danger',
         });
         if (!confirmed) return;
@@ -191,7 +191,7 @@ export default function Errors() {
         },
         {
             key: 'source',
-            headerKey: 'app.errors.source', header: 'Source',
+            headerKey: 'common.labels.source', header: 'Source',
             sortable: true,
             type: 'enum',
             value: (e) => e.source || '',
@@ -245,7 +245,7 @@ export default function Errors() {
         },
         {
             key: 'resolved',
-            headerKey: 'app.errors.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             value: (e) => (e.resolved ? 'Resolved' : 'Unresolved'),
@@ -300,7 +300,7 @@ export default function Errors() {
                             value={source}
                             onChange={onSourceChange}
                             options={[
-                                { value: 'all', labelKey: 'app.errors.all', label: 'All' },
+                                { value: 'all', labelKey: 'common.labels.all', label: 'All' },
                                 { value: 'backend', labelKey: 'app.errors.backend', label: 'Backend', count: stats?.by_source?.backend },
                                 { value: 'frontend', labelKey: 'app.errors.frontend', label: 'Frontend', count: stats?.by_source?.frontend },
                             ]}
@@ -309,8 +309,8 @@ export default function Errors() {
                             value={status}
                             onChange={onStatusChange}
                             options={[
-                                { value: 'all', labelKey: 'app.errors.all2', label: 'All' },
-                                { value: 'unresolved', labelKey: 'app.errors.unresolved2', label: 'Unresolved' },
+                                { value: 'all', labelKey: 'common.labels.all', label: 'All' },
+                                { value: 'unresolved', labelKey: 'app.errors.unresolved', label: 'Unresolved' },
                                 { value: 'resolved', labelKey: 'app.errors.resolved', label: 'Resolved' },
                             ]}
                         />
@@ -346,7 +346,7 @@ export default function Errors() {
             <Drawer
                 open={Boolean(selected)}
                 onOpenChange={(open) => { if (!open) setSelected(null); }}
-                title={selected?.exception_type || t('app.errors.error2', 'Error')}
+                title={selected?.exception_type || t('app.errors.error', 'Error')}
                 subtitle={selected ? `${selected.source} · ${selected.endpoint || t('app.errors.noEndpoint', 'no endpoint')}` : ''}
                 icon={<AlertOctagon size={18} />}
                 width={640}
@@ -356,25 +356,25 @@ export default function Errors() {
                         <dl className="err-detail__rows">
                             <div><dt>{t('app.errors.message', 'Message')}</dt><dd>{selected.message}</dd></div>
                             <div>
-                                <dt>{t('app.errors.level2', 'Level')}</dt>
+                                <dt>{t('app.errors.level', 'Level')}</dt>
                                 <dd><Pill kind={levelKind(selected.level)}>{selected.level || 'error'}</Pill></dd>
                             </div>
-                            <div><dt>{t('app.errors.source2', 'Source')}</dt><dd>{selected.source}</dd></div>
+                            <div><dt>{t('common.labels.source', 'Source')}</dt><dd>{selected.source}</dd></div>
                             {selected.endpoint && (
                                 <div>
-                                    <dt>{t('app.errors.endpoint2', 'Endpoint')}</dt>
+                                    <dt>{t('app.errors.endpoint', 'Endpoint')}</dt>
                                     <dd>{selected.method ? `${selected.method} ` : ''}{selected.endpoint}</dd>
                                 </div>
                             )}
                             {selected.user_id != null && (
-                                <div><dt>{t('app.errors.user', 'User')}</dt><dd>#{selected.user_id}</dd></div>
+                                <div><dt>{t('common.labels.user', 'User')}</dt><dd>#{selected.user_id}</dd></div>
                             )}
                             <div><dt>{t('app.errors.fingerprint', 'Fingerprint')}</dt><dd><code>{selected.fingerprint}</code></dd></div>
                             <div><dt>{t('app.errors.occurrences', 'Occurrences')}</dt><dd>{selected.count ?? 1}</dd></div>
                             <div><dt>{t('app.errors.firstSeen', 'First seen')}</dt><dd>{formatStamp(selected.first_seen)}</dd></div>
-                            <div><dt>{t('app.errors.lastSeen2', 'Last seen')}</dt><dd>{formatStamp(selected.last_seen)}</dd></div>
+                            <div><dt>{t('app.errors.lastSeen', 'Last seen')}</dt><dd>{formatStamp(selected.last_seen)}</dd></div>
                             <div>
-                                <dt>{t('app.errors.status2', 'Status')}</dt>
+                                <dt>{t('common.labels.status', 'Status')}</dt>
                                 <dd>
                                     <Pill kind={selected.resolved ? 'green' : 'red'}>
                                         {selected.resolved ? 'Resolved' : 'Unresolved'}
@@ -404,7 +404,7 @@ export default function Errors() {
                                     : <><CheckCheck size={14} /> {t('app.errors.markResolved', 'Mark resolved')}</>}
                             </Button>
                             <Button variant="destructive" size="sm" onClick={() => onDelete(selected)}>
-                                <Trash2 size={14} /> {t('app.errors.delete3', 'Delete')}
+                                <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                             </Button>
                         </div>
                     </div>

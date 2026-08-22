@@ -139,7 +139,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                 <h3 className="cf-workers__heading">{t('app.workersPanel.deployAWorker', 'Deploy a Worker')}</h3>
 
                 <div className="cf-workers__field">
-                    <label className="cf-workers__label">{t('app.workersPanel.name', 'Name')}</label>
+                    <label className="cf-workers__label">{t('common.labels.name', 'Name')}</label>
                     <Input
                         value={name}
                         placeholder="my-worker"
@@ -196,7 +196,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                                 <div className="cf-workers__name">
                                     <code>{worker.name}</code>
                                     {worker.managed && (
-                                        <Badge variant="secondary">{t('app.workersPanel.serverkit', 'ServerKit')}</Badge>
+                                        <Badge variant="secondary">{t('common.labels.serverKit', 'ServerKit')}</Badge>
                                     )}
                                     {worker.modified_on && (
                                         <span className="cf-workers__meta">
@@ -212,7 +212,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                                         onClick={() => handleDeleteWorker(worker)}
                                         disabled={writeDisabled}
                                     >
-                                        {t('app.workersPanel.delete', 'Delete')}
+                                        {t('common.actions.delete', 'Delete')}
                                     </Button>
                                 </div>
                             </li>
@@ -245,7 +245,7 @@ export default function WorkersPanel({ zoneId, isAdmin }) {
                                         onClick={() => handleDeleteRoute(route)}
                                         disabled={writeDisabled}
                                     >
-                                        {t('app.workersPanel.remove', 'Remove')}
+                                        {t('common.actions.remove', 'Remove')}
                                     </Button>
                                 </div>
                             </li>

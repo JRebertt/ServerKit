@@ -521,7 +521,7 @@ const Backups = () => {
     const snapshotColumns = [
         {
             key: 'name',
-            headerKey: 'app.backups.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             type: 'text',
@@ -546,7 +546,7 @@ const Backups = () => {
             // come back empty — which is exactly what the old "Databases (0)"
             // segment did on a box that only backs up files.
             key: 'type',
-            headerKey: 'app.backups.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -572,7 +572,7 @@ const Backups = () => {
             // string. Filtering on the rendered "464 MB" would compare text,
             // and "over 100" would then match 99 GB.
             key: 'size',
-            headerKey: 'app.backups.size', header: 'Size',
+            headerKey: 'common.labels.size', header: 'Size',
             sortable: true,
             type: 'num',
             value: (b) => b.size || 0,
@@ -582,7 +582,7 @@ const Backups = () => {
         },
         {
             key: 'storage',
-            headerKey: 'app.backups.storage', header: 'Storage',
+            headerKey: 'common.labels.storage', header: 'Storage',
             sortable: true,
             type: 'enum',
             groupable: true,
@@ -600,7 +600,7 @@ const Backups = () => {
             // that number type the column would offer "is under 1754…" instead
             // of a date picker — and make every date rule match nothing.
             key: 'created',
-            headerKey: 'app.backups.created', header: 'Created',
+            headerKey: 'common.labels.created', header: 'Created',
             sortable: true,
             type: 'date',
             value: (b) => b.timestamp || null,
@@ -745,7 +745,7 @@ const Backups = () => {
     if (loading) {
         return (
             <div className="sk-tabgroup__inner backups-page">
-                <EmptyState loading loadingVariant="table" size="lg" title={t('app.backups.loadingBackupData', 'Loading backup data...')} />
+                <EmptyState loading loadingVariant="table" size="lg" title={t('app.backups.loadingBackupData', 'Loading backup data…')} />
             </div>
         );
     }
@@ -838,7 +838,7 @@ const Backups = () => {
                             icon={Clock}
                             title={t('app.backups.noSchedulesYet', 'No schedules yet')}
                             description={t('app.backups.aScheduleRunsABackupOn', 'A schedule runs a backup on its own so you don\'t have to remember to. Add one and it will appear here with its next fire time.')}
-                            action={<Button onClick={() => setShowScheduleModal(true)}>{t('app.backups.newSchedule2', 'New schedule')}</Button>}
+                            action={<Button onClick={() => setShowScheduleModal(true)}>{t('app.backups.newSchedule', 'New schedule')}</Button>}
                         />
                     ) : (
                         <SchedulesTable
@@ -915,7 +915,7 @@ const Backups = () => {
                                                     type="text"
                                                     value={storageForm.s3.access_key}
                                                     onChange={(e) => setStorageForm({...storageForm, s3: {...storageForm.s3, access_key: e.target.value}})}
-                                                    placeholder={t('app.backups.akia', 'AKIA...')}
+                                                    placeholder={t('app.backups.akia', 'AKIA…')}
                                                     required
                                                 />
                                             </FormField>
@@ -954,9 +954,9 @@ const Backups = () => {
 
                                 {storageForm.provider === 'b2' && (
                                     <div className="storage-provider-config">
-                                        <h4>{t('app.backups.backblazeB22', 'Backblaze B2')}</h4>
+                                        <h4>{t('app.backups.backblazeB2', 'Backblaze B2')}</h4>
                                         <FormRow>
-                                            <FormField label={t('app.backups.bucketName2', 'Bucket Name')} htmlFor="b2-bucket">
+                                            <FormField label={t('app.backups.bucketName', 'Bucket Name')} htmlFor="b2-bucket">
                                                 <Input
                                                     id="b2-bucket"
                                                     type="text"
@@ -997,7 +997,7 @@ const Backups = () => {
                                                 />
                                             </FormField>
                                         </FormRow>
-                                        <FormField label={t('app.backups.pathPrefix2', 'Path Prefix')} htmlFor="b2-path-prefix">
+                                        <FormField label={t('app.backups.pathPrefix', 'Path Prefix')} htmlFor="b2-path-prefix">
                                             <Input
                                                 id="b2-path-prefix"
                                                 type="text"
@@ -1045,7 +1045,7 @@ const Backups = () => {
                                             disabled={testingConnection}
                                         >
                                             {testingConnection ? (
-                                                <><RefreshCw size={16} className="spinning" /> {t('app.backups.testing', 'Testing...')}</>
+                                                <><RefreshCw size={16} className="spinning" /> {t('app.backups.testing', 'Testing…')}</>
                                             ) : (
                                                 <><Check size={16} /> {t('app.backups.testConnection', 'Test Connection')}</>
                                             )}
@@ -1143,7 +1143,7 @@ const Backups = () => {
                                 <div className="form-actions">
                                     <Button type="submit" disabled={savingRates}>
                                         {savingRates ? (
-                                            <><RefreshCw size={16} className="spinning" /> {t('app.backups.saving', 'Saving...')}</>
+                                            <><RefreshCw size={16} className="spinning" /> {t('common.editing.saving', 'Saving…')}</>
                                         ) : (
                                             <><DollarSign size={16} /> {t('app.backups.saveRates', 'Save rates')}</>
                                         )}
@@ -1156,7 +1156,7 @@ const Backups = () => {
             )}
 
             {/* Create Backup Modal */}
-            <Modal open={showBackupModal} onClose={() => setShowBackupModal(false)} title={t('app.backups.createBackup2', 'Create Backup')}>
+            <Modal open={showBackupModal} onClose={() => setShowBackupModal(false)} title={t('app.backups.createBackup', 'Create Backup')}>
                         <form onSubmit={handleCreateBackup}>
                                 <div className="form-group">
                                     <label>{t('app.backups.backupType', 'Backup Type')}</label>
@@ -1173,7 +1173,7 @@ const Backups = () => {
                                 {backupForm.type === 'application' && (
                                     <>
                                         <div className="form-group">
-                                            <label>{t('app.backups.application2', 'Application')}</label>
+                                            <label>{t('app.backups.application', 'Application')}</label>
                                             <select
                                                 value={backupForm.applicationId}
                                                 onChange={(e) => setBackupForm({...backupForm, applicationId: e.target.value})}
@@ -1249,7 +1249,7 @@ const Backups = () => {
 
                                         <div className="form-row">
                                             <div className="form-group">
-                                                <label>{t('app.backups.username', 'Username')}</label>
+                                                <label>{t('common.labels.username', 'Username')}</label>
                                                 <Input
                                                     type="text"
                                                     value={backupForm.dbUser}
@@ -1258,7 +1258,7 @@ const Backups = () => {
                                             </div>
 
                                             <div className="form-group">
-                                                <label>{t('app.backups.password', 'Password')}</label>
+                                                <label>{t('common.labels.password', 'Password')}</label>
                                                 <Input
                                                     type="password"
                                                     value={backupForm.dbPassword}
@@ -1279,9 +1279,9 @@ const Backups = () => {
                                 )}
                             <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowBackupModal(false)}>
-                                    {t('app.backups.cancel', 'Cancel')}
+                                    {t('common.actions.cancel', 'Cancel')}
                                 </Button>
-                                <Button type="submit">{t('app.backups.createBackup3', 'Create Backup')}</Button>
+                                <Button type="submit">{t('app.backups.createBackup', 'Create Backup')}</Button>
                             </div>
                         </form>
             </Modal>
@@ -1301,14 +1301,14 @@ const Backups = () => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>{t('app.backups.backupType2', 'Backup Type')}</label>
+                                    <label>{t('app.backups.backupType', 'Backup Type')}</label>
                                     <select
                                         value={scheduleForm.backupType}
                                         onChange={(e) => setScheduleForm({...scheduleForm, backupType: e.target.value})}
                                     >
-                                        <option value="application">{t('app.backups.application3', 'Application')}</option>
+                                        <option value="application">{t('app.backups.application', 'Application')}</option>
                                         <option value="database">{t('app.backups.database', 'Database')}</option>
-                                        <option value="files">{t('app.backups.filesDirectories2', 'Files / Directories')}</option>
+                                        <option value="files">{t('app.backups.filesDirectories', 'Files / Directories')}</option>
                                     </select>
                                 </div>
 
@@ -1337,7 +1337,7 @@ const Backups = () => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>{t('app.backups.time', 'Time')}</label>
+                                    <label>{t('common.labels.time', 'Time')}</label>
                                     <Input
                                         type="time"
                                         value={scheduleForm.scheduleTime}
@@ -1360,7 +1360,7 @@ const Backups = () => {
                                 )}
                             <div className="modal-actions">
                                 <Button type="button" variant="outline" onClick={() => setShowScheduleModal(false)}>
-                                    {t('app.backups.cancel2', 'Cancel')}
+                                    {t('common.actions.cancel', 'Cancel')}
                                 </Button>
                                 <Button type="submit">{t('app.backups.addSchedule', 'Add Schedule')}</Button>
                             </div>
@@ -1368,7 +1368,7 @@ const Backups = () => {
             </Modal>
 
             {/* Restore Modal */}
-            <Modal open={showRestoreModal && !!selectedBackup} onClose={() => setShowRestoreModal(false)} title={t('app.backups.restoreBackup3', 'Restore Backup')}>
+            <Modal open={showRestoreModal && !!selectedBackup} onClose={() => setShowRestoreModal(false)} title={t('app.backups.restoreBackup', 'Restore Backup')}>
                         {selectedBackup && (<>
                             <div className="bk-restore-warn">
                                 <AlertTriangle size={18} />
@@ -1380,25 +1380,25 @@ const Backups = () => {
                                     <span className="v">{selectedBackup.name || selectedBackup.app_name}</span>
                                 </div>
                                 <div className="sk-info-row">
-                                    <span className="k">{t('app.backups.type2', 'Type')}</span>
+                                    <span className="k">{t('common.labels.type', 'Type')}</span>
                                     <span className="v">{selectedBackup.type}</span>
                                 </div>
                                 <div className="sk-info-row">
-                                    <span className="k">{t('app.backups.created2', 'Created')}</span>
+                                    <span className="k">{t('common.labels.created', 'Created')}</span>
                                     <span className="v">{formatTimestamp(selectedBackup.timestamp)}</span>
                                 </div>
                                 <div className="sk-info-row">
-                                    <span className="k">{t('app.backups.size2', 'Size')}</span>
+                                    <span className="k">{t('common.labels.size', 'Size')}</span>
                                     <span className="v">{formatBytes(selectedBackup.size, { defaultValue: '0 B' })}</span>
                                 </div>
                             </div>
                         </>)}
                         <div className="modal-actions">
                             <Button variant="outline" onClick={() => setShowRestoreModal(false)}>
-                                {t('app.backups.cancel3', 'Cancel')}
+                                {t('common.actions.cancel', 'Cancel')}
                             </Button>
                             <Button variant="destructive" onClick={handleRestore}>
-                                {t('app.backups.restoreBackup4', 'Restore Backup')}
+                                {t('app.backups.restoreBackup', 'Restore Backup')}
                             </Button>
                         </div>
             </Modal>

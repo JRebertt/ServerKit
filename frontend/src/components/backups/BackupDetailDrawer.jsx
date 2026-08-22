@@ -44,12 +44,12 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
                 )}
 
                 <div className="backup-detail-drawer__meta">
-                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.created', 'Created')}</span><span>{formatDateTime(run.started_at)}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('common.labels.created', 'Created')}</span><span>{formatDateTime(run.started_at)}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.finished', 'Finished')}</span><span>{formatDateTime(run.finished_at)}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.duration', 'Duration')}</span><span>{run.duration_seconds != null ? `${run.duration_seconds}s` : '—'}</span></div>
-                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.type', 'Type')}</span><span>{run.kind}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('common.labels.type', 'Type')}</span><span>{run.kind}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.compression', 'Compression')}</span><span>{run.compression || '—'}</span></div>
-                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.storage', 'Storage')}</span><span>{storageLabel(run)}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('common.labels.storage', 'Storage')}</span><span>{storageLabel(run)}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.sizeLocal', 'Size (local)')}</span><span>{humanSize(run.size_local)}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.sizeRemote', 'Size (remote)')}</span><span>{run.size_remote ? humanSize(run.size_remote) : '—'}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.verification', 'Verification')}</span><span>{verification}</span></div>
@@ -61,7 +61,7 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
 
                 <div className="backup-detail-drawer__actions">
                     <Button variant="primary" size="sm" disabled={run.status !== 'success'} onClick={() => onRestore(run)}>
-                        <RotateCcw size={14} /> {t('app.backupDetailDrawer.restore', 'Restore')}
+                        <RotateCcw size={14} /> {t('common.actions.restore', 'Restore')}
                     </Button>
                     {run.remote_key && (
                         <Button variant="outline" size="sm" onClick={() => onVerify(run)}>
@@ -70,11 +70,11 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
                     )}
                     {onDownload && run.storage_path && (
                         <Button variant="outline" size="sm" onClick={() => onDownload(run)}>
-                            <Download size={14} /> {t('app.backupDetailDrawer.download', 'Download')}
+                            <Download size={14} /> {t('common.actions.download', 'Download')}
                         </Button>
                     )}
                     <Button variant="destructive" size="sm" onClick={() => onDelete(run)}>
-                        <Trash2 size={14} /> {t('app.backupDetailDrawer.delete', 'Delete')}
+                        <Trash2 size={14} /> {t('common.actions.delete', 'Delete')}
                     </Button>
                 </div>
 

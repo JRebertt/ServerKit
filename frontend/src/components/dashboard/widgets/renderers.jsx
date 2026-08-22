@@ -413,7 +413,7 @@ function WGauge({ cfg, ctx }) {
     if (loading && !series.length) return <Loading />;
     if (error) return <Failed error={error} subject="metrics" />;
     if (!supported) return <Empty>{unsupportedNote(metric, resource)}</Empty>;
-    if (!series.length) return <Empty>{t('app.renderers.noSamplesRecordedInThisRange2', 'No samples recorded in this range yet.')}</Empty>;
+    if (!series.length) return <Empty>{t('app.renderers.noSamplesRecordedInThisRange', 'No samples recorded in this range yet.')}</Empty>;
 
     const value = aggregate(series, cfg.agg || 'last');
     // Percentage metrics have a real ceiling; rates do not, so scale to the

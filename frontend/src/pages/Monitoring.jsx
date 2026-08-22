@@ -262,7 +262,7 @@ const Monitoring = () => {
                     onClick={() => { loadData(); setRefreshKey((k) => k + 1); }}
                 >
                     <RefreshCw size={16} />
-                    {t('app.monitoring.refresh', 'Refresh')}
+                    {t('common.actions.refresh', 'Refresh')}
                 </Button>
                 <Button
                     size="sm"

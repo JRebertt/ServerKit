@@ -40,7 +40,7 @@ const STATUS_META = {
 const INCIDENT_STATUS = [
     { value: 'investigating', labelKey: 'app.statusPages.investigating', label: 'Investigating' },
     { value: 'identified', labelKey: 'app.statusPages.identified', label: 'Identified' },
-    { value: 'monitoring', labelKey: 'app.statusPages.monitoring', label: 'Monitoring' },
+    { value: 'monitoring', labelKey: 'common.labels.monitoring', label: 'Monitoring' },
     { value: 'resolved', labelKey: 'app.statusPages.resolved', label: 'Resolved' },
 ];
 
@@ -338,7 +338,7 @@ const StatusPages = () => {
             <>
                 <Button size="sm" variant="outline" onClick={loadPages}>
                     <RefreshCw size={16} />
-                    {t('app.statusPages.refresh', 'Refresh')}
+                    {t('common.actions.refresh', 'Refresh')}
                 </Button>
                 {isAdmin && (
                     <Button size="sm" onClick={() => setShowCreatePage(true)}>
@@ -406,12 +406,12 @@ const StatusPages = () => {
                                 <div>
                                     <Button size="sm" variant="outline" onClick={handleCopyUrl}>
                                         <Copy size={14} />
-                                        {t('app.statusPages.copy', 'Copy')}
+                                        {t('common.actions.copy', 'Copy')}
                                     </Button>
                                     <Button size="sm" asChild>
                                         <a href={selectedUrl} target="_blank" rel="noreferrer">
                                             <ExternalLink size={14} />
-                                            {t('app.statusPages.open', 'Open')}
+                                            {t('common.actions.open', 'Open')}
                                         </a>
                                     </Button>
                                 </div>
@@ -439,7 +439,7 @@ const StatusPages = () => {
 
                         <Tabs defaultValue="components">
                             <TabsList>
-                                <TabsTrigger value="components">{t('app.statusPages.components2', 'Components')}</TabsTrigger>
+                                <TabsTrigger value="components">{t('app.statusPages.components', 'Components')}</TabsTrigger>
                                 <TabsTrigger value="incidents">{t('app.statusPages.incidents', 'Incidents')}</TabsTrigger>
                                 <TabsTrigger value="settings">{t('app.statusPages.page', 'Page')}</TabsTrigger>
                             </TabsList>
@@ -604,7 +604,7 @@ const StatusPages = () => {
                                         </Pill>
                                     </div>
                                     <div>
-                                        <span>{t('app.statusPages.created', 'Created')}</span>
+                                        <span>{t('common.labels.created', 'Created')}</span>
                                         <strong>{formatDate(selectedPage.created_at)}</strong>
                                     </div>
                                     {isAdmin && (
@@ -632,19 +632,19 @@ const StatusPages = () => {
                 className="status-modal"
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreatePage(false)}>{t('app.statusPages.cancel', 'Cancel')}</Button>
+                        <Button variant="outline" onClick={() => setShowCreatePage(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button onClick={handleCreatePage} disabled={!pageForm.name.trim() || !pageForm.slug.trim()}>
-                            {t('app.statusPages.create', 'Create')}
+                            {t('common.actions.create', 'Create')}
                         </Button>
                     </>
                 )}
             >
                 <div className="form-group">
-                    <label>{t('app.statusPages.name', 'Name')}</label>
+                    <label>{t('common.labels.name', 'Name')}</label>
                     <Input value={pageForm.name} onChange={(e) => handlePageNameChange(e.target.value)} autoFocus />
                 </div>
                 <div className="form-group">
-                    <label>{t('app.statusPages.slug2', 'Slug')}</label>
+                    <label>{t('app.statusPages.slug', 'Slug')}</label>
                     <Input
                         value={pageForm.slug}
                         onChange={(e) => setPageForm({ ...pageForm, slug: normalizeSlug(e.target.value) })}
@@ -653,7 +653,7 @@ const StatusPages = () => {
                     <span className="form-help">/status/{pageForm.slug || 'my-services'}</span>
                 </div>
                 <div className="form-group">
-                    <label>{t('app.statusPages.description', 'Description')}</label>
+                    <label>{t('common.labels.description', 'Description')}</label>
                     <Textarea
                         value={pageForm.description}
                         onChange={(e) => setPageForm({ ...pageForm, description: e.target.value })}
@@ -668,7 +668,7 @@ const StatusPages = () => {
                 title={t('app.statusPages.addAnExistingMonitor', 'Add an existing monitor')}
                 size="md"
                 className="status-modal"
-                footer={<Button variant="outline" onClick={() => setShowAttach(false)}>{t('app.statusPages.close', 'Close')}</Button>}
+                footer={<Button variant="outline" onClick={() => setShowAttach(false)}>{t('common.actions.close', 'Close')}</Button>}
             >
                 <p className="form-help">
                     {t('app.statusPages.theseMonitorsAreAlreadyRunningAnd', 'These monitors are already running and are not on any status page yet. Adding one publishes it here — it keeps the history it has already collected.')}
@@ -704,16 +704,16 @@ const StatusPages = () => {
                 className="status-modal"
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateComponent(false)}>{t('app.statusPages.cancel2', 'Cancel')}</Button>
+                        <Button variant="outline" onClick={() => setShowCreateComponent(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button onClick={handleCreateComponent} disabled={!compForm.name.trim() || !compForm.check_target.trim()}>
-                            {t('app.statusPages.addComponent2', 'Add Component')}
+                            {t('app.statusPages.addComponent', 'Add Component')}
                         </Button>
                     </>
                 )}
             >
                 <div className="status-modal-grid">
                     <div className="form-group">
-                        <label>{t('app.statusPages.name2', 'Name')}</label>
+                        <label>{t('common.labels.name', 'Name')}</label>
                         <Input value={compForm.name} onChange={(e) => setCompForm({ ...compForm, name: e.target.value })} autoFocus />
                     </div>
                     <div className="form-group">
@@ -734,7 +734,7 @@ const StatusPages = () => {
                         </select>
                     </div>
                     <div className="form-group">
-                        <label>{t('app.statusPages.target', 'Target')}</label>
+                        <label>{t('common.labels.target', 'Target')}</label>
                         <Input
                             value={compForm.check_target}
                             onChange={(e) => setCompForm({ ...compForm, check_target: e.target.value })}
@@ -765,14 +765,14 @@ const StatusPages = () => {
             <Modal
                 open={showCreateIncident}
                 onClose={() => setShowCreateIncident(false)}
-                title={t('app.statusPages.createIncident2', 'Create Incident')}
+                title={t('app.statusPages.createIncident', 'Create Incident')}
                 size="lg"
                 className="status-modal"
                 footer={(
                     <>
-                        <Button variant="outline" onClick={() => setShowCreateIncident(false)}>{t('app.statusPages.cancel3', 'Cancel')}</Button>
+                        <Button variant="outline" onClick={() => setShowCreateIncident(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button onClick={handleCreateIncident} disabled={!incidentForm.title.trim()}>
-                            {t('app.statusPages.createIncident3', 'Create Incident')}
+                            {t('app.statusPages.createIncident', 'Create Incident')}
                         </Button>
                     </>
                 )}
@@ -783,7 +783,7 @@ const StatusPages = () => {
                 </div>
                 <div className="status-modal-grid">
                     <div className="form-group">
-                        <label>{t('app.statusPages.status', 'Status')}</label>
+                        <label>{t('common.labels.status', 'Status')}</label>
                         <select
                             className="form-select"
                             value={incidentForm.status}
@@ -808,7 +808,7 @@ const StatusPages = () => {
                     </div>
                 </div>
                 <div className="form-group">
-                    <label>{t('app.statusPages.description2', 'Description')}</label>
+                    <label>{t('common.labels.description', 'Description')}</label>
                     <Textarea
                         value={incidentForm.body}
                         onChange={(e) => setIncidentForm({ ...incidentForm, body: e.target.value })}
@@ -821,7 +821,7 @@ const StatusPages = () => {
                 isOpen={Boolean(deleteConfirm)}
                 title={t('app.statusPages.delete', 'Delete {{value}}?', { value: deleteConfirm?.type || 'item' })}
                 message={t('app.statusPages.thisRemovesTheSelectedRecordAnd', 'This removes the selected record and related status data.')}
-                confirmText={t('app.statusPages.delete2', 'Delete')}
+                confirmText={t('common.actions.delete', 'Delete')}
                 requireConfirmation={deleteConfirm?.item?.name || deleteConfirm?.item?.title}
                 onConfirm={handleConfirmDelete}
                 onCancel={() => setDeleteConfirm(null)}

@@ -33,7 +33,7 @@ const DRAWER_WIDTH = 720;
 const RECORD_TYPE_CHOICES = ['A', 'AAAA', 'CNAME'];
 
 const STAGES = [
-    { id: 'target', labelKey: 'app.cutoverDrawer.target', label: 'Target' },
+    { id: 'target', labelKey: 'common.labels.target', label: 'Target' },
     { id: 'review', labelKey: 'app.cutoverDrawer.review', label: 'Review' },
     { id: 'verify', labelKey: 'app.cutoverDrawer.verify', label: 'Verify' },
 ];
@@ -310,7 +310,7 @@ const CutoverDrawer = ({ open, onClose, domain, providerZoneId, provider, initia
                                 <div className="cutover__table-wrap">
                                     <table className="cutover__table">
                                         <thead>
-                                            <tr><th>{t('app.cutoverDrawer.type', 'Type')}</th><th>{t('app.cutoverDrawer.name', 'Name')}</th><th>{t('app.cutoverDrawer.action', 'Action')}</th><th>{t('app.cutoverDrawer.current', 'Current')}</th><th>{t('app.cutoverDrawer.new', 'New')}</th></tr>
+                                            <tr><th>{t('common.labels.type', 'Type')}</th><th>{t('common.labels.name', 'Name')}</th><th>{t('common.labels.action', 'Action')}</th><th>{t('common.labels.current', 'Current')}</th><th>{t('app.cutoverDrawer.new', 'New')}</th></tr>
                                         </thead>
                                         <tbody>
                                             {plan.ops.map((op, i) => (
@@ -334,7 +334,7 @@ const CutoverDrawer = ({ open, onClose, domain, providerZoneId, provider, initia
 
                         <div className="cutover__actions">
                             <Button variant="outline" onClick={() => setStage('target')} disabled={busy}>
-                                <ArrowLeft size={14} /> {t('app.cutoverDrawer.back', 'Back')}
+                                <ArrowLeft size={14} /> {t('common.actions.back', 'Back')}
                             </Button>
                             <Button onClick={() => setConfirmOpen(true)} disabled={busy || !plan?.ops?.length}>
                                 {busy ? <><Spinner size="sm" /> {t('app.cutoverDrawer.applying', 'Applying…')}</> : <><ArrowRightLeft size={14} /> {t('app.cutoverDrawer.applyCutover', 'Apply cutover')}</>}
@@ -382,7 +382,7 @@ const CutoverDrawer = ({ open, onClose, domain, providerZoneId, provider, initia
                                 <div className="cutover__table-wrap">
                                     <table className="cutover__table">
                                         <thead>
-                                            <tr><th>{t('app.cutoverDrawer.resolver', 'Resolver')}</th><th>{t('app.cutoverDrawer.answer', 'Answer')}</th><th>{t('app.cutoverDrawer.status', 'Status')}</th></tr>
+                                            <tr><th>{t('app.cutoverDrawer.resolver', 'Resolver')}</th><th>{t('app.cutoverDrawer.answer', 'Answer')}</th><th>{t('common.labels.status', 'Status')}</th></tr>
                                         </thead>
                                         <tbody>
                                             {verifyResult.resolvers.map((r, i) => (
@@ -402,7 +402,7 @@ const CutoverDrawer = ({ open, onClose, domain, providerZoneId, provider, initia
                             )}
 
                             <Button variant="outline" size="sm" onClick={checkPropagation} disabled={busy}>
-                                {busy ? <><Spinner size="sm" /> {t('app.cutoverDrawer.checking', 'Checking…')}</> : <><RadioTower size={14} /> {t('app.cutoverDrawer.checkPropagation', 'Check propagation')}</>}
+                                {busy ? <><Spinner size="sm" /> {t('common.checking', 'Checking…')}</> : <><RadioTower size={14} /> {t('app.cutoverDrawer.checkPropagation', 'Check propagation')}</>}
                             </Button>
                         </section>
 
@@ -430,7 +430,7 @@ const CutoverDrawer = ({ open, onClose, domain, providerZoneId, provider, initia
 
                         <div className="cutover__actions">
                             <span />
-                            <Button variant="outline" onClick={onClose} disabled={busy}>{t('app.cutoverDrawer.done', 'Done')}</Button>
+                            <Button variant="outline" onClick={onClose} disabled={busy}>{t('common.actions.done', 'Done')}</Button>
                         </div>
                     </div>
                 )}
@@ -439,7 +439,7 @@ const CutoverDrawer = ({ open, onClose, domain, providerZoneId, provider, initia
                     isOpen={confirmOpen}
                     title={t('app.cutoverDrawer.applyDnsCutover', 'Apply DNS cutover?')}
                     message={t('app.cutoverDrawer.thisRepointsRecordSForAt', 'This repoints {{value}} record(s) for {{domain}} at {{value2}}. The snapshot lets you revert.', { value: recordTypes.join(', '), domain: domain, value2: target.trim() })}
-                    confirmText={t('app.cutoverDrawer.applyCutover2', 'Apply cutover')}
+                    confirmText={t('app.cutoverDrawer.applyCutover', 'Apply cutover')}
                     variant="danger"
                     onConfirm={applyCutover}
                     onCancel={() => setConfirmOpen(false)}

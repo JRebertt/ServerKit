@@ -151,7 +151,7 @@ export function ProcessTable({
         },
         {
             key: 'name',
-            headerKey: 'app.processTable.name', header: 'Name',
+            headerKey: 'common.labels.name', header: 'Name',
             sortable: true,
             hideable: false,
             // Hundreds of distinct executables on a real host — a fragment you
@@ -164,7 +164,7 @@ export function ProcessTable({
         },
         {
             key: 'user',
-            headerKey: 'app.processTable.user', header: 'User',
+            headerKey: 'common.labels.user', header: 'User',
             sortable: true,
             value: procUser,
             sortValue: procUser,
@@ -181,7 +181,7 @@ export function ProcessTable({
         },
         {
             key: 'memory',
-            headerKey: 'app.processTable.memory', header: 'Memory',
+            headerKey: 'common.labels.memory', header: 'Memory',
             sortable: true,
             type: 'num',
             value: (p) => Number(p.memory_percent) || 0,
@@ -201,7 +201,7 @@ export function ProcessTable({
         },
         {
             key: 'status',
-            headerKey: 'app.processTable.status', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             // Declared, not inferred: a box where everything sleeps offers ONE
             // distinct value, the column would fall back to text, and every view
@@ -216,7 +216,7 @@ export function ProcessTable({
         },
         {
             key: '__actions',
-            headerKey: 'app.processTable.actions', header: 'Actions',
+            headerKey: 'common.labels.actions', header: 'Actions',
             sortable: false,
             hideable: false,
             render: (p) => (
@@ -334,25 +334,25 @@ export function ProcessDetailsPanel({ process, onClose, formatMemory = defaultFo
         <div className="process-details-panel">
             <div className="panel-header">
                 <h3>{t('app.processTable.processDetails', 'Process Details')}</h3>
-                <Button variant="outline" size="sm" onClick={onClose}>{t('app.processTable.close', 'Close')}</Button>
+                <Button variant="outline" size="sm" onClick={onClose}>{t('common.actions.close', 'Close')}</Button>
             </div>
             <div className="panel-body">
                 <div className="details-grid">
                     <DetailItem label="PID" value={process.pid} mono />
-                    <DetailItem label={t('app.processTable.name2', 'Name')} value={process.name} />
-                    <DetailItem label={t('app.processTable.user2', 'User')} value={procUser(process)} />
-                    <DetailItem label={t('app.processTable.status2', 'Status')} value={process.status} />
+                    <DetailItem label={t('common.labels.name', 'Name')} value={process.name} />
+                    <DetailItem label={t('common.labels.user', 'User')} value={procUser(process)} />
+                    <DetailItem label={t('common.labels.status', 'Status')} value={process.status} />
                     <DetailItem label="CPU" value={`${(process.cpu_percent || 0).toFixed(2)}%`} />
-                    <DetailItem label={t('app.processTable.memory2', 'Memory')} value={formatMemory(process.memory_info?.rss)} />
+                    <DetailItem label={t('common.labels.memory', 'Memory')} value={formatMemory(process.memory_info?.rss)} />
                     <DetailItem label={t('app.processTable.threads', 'Threads')} value={process.num_threads} />
                     <DetailItem
-                        label={t('app.processTable.created', 'Created')}
+                        label={t('common.labels.created', 'Created')}
                         value={process.create_time ? new Date(process.create_time * 1000).toLocaleString() : '-'}
                     />
                 </div>
                 {process.command && (
                     <div className="command-line">
-                        <span className="detail-label">{t('app.processTable.command', 'Command')}</span>
+                        <span className="detail-label">{t('common.labels.command', 'Command')}</span>
                         <code>{process.command}</code>
                     </div>
                 )}

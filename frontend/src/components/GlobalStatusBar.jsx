@@ -202,7 +202,7 @@ export default function GlobalStatusBar({ onOpenPalette }) {
 
     const workspaceName = workspaces.find(
         (workspace) => String(workspace.id) === activeWorkspaceId,
-    )?.name || t('app.workspaceSwitcher.allWorkspaces2', 'All workspaces');
+    )?.name || t('app.workspaceSwitcher.allWorkspaces', 'All workspaces');
     const scopedServers = useMemo(() => ([
         { id: 'local', name: t('app.dashboard.localThisServer', 'Local (this server)'), status: 'online' },
         ...servers.filter((server) => String(server.id) !== 'local'),
@@ -269,7 +269,7 @@ export default function GlobalStatusBar({ onOpenPalette }) {
                     <span className="statusbar-select__value">{workspaceName}</span>
                     <ChevronUp size={12} aria-hidden="true" />
                     <select value={activeWorkspaceId} onChange={changeWorkspace} aria-label={t('app.workspaceSwitcher.activeWorkspace', 'Active workspace')}>
-                        <option value="all">{t('app.workspaceSwitcher.allWorkspaces2', 'All workspaces')}</option>
+                        <option value="all">{t('app.workspaceSwitcher.allWorkspaces', 'All workspaces')}</option>
                         {workspaces.map((workspace) => (
                             <option key={workspace.id} value={String(workspace.id)}>{workspace.name}</option>
                         ))}
@@ -331,7 +331,7 @@ export default function GlobalStatusBar({ onOpenPalette }) {
                         type="button"
                         className="global-statusbar__segment global-statusbar__setup"
                         onClick={() => navigate('/monitoring/doctor')}
-                        title={t('app.setupHealthWidget.setupHealth3', 'Setup Health')}
+                        title={t('app.setupHealthWidget.setupHealth', 'Setup Health')}
                     >
                         <ShieldAlert size={13} />
                         <span className="global-statusbar__muted mono">

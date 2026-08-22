@@ -244,7 +244,7 @@ export default function Monitors() {
             <SearchField value={q} onSearch={(value) => setQ(value.trim())} placeholder={t('app.monitors.searchMonitorsOrTargets', 'Search monitors or targets…')} />
             <FilterButton count={activeFilterCount} onClick={() => setFiltersOpen(true)} />
             <Button variant="outline" size="sm" onClick={load}>
-                <RefreshCw size={14} /> {t('app.monitors.refresh', 'Refresh')}
+                <RefreshCw size={14} /> {t('common.actions.refresh', 'Refresh')}
             </Button>
             <Button size="sm" onClick={openCreate}>
                 <Plus size={14} /> {t('app.monitors.addMonitor', 'Add monitor')}
@@ -299,7 +299,7 @@ export default function Monitors() {
     const filterGroups = useMemo(() => ([
         {
             key: 'status',
-            labelKey: 'app.monitors.status', label: 'Status',
+            labelKey: 'common.labels.status', label: 'Status',
             type: 'single',
             options: MONITOR_STATUS.map((s) => ({ value: s.value, label: s.label })),
         },
@@ -330,13 +330,13 @@ export default function Monitors() {
         },
         {
             key: 'check_type',
-            headerKey: 'app.monitors.type', header: 'Type',
+            headerKey: 'common.labels.type', header: 'Type',
             sortable: true,
             render: (m) => <span className="mon-type">{m.check_type}</span>,
         },
         {
             key: 'status',
-            headerKey: 'app.monitors.status2', header: 'Status',
+            headerKey: 'common.labels.status', header: 'Status',
             sortable: true,
             type: 'enum',
             // Pinned rather than left to the sortValue fallback: the column
@@ -415,7 +415,7 @@ export default function Monitors() {
                     >
                         {m.is_paused ? <Play size={14} /> : <Pause size={14} />}
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => navigate(`/monitoring/monitors/${m.id}`)} title={t('app.monitors.open', 'Open')}>
+                    <Button variant="ghost" size="sm" onClick={() => navigate(`/monitoring/monitors/${m.id}`)} title={t('common.actions.open', 'Open')}>
                         <ChevronRight size={14} />
                     </Button>
                 </div>
@@ -485,8 +485,8 @@ export default function Monitors() {
                         ? t('app.monitors.tryADifferentSearchOrClear', 'Try a different search or clear the filters.')
                         : t('app.monitors.addAMonitorToWatchA', 'Add a monitor to watch a website, an API endpoint, a database port or a WordPress site — and get an incident when it stops answering.')}
                     action={hasFilters
-                        ? <Button variant="outline" onClick={() => { setQ(''); setFilters({ status: '', type: '' }); }}>{t('app.monitors.clearFilters', 'Clear filters')}</Button>
-                        : <Button onClick={openCreate}><Plus size={16} /> {t('app.monitors.addMonitor2', 'Add monitor')}</Button>}
+                        ? <Button variant="outline" onClick={() => { setQ(''); setFilters({ status: '', type: '' }); }}>{t('common.actions.clearFilters', 'Clear filters')}</Button>
+                        : <Button onClick={openCreate}><Plus size={16} /> {t('app.monitors.addMonitor', 'Add monitor')}</Button>}
                 />
             ) : (
                 <div className="mon-card">
@@ -522,13 +522,13 @@ export default function Monitors() {
             <Drawer
                 open={formOpen}
                 onOpenChange={setFormOpen}
-                title={t('app.monitors.addMonitor3', 'Add monitor')}
+                title={t('app.monitors.addMonitor', 'Add monitor')}
                 subtitle={t('app.monitors.probeAUrlHostOrPort', 'Probe a URL, host or port on a schedule')}
                 icon={<Radar size={18} />}
             >
                 <form className="mon-form" onSubmit={onSave}>
                     <div className="form-group">
-                        <Label htmlFor="mon-name">{t('app.monitors.name', 'Name')}</Label>
+                        <Label htmlFor="mon-name">{t('common.labels.name', 'Name')}</Label>
                         <Input
                             id="mon-name" required value={form.name}
                             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -537,7 +537,7 @@ export default function Monitors() {
                     </div>
 
                     <div className="form-group">
-                        <Label htmlFor="mon-type">{t('app.monitors.checkType2', 'Check type')}</Label>
+                        <Label htmlFor="mon-type">{t('app.monitors.checkType', 'Check type')}</Label>
                         <select
                             id="mon-type" className="mon-select" value={form.check_type}
                             onChange={(e) => setForm({ ...form, check_type: e.target.value })}
@@ -549,7 +549,7 @@ export default function Monitors() {
                     </div>
 
                     <div className="form-group">
-                        <Label htmlFor="mon-target">{t('app.monitors.target', 'Target')}</Label>
+                        <Label htmlFor="mon-target">{t('common.labels.target', 'Target')}</Label>
                         <Input
                             id="mon-target" required value={form.check_target}
                             onChange={(e) => setForm({ ...form, check_target: e.target.value })}
@@ -644,7 +644,7 @@ export default function Monitors() {
                     )}
 
                     <div className="mon-form__actions">
-                        <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>{t('app.monitors.cancel', 'Cancel')}</Button>
+                        <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
                         <Button type="submit" disabled={saving}>
                             {saving ? 'Adding…' : 'Add monitor'}
                         </Button>

@@ -186,7 +186,7 @@ export function DatabaseEmptyPanel({ node, unit = 'tables', onNewTable, onImport
                 )}
                 {onOpenConsole && (
                     <Button type="button" size="sm" variant="outline" onClick={onOpenConsole}>
-                        <Terminal size={14} aria-hidden="true" /> {t('app.dbBlankStates.openSqlConsole2', 'Open SQL console')}
+                        <Terminal size={14} aria-hidden="true" /> {t('app.dbBlankStates.openSqlConsole', 'Open SQL console')}
                     </Button>
                 )}
             </div>

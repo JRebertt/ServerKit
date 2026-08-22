@@ -437,7 +437,7 @@ export default function Databases() {
     }
 
     function openBackups() {
-        setTabs((prev) => prev.some((t) => t.id === 'backups') ? prev : [...prev, { id: 'backups', kind: 'backups', titleKey: 'app.databases.backups', title: 'Backups' }]);
+        setTabs((prev) => prev.some((t) => t.id === 'backups') ? prev : [...prev, { id: 'backups', kind: 'backups', titleKey: 'common.labels.backups', title: 'Backups' }]);
         showTab('backups');
     }
 
@@ -584,7 +584,7 @@ export default function Databases() {
                     return [
                         { labelKey: 'app.databases.openService', label: 'Open service', icon: ExternalLink, onClick: () => navigate(`/services/${appId}`) },
                         { labelKey: 'app.databases.deployActivity', label: 'Deploy activity', icon: Activity, onClick: () => navigate('/deployments') },
-                        { labelKey: 'app.databases.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => loadEngines() },
+                        { labelKey: 'common.actions.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => loadEngines() },
                     ];
                 }
                 if (node.engine === 'mysql' && node.status === 'active') {
@@ -592,24 +592,24 @@ export default function Databases() {
                         { labelKey: 'app.databases.createDatabase', label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'mysql-db' }) },
                         { labelKey: 'app.databases.createUser', label: 'Create user', icon: Plus, onClick: () => openUserModal('mysql') },
                         { labelKey: 'app.databases.processes', label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'mysql' }, 'mysql') },
-                        { labelKey: 'app.databases.refresh2', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
+                        { labelKey: 'common.actions.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
                 if (node.engine === 'postgresql' && node.status === 'active') {
                     return [
-                        { labelKey: 'app.databases.createDatabase2', label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'pg-db' }) },
-                        { labelKey: 'app.databases.createUser2', label: 'Create user', icon: Plus, onClick: () => openUserModal('postgresql') },
-                        { labelKey: 'app.databases.processes2', label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'postgresql' }, 'postgresql') },
-                        { labelKey: 'app.databases.refresh3', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
+                        { labelKey: 'app.databases.createDatabase', label: 'Create database', icon: Plus, onClick: () => setModal({ type: 'pg-db' }) },
+                        { labelKey: 'app.databases.createUser', label: 'Create user', icon: Plus, onClick: () => openUserModal('postgresql') },
+                        { labelKey: 'app.databases.processes', label: 'Processes', icon: Activity, onClick: () => openProcesses({ dbType: 'postgresql' }, 'postgresql') },
+                        { labelKey: 'common.actions.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
                 if (node.installers?.length) {
                     return [
                         { label: `Install ${node.label}…`, icon: Download, onClick: () => startInstall(node) },
-                        { labelKey: 'app.databases.refresh4', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
+                        { labelKey: 'common.actions.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) },
                     ];
                 }
-                return [{ labelKey: 'app.databases.refresh5', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
+                return [{ labelKey: 'common.actions.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
             case 'database': {
                 const actions = [
                     { label: `New ${singular(engineUnit(node))}`, icon: Plus, onClick: () => setModal({ type: 'new-table', preset: dbPreset(node) }) },
@@ -630,12 +630,12 @@ export default function Databases() {
                         actions.splice(2, 0, { labelKey: 'app.databases.configTuner', label: 'Config tuner', icon: SlidersHorizontal, onClick: () => setTunerTarget({ container: node.conn.container, engine: node.engine, password: node.conn.password }) });
                     }
                     actions.splice(2, 0, { labelKey: 'app.databases.backUpDatabase', label: 'Back up database', icon: DatabaseBackup, onClick: () => backupDatabase(node) });
-                    actions.push({ labelKey: 'app.databases.dropDatabase3', label: 'Drop database', icon: Trash2, danger: true, onClick: () => dropDatabase(node) });
+                    actions.push({ labelKey: 'app.databases.dropDatabase', label: 'Drop database', icon: Trash2, danger: true, onClick: () => dropDatabase(node) });
                 }
                 return actions;
             }
             case 'app':
-                return [{ labelKey: 'app.databases.refresh6', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
+                return [{ labelKey: 'common.actions.refresh', label: 'Refresh', icon: RefreshCw, onClick: () => refresh(node) }];
             case 'table':
                 return [
                     { labelKey: 'app.databases.openData', label: 'Open data', icon: Table2, onClick: () => openTableTab(node) },
@@ -706,7 +706,7 @@ export default function Databases() {
                         className="dbx-icon-btn"
                         onClick={() => setSidebarVisible((v) => !v)}
                         aria-label={sidebarVisible ? t('app.databases.hideSources', 'Hide sources') : t('app.databases.showSources', 'Show sources')}
-                        title={sidebarVisible ? t('app.databases.hideSources2', 'Hide sources') : t('app.databases.showSources2', 'Show sources')}
+                        title={sidebarVisible ? t('app.databases.hideSources', 'Hide sources') : t('app.databases.showSources', 'Show sources')}
                     >
                         {sidebarVisible ? <PanelLeftClose size={16} aria-hidden="true" /> : <PanelLeftOpen size={16} aria-hidden="true" />}
                     </button>
@@ -747,7 +747,7 @@ export default function Databases() {
                                     role="menuitem"
                                     onClick={() => { setModal({ type: 'import', preset: dbPreset(selectedNode) }); setShowNewMenu(false); }}
                                 >
-                                    <Download size={14} aria-hidden="true" /> {t('app.databases.importSqlDump2', 'Import SQL dump…')}
+                                    <Download size={14} aria-hidden="true" /> {t('app.databases.importSqlDump', 'Import SQL dump…')}
                                 </button>
                                 <div className="dbx-menu-sep" />
                                 <button type="button" role="menuitem" disabled={engineState('mysql', status) !== 'active'} onClick={() => { setModal({ type: 'mysql-db' }); setShowNewMenu(false); }}>
@@ -774,7 +774,7 @@ export default function Databases() {
                         <BookMarked size={14} aria-hidden="true" /> {t('app.databases.managed', 'Managed')}
                     </button>
                     <button type="button" className="dbx-chip" onClick={openBackups}>
-                        <Archive size={14} aria-hidden="true" /> {t('app.databases.backups2', 'Backups')}
+                        <Archive size={14} aria-hidden="true" /> {t('common.labels.backups', 'Backups')}
                     </button>
                 </div>
             </header>
@@ -865,7 +865,7 @@ export default function Databases() {
                                 disabled={!newConsoleConn}
                                 onClick={() => { if (newConsoleConn) openConsole(newConsoleConn, selectedNode.engine); }}
                                 title={newConsoleConn ? t('app.databases.newSqlConsole', 'New SQL console') : t('app.databases.selectADatabaseToOpenA', 'Select a database to open a console')}
-                                aria-label={t('app.databases.newSqlConsole2', 'New SQL console')}
+                                aria-label={t('app.databases.newSqlConsole', 'New SQL console')}
                             >
                                 <Plus size={14} aria-hidden="true" />
                             </button>
@@ -1056,7 +1056,7 @@ export default function Databases() {
                 <ManagedDatabasesPanel />
             </Modal>
 
-            <Modal open={!!tunerTarget} onClose={() => setTunerTarget(null)} title={t('app.databases.configTuner2', 'Config tuner')} size="lg">
+            <Modal open={!!tunerTarget} onClose={() => setTunerTarget(null)} title={t('app.databases.configTuner', 'Config tuner')} size="lg">
                 {tunerTarget && (
                     <ConfigTunerPanel target={tunerTarget.container} engine={tunerTarget.engine} password={tunerTarget.password} />
                 )}
