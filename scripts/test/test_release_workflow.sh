@@ -6,6 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RELEASE="$ROOT/.github/workflows/release.yml"
 PROMOTION="$ROOT/.github/workflows/main-promotion.yml"
+VERSION_BUMP="$ROOT/.github/workflows/version-bump.yml"
 failures=0
 
 expect_text() {
@@ -42,6 +43,17 @@ expect_text "$PROMOTION" '[ "$HEAD_BRANCH" != "dev" ]' \
     'main promotion rejects heads other than dev'
 expect_text "$PROMOTION" '[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]' \
     'main promotion rejects a fork branch named dev'
+
+expect_text "$VERSION_BUMP" 'name: Wait for sibling CI before advancing dev' \
+    'version bump waits for the checks on the triggering commit'
+expect_text "$VERSION_BUMP" '.workflowName != "Version Bump"' \
+    'version bump excludes its own in-progress run from the sibling gate'
+expect_text "$VERSION_BUMP" 'statuses: write' \
+    'version bump may preserve the required status on its generated commit'
+expect_text "$VERSION_BUMP" "-f context='Require dev source'" \
+    'generated version commit receives the protected promotion context'
+expect_text "$VERSION_BUMP" '-f head="$owner:dev"' \
+    'promotion status requires an open same-repository dev head'
 
 expect_text "$RELEASE" 'name: Verify dev promotion' \
     'release verifies the merged promotion'
