@@ -14,6 +14,10 @@ regression a red test rather than a slow one.
 See docs/plans/64_TEST_FIXTURE_SCOPE_PLAN.md.
 """
 
+import ast
+import re
+from pathlib import Path
+
 
 def _fixturedefs(request, name):
     """`getfixturedefs` takes a Node on pytest >= 8.1 and a nodeid before it."""
@@ -65,8 +69,7 @@ def test_app_fixture_stays_function_scoped(request):
 # Shrinking this list is progress; do not add to it.
 CREATE_APP_BASELINE = {
     'test_agent_poll_e2e.py',
-    'test_ai_lazy_import.py',
-    'test_api_error_shape.py',
+    'test_ai_lazy_import.py',  # boots one in a subprocess probe, by design
     'test_enhancements_integration.py',
     'test_fleet_proxy.py',
     'test_health_staging.py',
@@ -80,15 +83,52 @@ CREATE_APP_BASELINE = {
 }
 
 
+_CREATE_APP_CALL = re.compile(r'\bcreate_app\(')
+
+
+def _boots_its_own_app(source):
+    """True when *source* actually boots an app, not merely mentions one.
+
+    A raw text search over the file counted prose: a docstring reading
+    "Stand-in for create_app()" and a comment reading "create_app() runs many
+    times in a test session" both matched, so two files that use the shared
+    `app` fixture were reported as boots -- one as a new violation, one sitting
+    in the baseline for it. Calls now come from the AST. String literals still
+    count, because test_ai_lazy_import.py boots its probe app from an embedded
+    script; docstrings and comments never boot anything.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:  # unparseable file still gets the old, blunt check
+        return bool(_CREATE_APP_CALL.search(source))
+
+    docstrings = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef,
+                             ast.FunctionDef, ast.AsyncFunctionDef)):
+            if ast.get_docstring(node, clean=False) is not None:
+                docstrings.add(id(node.body[0].value))
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = getattr(func, 'id', None) or getattr(func, 'attr', None)
+            if name == 'create_app':
+                return True
+        if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                and id(node) not in docstrings
+                and _CREATE_APP_CALL.search(node.value)):
+            return True
+    return False
+
+
 def test_no_new_direct_create_app_callers():
-    import re
-    from pathlib import Path
     tests_dir = Path(__file__).resolve().parent
     found = set()
     for f in sorted(tests_dir.glob('test_*.py')):
         if f.name == Path(__file__).name:
             continue
-        if re.search(r'\bcreate_app\(', f.read_text(encoding='utf-8', errors='replace')):
+        if _boots_its_own_app(f.read_text(encoding='utf-8', errors='replace')):
             found.add(f.name)
     new = found - CREATE_APP_BASELINE
     assert not new, (
@@ -97,3 +137,32 @@ def test_no_new_direct_create_app_callers():
     )
     stale = CREATE_APP_BASELINE - found
     assert not stale, f'Migrated files still in the baseline: {sorted(stale)} — delete them.'
+
+
+def test_boot_detection_reads_code_not_prose():
+    """Prove the guard's own scanner, or it fails on the next docstring instead.
+
+    Both false positives it produced were prose: test_disk_reclaim.py's
+    "Stand-in for create_app()" docstring, and the comment that put
+    test_api_error_shape.py in the baseline for a boot it never did. The
+    subprocess probe in test_ai_lazy_import.py is why string literals still
+    count.
+    """
+    docstring_only = (
+        'def helper():\n'
+        '    """Stand-in for create_app() - only a context is needed."""\n'
+        '    return None\n'
+    )
+    comment_only = '# create_app() runs many times in a test session\nx = 1\n'
+    real_call = 'from app import create_app\napp = create_app("testing")\n'
+    embedded_probe = 'PROBE = "from app import create_app\\ncreate_app(\'testing\')"\n'
+    attribute_call = 'import app\napp.create_app("testing")\n'
+
+    assert not _boots_its_own_app(docstring_only)
+    assert not _boots_its_own_app(comment_only)
+    assert _boots_its_own_app(real_call)
+    assert _boots_its_own_app(embedded_probe)
+    assert _boots_its_own_app(attribute_call)
+
+    # A file this guard cannot parse must not slip through unchecked.
+    assert _boots_its_own_app('def broken(:\n    create_app()\n')
