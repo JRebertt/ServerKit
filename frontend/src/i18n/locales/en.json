@@ -1831,8 +1831,6 @@
         },
         "drawerHeader": {
             "aiSettings": "AI settings",
-            "closeAssistant": "Close assistant",
-            "poweredByPrompture": "powered by Prompture",
             "serverkitAi": "ServerKit AI"
         },
         "email": {
@@ -3289,8 +3287,8 @@
             "memberActions": "Member Actions"
         },
         "messageList": {
+            "askAboutThisPage": "Ask about this page, or anything on this server.",
             "jumpToLatest": "Jump to latest",
-            "poweredByPrompture": "powered by Prompture",
             "serverkitAi": "ServerKit AI",
             "settingsAiAssistant": "Settings → AI Assistant.",
             "theAssistantIsnTConfiguredYet": "The assistant isn't configured yet. An admin can set a provider in",
@@ -4242,11 +4240,15 @@
             "viewMessages": "View messages"
         },
         "quickCreate": {
-            "createNew": "Create new…",
+            "backup": "Backup",
+            "container": "Container",
             "createNew2": "Create new",
+            "createOrSearch": "Create or search — Ctrl K",
             "cronJob": "Cron job",
+            "database": "Database",
             "monitor": "Monitor",
-            "new": "New"
+            "vault": "Vault",
+            "webhook": "Webhook"
         },
         "recycleBinTab": {
             "couldNotLoadTheRecycleBin": "Could not load the recycle bin",
@@ -5769,11 +5771,17 @@
         "statusbar": {
             "activeServer": "Active server",
             "alerts": "Alerts",
+            "allWorkspacesMeta": "{{count}} workspaces · everything you can see",
+            "closeEsc": "Close (Esc)",
+            "collapsePanel": "Collapse panel",
             "commandShortcut": "Ctrl K",
+            "consolePanels": "Console panels",
+            "expandPanel": "Expand panel",
             "idle": "idle",
             "runningCount": "{{count}} running",
             "setupScore": "setup {{score}}%",
-            "shellStatus": "ServerKit status and tools"
+            "shellStatus": "ServerKit status and tools",
+            "workspaceMembers": "{{count}} members"
         },
         "storageDestinations": {
             "snapshots": "Snapshots"
@@ -6678,49 +6686,39 @@
             "warnings2": "Warnings ("
         },
         "walkthroughs": {
-            "activeGuide": "Guide · {{count}}/{{total}}",
-            "allGuides": "All guides",
+            "allRecipes": "All recipes",
             "checkStatus": "Check status",
             "chooseServiceSource": "Choose where the code lives",
             "chooseServiceSourceDescription": "Pick GitHub, another Git remote, a local path, or a ZIP upload.",
             "chooseSource": "Choose a source",
             "completed": "Completed",
-            "completedCount": "{{count}} of {{total}} completed",
             "continueSetup": "Continue setup",
             "createServiceDescription": "Choose a source, review the detected runtime, and launch a service.",
             "createServiceTitle": "Create your first service",
+            "doneCount": "{{count}} of {{total}} done",
+            "doneNextStep": "Done · next step",
             "enableTwoFactorDescription": "Pair an authenticator, verify a code, and store your recovery codes.",
             "enableTwoFactorTitle": "Enable two-step authentication",
             "finishService": "Finish in the wizard",
             "fiveMinutes": "About 5 minutes",
-            "guidedOutcome": "Guided outcome",
-            "guides": "Guides",
             "launchService": "Create and launch the service",
             "launchServiceDescription": "Submit the reviewed configuration. The guide completes only after creation succeeds.",
-            "learnByDoing": "Learn by doing",
-            "libraryDescription": "Walkthroughs guide the controls. Recipes automate the server work underneath.",
-            "makeTheNextMove": "Make the next move",
-            "now": "Now",
+            "markDone": "Mark done",
             "openSecurity": "Open security",
             "openSecuritySettings": "Open account security",
             "openSecuritySettingsDescription": "Go directly to your personal two-factor authentication card.",
             "openServiceWizard": "Open the service wizard",
             "openServiceWizardDescription": "Start from ServerKit’s dedicated three-step service flow.",
             "openWizard": "Open wizard",
-            "operatorGuides": "Operator guides",
             "pairAuthenticator": "Pair your authenticator",
             "pairAuthenticatorDescription": "Scan the QR code, then enter the six-digit code from your app.",
-            "progress": "Walkthrough progress",
-            "progressSaved": "Progress is saved to your account.",
             "recipes": "Recipes",
-            "resume": "Resume",
             "reviewService": "Review the detected setup",
             "reviewServiceDescription": "Confirm the name, runtime, build method, project, and environment.",
-            "runAgain": "Run again",
-            "start": "Start walkthrough",
             "startEnrollment": "Start enrollment",
             "stepCount": "Step {{current}} of {{total}}",
-            "stop": "Stop walkthrough",
+            "stepsMeta": "{{count}} steps · {{duration}}",
+            "stopShort": "Stop",
             "threeMinutes": "About 3 minutes",
             "verifyAndSaveCodes": "Verify and save recovery codes",
             "verifyAndSaveCodesDescription": "The guide verifies the live account status—it never stores your code or secret."
@@ -7322,7 +7320,14 @@
             "extensionsSecurity": "Docs: Extension security",
             "manifest": "Docs: serverkit.yaml manifest"
         },
-        "label": "Command palette"
+        "label": "Command palette",
+        "moreCreates": "{{count}} more",
+        "moreIncludingExtensions": "{{count}} more · including extensions",
+        "placeholderActions": "Run an action…",
+        "placeholderAll": "Search, or create something new…",
+        "placeholderDocs": "Search docs…",
+        "recipeSteps": "{{count}} steps",
+        "showFewer": "Show fewer"
     },
     "settings": {
         "language": {

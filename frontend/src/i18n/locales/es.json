@@ -1581,7 +1581,6 @@
             "took": "Duración",
             "tryADifferentSearchTermOr": "Prueba con otro término de búsqueda o elige otra vista."
         },
-        "dialog": {},
         "dnsActivity": {
             "loadingRecentChanges": "Cargando cambios recientes…",
             "noDnsChangesYet": "Aún no hay cambios de DNS",
@@ -1708,7 +1707,6 @@
             "thisDomainIsnTSetUp": "Este dominio aún no está configurado para DNS en ServerKit.",
             "tokenRegenerated": "Token regenerado"
         },
-        "domainTabs": {},
         "domains": {
             "aCloudflareTokenNeeds": "un token de Cloudflare necesita",
             "aFreeSslCertificateWillBe": "Se obtendrá un certificado SSL gratuito para",
@@ -1803,8 +1801,6 @@
         },
         "drawerHeader": {
             "aiSettings": "Configuración de IA",
-            "closeAssistant": "Cerrar asistente",
-            "poweredByPrompture": "con tecnología de Prompture",
             "serverkitAi": "ServerKit AI"
         },
         "email": {
@@ -3253,8 +3249,8 @@
             "memberActions": "Acciones de miembros"
         },
         "messageList": {
+            "askAboutThisPage": "Pregunta sobre esta página, o sobre cualquier cosa de este servidor.",
             "jumpToLatest": "Ir al más reciente",
-            "poweredByPrompture": "con tecnología de Prompture",
             "serverkitAi": "ServerKit AI",
             "settingsAiAssistant": "Configuración → Asistente de IA.",
             "theAssistantIsnTConfiguredYet": "El asistente aún no está configurado. Un administrador puede definir un proveedor en",
@@ -4170,11 +4166,15 @@
             "viewMessages": "Ver mensajes"
         },
         "quickCreate": {
-            "createNew": "Crear nuevo…",
+            "backup": "Copia de seguridad",
+            "container": "Contenedor",
             "createNew2": "Crear nuevo",
+            "createOrSearch": "Crear o buscar — Ctrl K",
             "cronJob": "Tarea cron",
+            "database": "Base de datos",
             "monitor": "Monitor",
-            "new": "Nuevo"
+            "vault": "Bóveda",
+            "webhook": "Webhook"
         },
         "recycleBinTab": {
             "couldNotLoadTheRecycleBin": "No se pudo cargar la papelera de reciclaje",
@@ -5504,7 +5504,6 @@
             "variablesInThisGroupApplyTo": "Las variables de este grupo se aplican a cada recurso al que lo vincules.",
             "whatThisGroupIsFor": "Para qué sirve este grupo…"
         },
-        "sheet": {},
         "shellTab": {
             "containerShell": "Shell del contenedor",
             "enterCommand": "Introduce un comando...",
@@ -5514,7 +5513,6 @@
             "startTheServiceToAccessThe": "Inicia el servicio para acceder al shell.",
             "typeACommandBelowToExecute": "Escribe un comando abajo para ejecutarlo en el contenedor."
         },
-        "sidebar": {},
         "sidebarSettings": {
             "chooseAPresetOrBuildA": "Elige una vista predefinida o crea una personalizada. Solo los elementos visibles aparecen en tu barra lateral.",
             "custom": "Personalizada",
@@ -5689,6 +5687,14 @@
             "timeout": "Tiempo de espera",
             "title": "Título",
             "visibility": "Visibilidad"
+        },
+        "statusbar": {
+            "allWorkspacesMeta": "{{count}} espacios de trabajo · todo lo que puedes ver",
+            "closeEsc": "Cerrar (Esc)",
+            "collapsePanel": "Contraer panel",
+            "consolePanels": "Paneles de la consola",
+            "expandPanel": "Expandir panel",
+            "workspaceMembers": "{{count}} miembros"
         },
         "storageDestinations": {
             "snapshots": "Instantáneas"
@@ -6592,6 +6598,14 @@
             "warnings": "advertencias ·",
             "warnings2": "Advertencias ("
         },
+        "walkthroughs": {
+            "allRecipes": "Todas las recetas",
+            "doneCount": "{{count}} de {{total}} completados",
+            "doneNextStep": "Hecho · siguiente paso",
+            "markDone": "Marcar como hecho",
+            "stepsMeta": "{{count}} pasos · {{duration}}",
+            "stopShort": "Detener"
+        },
         "webhookSubscriptionModal": {
             "createWebhookSubscription": "Crear suscripción de webhook",
             "eGSlackNotificationsCiTrigger": "p. ej. Notificaciones de Slack, disparador de CI",
@@ -6894,35 +6908,36 @@
     },
     "common": {
         "actions": {
-            "back": "Atrás",
-            "close": "Cerrar",
-            "logOut": "Cerrar sesión",
-            "refresh": "Actualizar",
-            "retry": "Reintentar",
-            "tryAgain": "Reintentar",
-            "dismiss": "Descartar",
-            "clear": "Limpiar",
-            "cancel": "Cancelar",
-            "done": "Listo",
-            "delete": "Eliminar",
-            "edit": "Editar",
-            "test": "Probar",
             "add": "Añadir",
-            "download": "Descargar",
-            "restore": "Restaurar",
-            "create": "Crear",
-            "stop": "Detener",
-            "restart": "Reiniciar",
-            "start": "Iniciar",
-            "remove": "Quitar",
-            "disable": "Desactivar",
-            "copy": "Copiar",
-            "enable": "Activar",
-            "continue": "Continuar",
+            "back": "Atrás",
+            "cancel": "Cancelar",
+            "clear": "Limpiar",
             "clearFilters": "Limpiar filtros",
+            "close": "Cerrar",
+            "continue": "Continuar",
+            "copy": "Copiar",
+            "create": "Crear",
+            "delete": "Eliminar",
+            "disable": "Desactivar",
+            "dismiss": "Descartar",
+            "done": "Listo",
+            "download": "Descargar",
+            "edit": "Editar",
+            "enable": "Activar",
+            "logOut": "Cerrar sesión",
+            "open": "Abrir",
+            "refresh": "Actualizar",
+            "remove": "Quitar",
+            "restart": "Reiniciar",
+            "restore": "Restaurar",
+            "retry": "Reintentar",
             "save": "Guardar",
-            "open": "Abrir"
+            "start": "Iniciar",
+            "stop": "Detener",
+            "test": "Probar",
+            "tryAgain": "Reintentar"
         },
+        "checking": "Comprobando...",
         "confirm": {
             "typeToConfirm": "Escribe <0>{{value}}</0> para confirmar:"
         },
@@ -6949,80 +6964,79 @@
             "title": "Algo salió mal",
             "unexpected": "Se produjo un error inesperado"
         },
+        "labels": {
+            "action": "Acción",
+            "actions": "Acciones",
+            "all": "Todos",
+            "backups": "Copias de seguridad",
+            "branch": "Rama",
+            "command": "Comando",
+            "created": "Creado",
+            "current": "Actual",
+            "databases": "Bases de datos",
+            "default": "Predeterminado",
+            "description": "Descripción",
+            "disk": "Disco",
+            "docker": "Docker",
+            "domain": "Dominio",
+            "domains": "Dominios",
+            "extensions": "Extensiones",
+            "info": "Info",
+            "ipAddress": "Dirección IP",
+            "key": "Clave",
+            "kind": "Tipo",
+            "logs": "Registros",
+            "memory": "Memoria",
+            "monitoring": "Monitorización",
+            "name": "Nombre",
+            "overview": "Resumen",
+            "password": "Contraseña",
+            "permissions": "Permisos",
+            "port": "Puerto",
+            "project": "Proyecto",
+            "schedule": "Programación",
+            "security": "Seguridad",
+            "server": "Servidor",
+            "serverKit": "ServerKit",
+            "servers": "Servidores",
+            "service": "Servicio",
+            "services": "Servicios",
+            "settings": "Configuración",
+            "severity": "Severidad",
+            "size": "Tamaño",
+            "source": "Origen",
+            "state": "Estado",
+            "status": "Estado",
+            "storage": "Almacenamiento",
+            "system": "Sistema",
+            "target": "Destino",
+            "time": "Hora",
+            "type": "Tipo",
+            "uptime": "Tiempo de actividad",
+            "user": "Usuario",
+            "username": "Nombre de usuario",
+            "value": "Valor",
+            "version": "Versión",
+            "warning": "Advertencia",
+            "when": "Cuándo",
+            "workspace": "Espacio de trabajo"
+        },
+        "loading": "Cargando…",
         "more": "Más",
         "moreSections": "Más secciones",
         "page": "Página",
         "state": {
+            "failed": "Fallido",
             "loading": "Cargando",
             "loadingApp": "Cargando ServerKit",
-            "noResults": "No se encontraron resultados",
-            "failed": "Fallido"
+            "noResults": "No se encontraron resultados"
         },
         "time": {
             "daysShort": "{{count}} d",
             "hoursShort": "{{count}} h",
             "justNow": "ahora mismo",
             "minutesShort": "{{count}} min"
-        },
-        "checking": "Comprobando...",
-        "labels": {
-            "serverKit": "ServerKit",
-            "version": "Versión",
-            "user": "Usuario",
-            "actions": "Acciones",
-            "command": "Comando",
-            "ipAddress": "Dirección IP",
-            "server": "Servidor",
-            "status": "Estado",
-            "security": "Seguridad",
-            "system": "Sistema",
-            "name": "Nombre",
-            "key": "Clave",
-            "time": "Hora",
-            "severity": "Severidad",
-            "created": "Creado",
-            "storage": "Almacenamiento",
-            "type": "Tipo",
-            "size": "Tamaño",
-            "password": "Contraseña",
-            "username": "Nombre de usuario",
-            "overview": "Resumen",
-            "settings": "Configuración",
-            "port": "Puerto",
-            "state": "Estado",
-            "action": "Acción",
-            "description": "Descripción",
-            "servers": "Servidores",
-            "logs": "Registros",
-            "project": "Proyecto",
-            "domains": "Dominios",
-            "current": "Actual",
-            "backups": "Copias de seguridad",
-            "branch": "Rama",
-            "permissions": "Permisos",
-            "default": "Predeterminado",
-            "schedule": "Programación",
-            "when": "Cuándo",
-            "target": "Destino",
-            "all": "Todos",
-            "docker": "Docker",
-            "source": "Origen",
-            "domain": "Dominio",
-            "services": "Servicios",
-            "service": "Servicio",
-            "value": "Valor",
-            "kind": "Tipo",
-            "disk": "Disco",
-            "memory": "Memoria",
-            "warning": "Advertencia",
-            "info": "Info",
-            "databases": "Bases de datos",
-            "extensions": "Extensiones",
-            "uptime": "Tiempo de actividad",
-            "monitoring": "Monitorización",
-            "workspace": "Espacio de trabajo"
-        },
-        "loading": "Cargando…"
+        }
     },
     "errors": {
         "auth": {
@@ -7186,7 +7200,14 @@
             "extensionsSecurity": "Documentación: Seguridad de las extensiones",
             "manifest": "Documentación: Manifiesto serverkit.yaml"
         },
-        "label": "Paleta de comandos"
+        "label": "Paleta de comandos",
+        "moreCreates": "{{count}} más",
+        "moreIncludingExtensions": "{{count}} más · incluidas las extensiones",
+        "placeholderActions": "Ejecuta una acción…",
+        "placeholderAll": "Busca, o crea algo nuevo…",
+        "placeholderDocs": "Buscar en la documentación…",
+        "recipeSteps": "{{count}} pasos",
+        "showFewer": "Mostrar menos"
     },
     "settings": {
         "language": {
