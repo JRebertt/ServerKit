@@ -1,249 +1,233 @@
 import {
-    ArrowRight,
     BookOpenCheck,
     Boxes,
     Check,
-    ChevronLeft,
-    Circle,
     Clock3,
-    ListChecks,
-    RotateCcw,
     ShieldCheck,
-    X,
+    Square,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
+import { useShellDock } from '../contexts/ShellDockContext';
 import { useWalkthroughs } from '../contexts/walkthroughContextValue';
 import { getWalkthroughProgress } from '../services/walkthroughState';
 import Pill from './ds/Pill';
-import IconButton from './IconButton';
-
+import ShellDockTabs from './ShellDockTabs';
 
 const ICONS = { service: Boxes, security: ShieldCheck };
 
-function WalkthroughCard({ walkthrough, state, onStart, t }) {
-    const Icon = ICONS[walkthrough.icon] || BookOpenCheck;
-    const progress = getWalkthroughProgress(state, walkthrough);
-    const status = progress.entry?.status;
-    const completed = status === 'completed';
-    const active = status === 'active';
-
+// Recipes console — the prototype's guided-walkthrough surface: a library of
+// recipe cards, and for the running recipe a split view with the step rail on
+// the left and one step's story + deep-link action on the right. The engine
+// (auto-completion via routes/signals/checks, saved progress) is untouched;
+// only the shell changed from a floating card stack to the docked console.
+function RecipeLibrary({ walkthroughs, state, onStart, onStop, t }) {
     return (
-        <article className={`walkthrough-card walkthrough-card--${walkthrough.tone}`}>
-            <div className="walkthrough-card__icon"><Icon size={18} /></div>
-            <div className="walkthrough-card__body">
-                <div className="walkthrough-card__meta">
-                    <span><Clock3 size={12} /> {walkthrough.duration}</span>
-                    {completed && <Pill kind="green">{t('app.walkthroughs.completed', 'Completed')}</Pill>}
-                    {active && <Pill kind="cyan">{progress.count}/{progress.total}</Pill>}
-                </div>
-                <h3>{walkthrough.title}</h3>
-                <p>{walkthrough.description}</p>
-                <Button
-                    type="button"
-                    variant={active ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => onStart(walkthrough.id)}
-                >
-                    {completed ? <RotateCcw size={14} /> : <ArrowRight size={14} />}
-                    {completed
-                        ? t('app.walkthroughs.runAgain', 'Run again')
-                        : active
-                            ? t('app.walkthroughs.resume', 'Resume')
-                            : t('app.walkthroughs.start', 'Start walkthrough')}
-                </Button>
-            </div>
-        </article>
-    );
-}
-
-function ActiveWalkthrough({ walkthrough, progress, currentStep, onBrowse, t }) {
-    const {
-        checkCurrent,
-        dismiss,
-        goToCurrent,
-    } = useWalkthroughs();
-    const Icon = ICONS[walkthrough.icon] || BookOpenCheck;
-    const [checking, setChecking] = useState(false);
-
-    const performAction = async () => {
-        if (!currentStep?.check) {
-            goToCurrent();
-            return;
-        }
-        setChecking(true);
-        try { await checkCurrent(); } finally { setChecking(false); }
-    };
-
-    return (
-        <>
-            <header className="walkthrough-hub__active-head">
-                <Button type="button" variant="ghost" size="sm" onClick={onBrowse}>
-                    <ChevronLeft size={14} /> {t('app.walkthroughs.allGuides', 'All guides')}
-                </Button>
-                <div className={`walkthrough-hub__active-icon is-${walkthrough.tone}`}><Icon size={19} /></div>
-                <span className="walkthrough-hub__eyebrow">
-                    {t('app.walkthroughs.guidedOutcome', 'Guided outcome')}
-                </span>
-                <h2>{walkthrough.title}</h2>
-                <div className="walkthrough-hub__progress-copy">
-                    <span>{t('app.walkthroughs.stepCount', 'Step {{current}} of {{total}}', {
-                        current: Math.min(progress.count + 1, progress.total),
-                        total: progress.total,
-                    })}</span>
-                    <strong>{progress.percent}%</strong>
-                </div>
-                <progress max="100" value={progress.percent} aria-label={t('app.walkthroughs.progress', 'Walkthrough progress')} />
-            </header>
-
-            <ol className="walkthrough-hub__steps">
-                {walkthrough.steps.map((step, index) => {
-                    const done = progress.completed.includes(step.id);
-                    const current = currentStep?.id === step.id;
-                    return (
-                        <li
-                            key={step.id}
-                            className={`${done ? 'is-done' : ''}${current ? ' is-current' : ''}`}
-                            aria-current={current ? 'step' : undefined}
+        <div className="shell-recipes__grid">
+            {walkthroughs.map((walkthrough) => {
+                const Icon = ICONS[walkthrough.icon] || BookOpenCheck;
+                const progress = getWalkthroughProgress(state, walkthrough);
+                const status = progress.entry?.status;
+                const active = status === 'active';
+                const completed = status === 'completed';
+                return (
+                    <div key={walkthrough.id} className={`shell-recipes__card${active ? ' is-active' : ''}`}>
+                        <button
+                            type="button"
+                            className="shell-recipes__card-hit"
+                            onClick={() => onStart(walkthrough.id)}
                         >
-                            <span className="walkthrough-hub__step-marker">
-                                {done ? <Check size={13} /> : current ? <Circle size={11} /> : index + 1}
-                            </span>
-                            <div>
-                                <strong>{step.title}</strong>
-                                {(current || done) && <p>{step.description}</p>}
-                            </div>
-                        </li>
-                    );
-                })}
-            </ol>
-
-            {currentStep && (
-                <div className="walkthrough-hub__next">
-                    <span>{t('app.walkthroughs.now', 'Now')}</span>
-                    <strong>{currentStep.title}</strong>
-                    <p>{currentStep.description}</p>
-                    <Button type="button" onClick={performAction} disabled={checking}>
-                        {checking
-                            ? t('common.checking', 'Checking…')
-                            : currentStep.action}
-                        {!checking && <ArrowRight size={15} />}
-                    </Button>
-                </div>
-            )}
-
-            <footer className="walkthrough-hub__footer">
-                <span>{t('app.walkthroughs.progressSaved', 'Progress is saved to your account.')}</span>
-                <Button type="button" variant="ghost" size="sm" onClick={() => dismiss(walkthrough.id)}>
-                    {t('app.walkthroughs.stop', 'Stop walkthrough')}
-                </Button>
-            </footer>
-        </>
+                            <span className={`shell-recipes__card-icon is-${walkthrough.tone}`}><Icon size={16} /></span>
+                            <span className="shell-recipes__card-name">{walkthrough.title}</span>
+                            <span className="shell-recipes__card-desc">{walkthrough.description}</span>
+                        </button>
+                        <span className="shell-recipes__card-meta mono">
+                            <Clock3 size={11} aria-hidden="true" />
+                            {t('app.walkthroughs.stepsMeta', '{{count}} steps · {{duration}}', {
+                                count: walkthrough.steps.length,
+                                duration: walkthrough.duration,
+                            })}
+                            {completed && <Pill kind="green">{t('app.walkthroughs.completed', 'Completed')}</Pill>}
+                            {active && <Pill kind="cyan">{progress.count}/{progress.total}</Pill>}
+                            {active && (
+                                <button
+                                    type="button"
+                                    className="shell-recipes__card-stop"
+                                    onClick={() => onStop(walkthrough.id)}
+                                >
+                                    <Square size={10} aria-hidden="true" /> {t('app.walkthroughs.stopShort', 'Stop')}
+                                </button>
+                            )}
+                        </span>
+                    </div>
+                );
+            })}
+        </div>
     );
 }
 
-export default function WalkthroughHub({ hideLauncher = false, statusbarMode = false }) {
+export default function WalkthroughHub() {
     const { t } = useTranslation();
+    const navigate = useNavigate();
+    const { activeTab, expanded } = useShellDock();
     const {
         state,
-        open,
-        setOpen,
         walkthroughs,
         activeWalkthrough,
         activeProgress,
         currentStep,
         start,
+        dismiss,
+        completeStep,
+        checkCurrent,
     } = useWalkthroughs();
     const [browse, setBrowse] = useState(false);
+    const [viewStepId, setViewStepId] = useState(null);
+    const [checking, setChecking] = useState(false);
 
-    const showActive = activeWalkthrough && !browse;
-    const completedCount = walkthroughs.filter(
-        (walkthrough) => state.progress?.[walkthrough.id]?.status === 'completed',
-    ).length;
+    // Follow the walkthrough that is running: switching recipes resets the
+    // step selection back to "wherever the engine is".
+    useEffect(() => {
+        setViewStepId(null);
+        setBrowse(false);
+    }, [activeWalkthrough?.id]);
 
-    const launch = () => {
-        setBrowse(!activeWalkthrough);
-        setOpen(!open);
+    const steps = activeWalkthrough?.steps || [];
+    const viewStep = useMemo(() => {
+        const chosen = steps.find((step) => step.id === viewStepId);
+        return chosen || currentStep || steps[steps.length - 1] || null;
+    }, [currentStep, steps, viewStepId]);
+    const viewIndex = viewStep ? steps.indexOf(viewStep) : -1;
+
+    if (activeTab !== 'recipes') return null;
+
+    const showLibrary = !activeWalkthrough || browse;
+    const completedSteps = activeProgress?.completed || [];
+    const isDone = viewStep ? completedSteps.includes(viewStep.id) : false;
+    const isCurrent = viewStep && currentStep && viewStep.id === currentStep.id;
+    const isLast = viewIndex === steps.length - 1;
+
+    const runAction = async () => {
+        if (!viewStep) return;
+        // Verification steps (e.g. 2FA) run the live check instead of a jump;
+        // every other step deep-links to the page that hosts the work, with
+        // the console staying open underneath.
+        if (viewStep.check && isCurrent) {
+            setChecking(true);
+            try { await checkCurrent(); } finally { setChecking(false); }
+            return;
+        }
+        if (viewStep.path) navigate(viewStep.path);
     };
 
-    const selectWalkthrough = (id) => {
+    const markDoneNext = () => {
+        if (!activeWalkthrough || !viewStep) return;
+        completeStep(activeWalkthrough.id, viewStep.id);
+        setViewStepId(null);
+    };
+
+    const startRecipe = (id) => {
         start(id);
         setBrowse(false);
+        setViewStepId(null);
     };
 
     return (
-        <div className={`walkthrough-shell${statusbarMode ? ' walkthrough-shell--statusbar' : ''}${open ? ' is-open' : ''}`}>
-            {!hideLauncher && <Button
-                type="button"
-                className="walkthrough-shell__launcher"
-                variant="outline"
-                onClick={launch}
-                aria-expanded={open}
-                aria-controls="walkthrough-hub"
-            >
-                <BookOpenCheck size={16} />
-                <span>{activeWalkthrough
-                    ? t('app.walkthroughs.activeGuide', 'Guide · {{count}}/{{total}}', {
-                        count: activeProgress.count,
-                        total: activeProgress.total,
-                    })
-                    : t('app.walkthroughs.guides', 'Guides')}</span>
-            </Button>}
+        <section
+            className={`shell-panel shell-recipes${expanded ? ' is-expanded' : ''}`}
+            aria-label={t('app.walkthroughs.recipes', 'Recipes')}
+        >
+            <header className="shell-panel__head">
+                <ShellDockTabs />
+            </header>
 
-            {open && (
-                <aside id="walkthrough-hub" className="walkthrough-hub" aria-label={t('app.walkthroughs.guides', 'Guides')}>
-                    <div className="walkthrough-hub__topline">
-                        <span><ListChecks size={14} /> {t('app.walkthroughs.operatorGuides', 'Operator guides')}</span>
-                        <IconButton
-                            icon={<X size={15} />}
-                            label={t('common.actions.close', 'Close')}
-                            onClick={() => setOpen(false)}
-                        />
-                    </div>
-
-                    {showActive ? (
-                        <ActiveWalkthrough
-                            walkthrough={activeWalkthrough}
-                            progress={activeProgress}
-                            currentStep={currentStep}
-                            onBrowse={() => setBrowse(true)}
-                            t={t}
-                        />
-                    ) : (
-                        <div className="walkthrough-hub__library">
-                            <header>
-                                <span className="walkthrough-hub__eyebrow">
-                                    {t('app.walkthroughs.learnByDoing', 'Learn by doing')}
-                                </span>
-                                <h2>{t('app.walkthroughs.makeTheNextMove', 'Make the next move')}</h2>
-                                <p>{t(
-                                    'app.walkthroughs.libraryDescription',
-                                    'Walkthroughs guide the controls. Recipes automate the server work underneath.',
-                                )}</p>
-                                <span className="walkthrough-hub__library-count">
-                                    {t('app.walkthroughs.completedCount', '{{count}} of {{total}} completed', {
-                                        count: completedCount,
-                                        total: walkthroughs.length,
+            {showLibrary ? (
+                <RecipeLibrary
+                    walkthroughs={walkthroughs}
+                    state={state}
+                    onStart={startRecipe}
+                    onStop={(id) => dismiss(id)}
+                    t={t}
+                />
+            ) : (
+                <div className="shell-recipes__split">
+                    <div className="shell-recipes__rail">
+                        <div className="shell-recipes__railhead">
+                            <div className="shell-recipes__railtitle">
+                                <strong>{activeWalkthrough.title}</strong>
+                                <span className="mono">
+                                    {t('app.walkthroughs.doneCount', '{{count}} of {{total}} done', {
+                                        count: activeProgress?.count || 0,
+                                        total: activeProgress?.total || steps.length,
                                     })}
                                 </span>
-                            </header>
-                            <div className="walkthrough-hub__cards">
-                                {walkthroughs.map((walkthrough) => (
-                                    <WalkthroughCard
-                                        key={walkthrough.id}
-                                        walkthrough={walkthrough}
-                                        state={state}
-                                        onStart={selectWalkthrough}
-                                        t={t}
-                                    />
-                                ))}
                             </div>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setBrowse(true)}>
+                                {t('app.walkthroughs.allRecipes', 'All recipes')}
+                            </Button>
+                        </div>
+                        <div className="shell-recipes__steps" role="tablist" aria-label={activeWalkthrough.title}>
+                            {steps.map((step, index) => {
+                                const done = completedSteps.includes(step.id);
+                                const viewing = viewStep && step.id === viewStep.id;
+                                return (
+                                    <button
+                                        key={step.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={viewing}
+                                        className={`shell-recipes__step${viewing ? ' is-viewing' : ''}${done ? ' is-done' : ''}`}
+                                        onClick={() => setViewStepId(step.id)}
+                                    >
+                                        <span className="shell-recipes__step-marker">
+                                            {done ? <Check size={12} /> : <span className="mono">{index + 1}</span>}
+                                        </span>
+                                        <span className="shell-recipes__step-title">{step.title}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {viewStep && (
+                        <div className="shell-recipes__detail">
+                            <div className="shell-recipes__eyebrow mono">
+                                {t('app.walkthroughs.stepCount', 'Step {{current}} of {{total}}', {
+                                    current: viewIndex + 1,
+                                    total: steps.length,
+                                })}
+                            </div>
+                            <h3 className="shell-recipes__step-heading">{viewStep.title}</h3>
+                            <p className="shell-recipes__body">{viewStep.description}</p>
+                            <footer className="shell-recipes__foot">
+                                <Button type="button" size="sm" onClick={runAction} disabled={checking}>
+                                    {checking ? t('common.checking', 'Checking…') : viewStep.action}
+                                </Button>
+                                {!viewStep.check && !isDone && (
+                                    <Button type="button" variant="outline" size="sm" onClick={markDoneNext}>
+                                        {isLast
+                                            ? t('app.walkthroughs.markDone', 'Mark done')
+                                            : t('app.walkthroughs.doneNextStep', 'Done · next step')}
+                                    </Button>
+                                )}
+                                <span className="shell-panel__spacer" />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={viewIndex <= 0}
+                                    onClick={() => setViewStepId(steps[Math.max(0, viewIndex - 1)]?.id)}
+                                >
+                                    {t('common.actions.back', 'Back')}
+                                </Button>
+                            </footer>
                         </div>
                     )}
-                </aside>
+                </div>
             )}
-        </div>
+        </section>
     );
 }

@@ -1,338 +1,264 @@
-// Guided outcomes — a compact operator field manual beside the page, not a
-// modal tour that blocks the controls it is trying to teach.
-.walkthrough-shell {
-    position: fixed;
-    inset-inline-start: calc(#{$sidebar-width} + 168px);
-    inset-block-end: $space-4;
-    z-index: 1060;
-    font-family: $font-main;
+// Recipes console (walkthrough engine UI). Docked into the shared shell
+// console above the status bar — geometry comes from .shell-panel; this file
+// owns the recipe library grid and the running recipe's split layout.
 
-    &.is-open { z-index: 1120; }
-
-    &__launcher {
-        min-height: 42px;
-        gap: $space-2;
-        border-color: var(--border-strong);
-        border-radius: 999px;
-        background: var(--surface);
-        color: var(--text);
-        box-shadow: $shadow-lg;
-
-        svg { color: var(--amber); }
-    }
-}
-
-.walkthrough-hub {
-    position: absolute;
-    inset-inline-start: 0;
-    inset-block-end: 0;
-    display: flex;
-    flex-direction: column;
-    width: min(390px, calc(100vw - #{$sidebar-width} - #{$space-8}));
-    max-height: min(760px, calc(100vh - #{$space-8}));
-    overflow: hidden;
-    border: 1px solid var(--border-strong);
-    border-radius: $radius-lg;
-    background:
-        linear-gradient(var(--border-soft) 1px, transparent 1px),
-        linear-gradient(90deg, var(--border-soft) 1px, transparent 1px),
-        var(--surface);
-    background-size: 24px 24px;
-    box-shadow: $shadow-lg;
-    animation: walkthrough-enter 180ms ease-out;
-
-    &__topline {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        min-height: 45px;
-        padding: $space-2 $space-3 $space-2 $space-4;
-        border-bottom: 1px solid var(--border-strong);
-        background: color-mix(in srgb, var(--surface) 94%, transparent);
-
-        > span {
-            display: inline-flex;
-            align-items: center;
-            gap: $space-2;
-            color: var(--text-faint);
-            font-family: var(--mono);
-            font-size: 10px;
-            font-weight: $font-weight-semibold;
-            letter-spacing: 0.11em;
-            text-transform: uppercase;
-        }
-    }
-
-    &__eyebrow {
-        color: var(--amber);
-        font-family: var(--mono);
-        font-size: 10px;
-        font-weight: $font-weight-semibold;
-        letter-spacing: 0.13em;
-        text-transform: uppercase;
-    }
-
-    &__library,
-    &__steps {
+.shell-recipes {
+    // Library — recipe cards (prototype rc-grid/rc-card).
+    &__grid {
+        display: grid;
+        flex: 1;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 10px;
+        align-content: start;
         overflow-y: auto;
-        overscroll-behavior: contain;
+        padding: 12px;
     }
 
-    &__library {
-        padding: $space-5;
-        background: color-mix(in srgb, var(--surface) 97%, transparent);
-
-        > header {
-            padding: $space-1 0 $space-5;
-            border-bottom: 1px solid var(--border-soft);
-        }
-
-        h2 {
-            margin: $space-2 0 $space-2;
-            color: var(--text);
-            font-size: 1.35rem;
-            letter-spacing: -0.025em;
-        }
-
-        p {
-            max-width: 34ch;
-            margin: 0;
-            color: var(--text-muted);
-            font-size: $font-size-sm;
-            line-height: 1.55;
-        }
-    }
-
-    &__library-count {
-        display: inline-block;
-        margin-top: $space-3;
-        color: var(--text-faint);
-        font-family: var(--mono);
-        font-size: 10px;
-    }
-
-    &__cards {
-        display: grid;
-        gap: $space-3;
-        padding-top: $space-4;
-    }
-
-    &__active-head {
-        position: relative;
-        padding: $space-3 $space-5 $space-5;
-        border-bottom: 1px solid var(--border-strong);
-        background: color-mix(in srgb, var(--surface) 96%, transparent);
-
-        > .btn { margin-inline-start: -$space-3; margin-bottom: $space-4; }
-
-        h2 {
-            max-width: 16ch;
-            margin: $space-2 0 $space-4;
-            color: var(--text);
-            font-size: 1.28rem;
-            line-height: 1.15;
-            letter-spacing: -0.025em;
-        }
-
-        progress {
-            display: block;
-            width: 100%;
-            height: 5px;
-            overflow: hidden;
-            border: 0;
-            border-radius: 999px;
-            background: var(--surface-3);
-            color: var(--amber);
-            appearance: none;
-
-            &::-webkit-progress-bar { background: var(--surface-3); }
-            &::-webkit-progress-value { background: var(--amber); }
-            &::-moz-progress-bar { background: var(--amber); }
-        }
-    }
-
-    &__active-icon {
-        position: absolute;
-        inset-inline-end: $space-5;
-        inset-block-start: 58px;
-        display: grid;
-        width: 40px;
-        height: 40px;
-        place-items: center;
-        border: 1px solid var(--border-strong);
-        border-radius: $radius-md;
+    &__card {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border-soft);
+        border-radius: 11px;
         background: var(--surface-2);
+        transition: border-color 130ms ease;
 
-        &.is-cyan { color: var(--cyan); }
-        &.is-amber { color: var(--amber); }
+        &:hover { border-color: var(--accent-dim); }
+        &.is-active { border-color: var(--accent-dim); }
     }
 
-    &__progress-copy {
+    &__card-hit {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 13px 13px 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+        @include focus-ring();
+    }
+
+    &__card-icon {
+        display: grid;
+        width: 28px;
+        height: 28px;
+        margin-block-end: 10px;
+        place-items: center;
+        border-radius: 8px;
+        @include status-variant(var(--accent-bright), var(--accent-bg));
+
+        &.is-cyan { color: var(--cyan); background: color-mix(in srgb, var(--cyan) 13%, transparent); }
+        &.is-amber { color: var(--amber); background: color-mix(in srgb, var(--amber) 13%, transparent); }
+    }
+
+    &__card-name {
+        font-size: 13px;
+        font-weight: 550;
+    }
+
+    &__card-desc {
+        margin-block-start: 3px;
+        color: var(--text-faint);
+        font-size: 11.5px;
+        line-height: 1.5;
+    }
+
+    &__card-meta {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-bottom: $space-2;
+        gap: 6px;
+        padding: 9px 13px 12px;
         color: var(--text-faint);
-        font-family: var(--mono);
-        font-size: 10px;
+        font-size: 10.5px;
 
-        strong { color: var(--text); }
+        svg { flex: 0 0 auto; }
+    }
+
+    &__card-stop {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-inline-start: auto;
+        padding: 2px 7px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-faint);
+        font: inherit;
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover { color: var(--red); background: var(--red-bg); }
+    }
+
+    // Running recipe — step rail left, story right (prototype cp-split).
+    &__split {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+    }
+
+    &__rail {
+        display: flex;
+        width: 344px;
+        flex: 0 0 auto;
+        flex-direction: column;
+        min-height: 0;
+        border-inline-end: 1px solid var(--border-soft);
+    }
+
+    &__railhead {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px 9px 12px;
+        border-block-end: 1px solid var(--border-soft);
+    }
+
+    &__railtitle {
+        display: flex;
+        min-width: 0;
+        flex: 1;
+        flex-direction: column;
+
+        strong {
+            overflow: hidden;
+            font-size: 12.5px;
+            font-weight: 550;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .mono {
+            margin-block-start: 2px;
+            color: var(--text-faint);
+            font-size: 10.5px;
+        }
     }
 
     &__steps {
-        min-height: 150px;
-        margin: 0;
-        padding: $space-4 $space-5;
-        list-style: none;
-        background: color-mix(in srgb, var(--surface) 97%, transparent);
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+    }
 
-        li {
-            position: relative;
-            display: grid;
-            grid-template-columns: 24px minmax(0, 1fr);
-            gap: $space-3;
-            padding: $space-2 0 $space-3;
+    &__step {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border: 0;
+        border-inline-start: 2px solid transparent;
+        background: transparent;
+        color: var(--text-dim);
+        font: inherit;
+        font-size: 12.5px;
+        text-align: start;
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover { background: var(--surface-2); }
+
+        &.is-viewing {
+            border-inline-start-color: var(--accent);
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        &.is-done .shell-recipes__step-title {
             color: var(--text-ghost);
-
-            &:not(:last-child)::after {
-                position: absolute;
-                inset-inline-start: 11px;
-                inset-block-start: 31px;
-                width: 1px;
-                height: calc(100% - 21px);
-                background: var(--border-soft);
-                content: '';
-            }
-
-            &.is-current { color: var(--text); }
-            &.is-done { color: var(--text-muted); }
-
-            strong {
-                display: block;
-                padding-top: 2px;
-                font-size: $font-size-sm;
-                font-weight: $font-weight-semibold;
-            }
-
-            p {
-                margin: $space-1 0 0;
-                color: var(--text-faint);
-                font-size: 11px;
-                line-height: 1.45;
-            }
+            text-decoration: line-through;
         }
     }
 
     &__step-marker {
-        position: relative;
-        z-index: 1;
         display: grid;
-        width: 24px;
-        height: 24px;
+        width: 20px;
+        height: 20px;
+        flex: 0 0 auto;
         place-items: center;
         border: 1px solid var(--border-strong);
         border-radius: 50%;
-        background: var(--surface);
+        color: var(--text-faint);
+        font-size: 10px;
+
+        .shell-recipes__step.is-done & {
+            @include status-variant(var(--green), var(--green-bg), var(--green));
+        }
+    }
+
+    &__step-title {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__detail {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+        padding: 12px 14px;
+    }
+
+    &__eyebrow {
         color: var(--text-ghost);
-        font-family: var(--mono);
-        font-size: 9px;
-
-        .is-current & {
-            border-color: var(--amber);
-            color: var(--amber);
-            box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 12%, transparent);
-        }
-
-        .is-done & {
-            border-color: var(--green);
-            background: color-mix(in srgb, var(--green) 12%, var(--surface));
-            color: var(--green);
-        }
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
     }
 
-    &__next {
-        margin: 0 $space-4 $space-4;
-        padding: $space-4;
-        border: 1px solid color-mix(in srgb, var(--amber) 42%, var(--border));
-        border-inline-start-width: 3px;
-        border-radius: $radius-md;
-        background: color-mix(in srgb, var(--amber) 9%, var(--surface));
-
-        > span {
-            display: block;
-            margin-bottom: $space-1;
-            color: var(--amber);
-            font-family: var(--mono);
-            font-size: 9px;
-            font-weight: $font-weight-semibold;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-        }
-
-        > strong { color: var(--text); font-size: $font-size-sm; }
-        p { margin: $space-2 0 $space-3; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
-        .btn { width: 100%; justify-content: space-between; }
+    &__step-heading {
+        margin: 2px 0 10px;
+        font-size: 14px;
+        font-weight: 550;
     }
 
-    &__footer {
+    &__body {
+        flex: 1;
+        max-width: 62ch;
+        margin: 0;
+        overflow-y: auto;
+        color: var(--text-dim);
+        font-size: 13px;
+        line-height: 1.7;
+        text-wrap: pretty;
+    }
+
+    &__foot {
         display: flex;
+        flex: 0 0 auto;
         align-items: center;
-        justify-content: space-between;
-        gap: $space-3;
-        padding: $space-2 $space-4;
-        border-top: 1px solid var(--border-soft);
-        background: var(--surface-2);
-
-        > span { color: var(--text-ghost); font-family: var(--mono); font-size: 9px; }
+        gap: 8px;
+        margin-block-start: 12px;
+        padding-block-start: 12px;
+        border-block-start: 1px solid var(--border-soft);
     }
 }
 
-.walkthrough-card {
-    display: grid;
-    grid-template-columns: 38px minmax(0, 1fr);
-    gap: $space-3;
-    padding: $space-4;
-    border: 1px solid var(--border);
-    border-radius: $radius-md;
-    background: var(--surface-2);
-    transition: border-color 150ms ease, transform 150ms ease;
+@media (max-width: $breakpoint-md) {
+    .shell-recipes {
+        &__grid { grid-template-columns: 1fr; }
 
-    &:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+        &__split { flex-direction: column; }
 
-    &__icon {
-        display: grid;
-        width: 38px;
-        height: 38px;
-        place-items: center;
-        border: 1px solid var(--border);
-        border-radius: $radius-sm;
-        background: var(--surface);
-    }
-
-    &--cyan &__icon { color: var(--cyan); }
-    &--amber &__icon { color: var(--amber); }
-
-    &__meta {
-        display: flex;
-        min-height: 20px;
-        align-items: center;
-        gap: $space-2;
-
-        > span:first-child {
-            display: inline-flex;
-            align-items: center;
-            gap: $space-1;
-            margin-inline-end: auto;
-            color: var(--text-ghost);
-            font-family: var(--mono);
-            font-size: 9px;
+        &__rail {
+            width: auto;
+            max-height: 42%;
+            border-inline-end: 0;
+            border-block-end: 1px solid var(--border-soft);
         }
     }
-
-    h3 { margin: $space-2 0 $space-1; color: var(--text); font-size: $font-size-sm; }
-    p { margin: 0 0 $space-3; color: var(--text-faint); font-size: 11px; line-height: 1.45; }
 }
 
+// Step target highlight — applied by WalkthroughContext to the on-page
+// element the current step points at.
 .is-walkthrough-target {
     position: relative;
     z-index: 2;
@@ -341,32 +267,11 @@
     animation: walkthrough-target-pulse 1.8s ease-in-out infinite;
 }
 
-@keyframes walkthrough-enter {
-    from { opacity: 0; transform: translateY(8px) scale(0.985); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
 @keyframes walkthrough-target-pulse {
     0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 0%, transparent); }
     50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--amber) 14%, transparent); }
 }
 
-@media (max-width: $breakpoint-md) {
-    .walkthrough-shell {
-        inset-inline: $space-3;
-        inset-block-end: calc(#{$space-3} + env(safe-area-inset-bottom));
-
-        &__launcher { margin-inline-start: auto; }
-    }
-
-    .walkthrough-hub {
-        width: 100%;
-        max-height: min(78vh, 700px);
-        border-radius: $radius-lg $radius-lg 0 0;
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
-    .walkthrough-hub,
     .is-walkthrough-target { animation: none; }
 }

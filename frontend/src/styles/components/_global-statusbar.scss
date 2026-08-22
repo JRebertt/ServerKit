@@ -114,11 +114,12 @@
 }
 
 .statusbar-select {
-    position: relative;
     cursor: pointer;
+    @include focus-ring();
 
-    &:hover,
-    &:focus-within { color: var(--text-dim); background: var(--surface-3); }
+    &:hover { color: var(--text-dim); background: var(--surface-3); }
+
+    &.is-open { color: var(--text); background: var(--surface-3); }
 
     &--workspace { color: var(--text-dim); }
 
@@ -130,15 +131,107 @@
     }
 
     > svg:last-of-type { opacity: 0.58; }
+}
 
-    select {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
+// Anchor wrapper: the trigger stays in the bar's flex row, the menu floats
+// above it. Both scope menus share the anchor class so one outside-click
+// listener can tell "inside a popover" from "anywhere else".
+.statusbar-popover {
+    position: relative;
+    display: inline-flex;
+    min-width: 0;
+}
+
+// Prototype env-menu, themed: dark card, dot · name · meta rows, check on the
+// current row. Replaces the native select popup that ignored the theme.
+.statusbar-menu {
+    position: absolute;
+    inset-block-end: calc(100% + 8px);
+    inset-inline-start: 0;
+    z-index: 2;
+    min-width: 280px;
+    max-height: min(46vh, 380px);
+    overflow-y: auto;
+    padding: 5px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--surface-2);
+    box-shadow: var(--shadow-lg);
+    animation: statusbar-menu-enter 140ms ease-out;
+
+    &--wide { min-width: 308px; }
+
+    &__head {
+        padding: 7px 10px 5px;
+        color: var(--text-ghost);
+        font-size: 10px;
+        font-weight: $font-weight-medium;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
     }
+
+    &__option {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        gap: 11px;
+        padding: 9px 10px;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+        transition: background-color 100ms ease;
+        @include focus-ring();
+
+        &:hover { background: var(--surface-3); }
+    }
+
+    &__swatch {
+        width: 9px;
+        height: 9px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: var(--accent);
+
+        &.is-ghost { background: var(--text-ghost); }
+        &.is-online { background: var(--green); box-shadow: 0 0 6px var(--green); }
+        &.is-idle { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+        &.is-down { background: var(--red); box-shadow: 0 0 6px var(--red); }
+    }
+
+    &__copy {
+        display: flex;
+        min-width: 0;
+        flex: 1;
+        flex-direction: column;
+    }
+
+    &__name {
+        overflow: hidden;
+        font-size: 13px;
+        font-weight: 550;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__meta {
+        margin-block-start: 1px;
+        color: var(--text-faint);
+        font-size: 10.5px;
+    }
+
+    &__check {
+        flex: 0 0 auto;
+        color: var(--accent-bright);
+    }
+}
+
+@keyframes statusbar-menu-enter {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: none; }
 }
 
 // Shared bottom panel shell (Alerts; Operations and Recipes receive matching
@@ -158,41 +251,50 @@
     box-shadow: 0 -20px 45px rgba(0, 0, 0, 0.18);
     animation: shell-panel-enter 160ms ease-out;
 
+    &.is-expanded { height: min(62vh, 720px); }
+
     &__head,
     &__footer,
-    &__tabs {
+    &__filters {
         display: flex;
         align-items: center;
     }
 
     &__head {
-        min-height: 39px;
+        min-height: 38px;
         flex: 0 0 auto;
         gap: $space-2;
-        padding-inline: $space-2;
+        padding-inline: 8px 8px;
         border-block-end: 1px solid var(--border-soft);
     }
 
-    &__tabs { gap: 2px; }
+    // Secondary row under the shared tab strip: per-panel view filters plus
+    // panel-scoped actions (prototype cp-filters).
+    &__filters {
+        flex: 0 0 auto;
+        gap: 2px;
+        padding: 6px 8px;
+        border-block-end: 1px solid var(--border-soft);
+    }
 
-    &__tabs button,
-    &__action,
-    &__close {
-        min-height: 26px;
+    &__filters button,
+    &__action {
+        min-height: 22px;
         border: 0;
         border-radius: $radius-sm;
         background: transparent;
-        color: var(--text-faint);
+        color: var(--text-ghost);
         font-size: $font-size-xs;
+        white-space: nowrap;
         cursor: pointer;
         @include focus-ring();
 
-        &:hover { color: var(--text); background: var(--surface-2); }
+        &:hover { color: var(--text-dim); background: var(--surface-2); }
     }
 
-    &__tabs button {
-        padding-inline: $space-3;
-        &.is-active { color: var(--text); background: var(--surface-3); }
+    &__filters button {
+        padding-inline: $space-2;
+        &.is-active { color: var(--text-dim); background: var(--surface-3); }
     }
 
     &__action {
@@ -200,12 +302,7 @@
         align-items: center;
         gap: $space-1;
         padding-inline: $space-2;
-    }
-
-    &__close {
-        display: grid;
-        width: 28px;
-        place-items: center;
+        color: var(--text-faint);
     }
 
     &__spacer { flex: 1; }
@@ -235,6 +332,70 @@
             font: inherit;
             cursor: pointer;
         }
+    }
+}
+
+// The console's shared header strip: the four surface tabs plus the
+// expand/close controls. Rendered by every panel so switching consoles feels
+// like flipping tabs on one panel (prototype cp-head/cp-tabs).
+.shell-dock-tabs {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    gap: 2px;
+
+    &__tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        height: 26px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-faint);
+        font-size: 12.5px;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: color 120ms ease, background-color 120ms ease;
+        @include focus-ring();
+
+        &:hover { color: var(--text-dim); background: var(--surface-2); }
+        &.is-active { color: var(--text); background: var(--surface-3); }
+    }
+
+    &__badge {
+        padding: 1px 5px;
+        border-radius: 20px;
+        font-size: 10px;
+        @include status-variant(var(--accent-bright), var(--accent-bg));
+    }
+
+    &__spacer { flex: 1; min-width: $space-2; }
+
+    &__control {
+        display: grid;
+        width: 26px;
+        height: 26px;
+        flex: 0 0 auto;
+        place-items: center;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-faint);
+        cursor: pointer;
+        @include focus-ring();
+
+        &:hover { color: var(--text); background: var(--surface-3); }
+    }
+
+    // The refresh IconButton passed in as a control matches the square look.
+    .icon-button {
+        width: 26px;
+        height: 26px;
+        border: 0;
+        background: transparent;
     }
 }
 
@@ -342,32 +503,17 @@
         animation: shell-panel-enter 160ms ease-out;
     }
 
-    .operations-dock__header { grid-area: header; min-height: 39px; padding-block: $space-1; }
+    .operations-dock__panel.is-expanded { height: min(62vh, 720px); }
+
+    .operations-dock__header {
+        grid-area: header;
+        min-height: 38px;
+        padding: 0 8px;
+        border-block-end: 1px solid var(--border-soft);
+    }
     .operations-dock__tabs { grid-area: tabs; }
     .operations-dock__list { grid-area: list; border-inline-end: 1px solid var(--border-soft); border-block-end: 0; }
     .operations-dock__detail { grid-area: detail; }
-}
-
-// Operator walkthroughs become Recipes in the bottom bar. The established
-// walkthrough engine and saved progress stay intact; only its shell changes.
-.walkthrough-shell.walkthrough-shell--statusbar {
-    inset-inline: $sidebar-width 0;
-    inset-block-end: var(--sk-statusbar-height);
-    z-index: $z-shell-panel;
-
-    .walkthrough-hub {
-        position: static;
-        width: 100%;
-        height: min(360px, 60vh);
-        max-height: none;
-        border: 0;
-        border-block-start: 1px solid var(--border-strong);
-        border-radius: 0;
-        box-shadow: 0 -20px 45px rgba(0, 0, 0, 0.18);
-    }
-
-    .walkthrough-hub__library { flex: 1; }
-    .walkthrough-hub__cards { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
 }
 
 // Leave the shared shell edge visible while the assistant is docked right.
@@ -375,11 +521,10 @@
     inset-block-end: var(--sk-statusbar-height);
 }
 
-// Reserve the bottom edge for the status bar on every shell variant.
-.dashboard-layout .sidebar {
-    height: calc(100vh - var(--sk-statusbar-height));
-}
-
+// The status bar spans only the content column (inset-inline starts at the
+// sidebar edge), so the sidebar keeps its full 100vh height — shortening it
+// here left a dead 30px hole under the user card. Mobile is different: the
+// bar goes full-width there, so the drawer override below still applies.
 .dashboard-layout .main-content {
     padding-block-end: calc(#{$space-10} + var(--sk-statusbar-height));
 
@@ -395,8 +540,7 @@
     [data-layout='rail'] {
         .global-statusbar,
         .shell-panel,
-        .operations-dock.operations-dock--statusbar,
-        .walkthrough-shell.walkthrough-shell--statusbar {
+        .operations-dock.operations-dock--statusbar {
             inset-inline-start: $sidebar-rail-width;
         }
     }
@@ -404,8 +548,7 @@
     [data-layout='topbar'] {
         .global-statusbar,
         .shell-panel,
-        .operations-dock.operations-dock--statusbar,
-        .walkthrough-shell.walkthrough-shell--statusbar {
+        .operations-dock.operations-dock--statusbar {
             inset-inline-start: 0;
         }
 
@@ -422,8 +565,7 @@
 
     .global-statusbar,
     .shell-panel,
-    .operations-dock.operations-dock--statusbar,
-    .walkthrough-shell.walkthrough-shell--statusbar {
+    .operations-dock.operations-dock--statusbar {
         inset-inline: 0;
     }
 
@@ -460,12 +602,7 @@
         border-block-end: 1px solid var(--border-soft);
     }
 
-    .walkthrough-shell.walkthrough-shell--statusbar .walkthrough-hub,
     .shell-panel { height: min(68vh, 620px); }
-
-    .walkthrough-shell.walkthrough-shell--statusbar .walkthrough-hub__cards {
-        grid-template-columns: 1fr;
-    }
 
     .dashboard-layout .sidebar { height: calc(100dvh - var(--sk-statusbar-height)); }
 
@@ -487,6 +624,5 @@
 
 @media (prefers-reduced-motion: reduce) {
     .shell-panel,
-    .operations-dock.operations-dock--statusbar .operations-dock__panel,
-    .walkthrough-shell.walkthrough-shell--statusbar .walkthrough-hub { animation: none; }
+    .operations-dock.operations-dock--statusbar .operations-dock__panel { animation: none; }
 }

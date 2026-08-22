@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useOperations } from '../contexts/OperationsContext';
+import { useShellDock } from '../contexts/ShellDockContext';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { usePolling } from '../hooks/usePolling';
@@ -26,6 +27,7 @@ import { operationKey } from '../services/operations';
 import { formatDuration } from '../utils/time';
 import IconButton from './IconButton';
 import FormField from './FormField';
+import ShellDockTabs from './ShellDockTabs';
 import Pill from './ds/Pill';
 import { statusKind, statusLabel } from './ds/status';
 
@@ -229,6 +231,7 @@ export default function OperationsDock({ hideLauncher = false, statusbarMode = f
         openOperation,
         setCollapsed,
     } = useOperations();
+    const { activeTab, expanded } = useShellDock();
     const [view, setView] = useState('active');
     const [now, setNow] = useState(Date.now());
     const logRef = useRef(null);
@@ -317,9 +320,14 @@ export default function OperationsDock({ hideLauncher = false, statusbarMode = f
         count: activeOperations.length,
     });
 
+    // In statusbar mode the shell dock decides which console tab is visible;
+    // outside it the legacy collapsed/launcher behaviour is untouched.
+    const visible = statusbarMode ? activeTab === 'ops' : !collapsed;
+    if (statusbarMode && !visible) return null;
+
     return (
-        <div className={`operations-dock${statusbarMode ? ' operations-dock--statusbar' : ''}${collapsed ? ' is-collapsed' : ' is-open'}`}>
-            {collapsed ? (
+        <div className={`operations-dock${statusbarMode ? ' operations-dock--statusbar' : ''}${visible ? ' is-open' : ' is-collapsed'}`}>
+            {!visible ? (
                 hideLauncher ? null : <Button
                     type="button"
                     className="operations-dock__launcher"
@@ -334,27 +342,44 @@ export default function OperationsDock({ hideLauncher = false, statusbarMode = f
                     {unreadCount > 0 && <span className="operations-dock__unread" aria-label={t('app.operationsDock.unreadCount', '{{count}} unread', { count: unreadCount })}>{unreadCount}</span>}
                 </Button>
             ) : (
-                <section className="operations-dock__panel" aria-label={t('app.operationsDock.title', 'Operations')}>
+                <section
+                    className={`operations-dock__panel${statusbarMode && expanded ? ' is-expanded' : ''}`}
+                    aria-label={t('app.operationsDock.title', 'Operations')}
+                >
                     <header className="operations-dock__header">
-                        <div className="operations-dock__heading">
-                            <span className="operations-dock__icon"><Activity size={16} /></span>
-                            <div>
-                                <h2>{t('app.operationsDock.title', 'Operations')}</h2>
-                                <span>{activeLabel}</span>
-                            </div>
-                        </div>
-                        <div className="operations-dock__header-actions">
-                            <IconButton
-                                icon={<RotateCcw size={15} />}
-                                label={t('common.actions.refresh', 'Refresh')}
-                                onClick={refresh}
+                        {statusbarMode ? (
+                            <ShellDockTabs
+                                controls={(
+                                    <IconButton
+                                        icon={<RotateCcw size={15} />}
+                                        label={t('common.actions.refresh', 'Refresh')}
+                                        onClick={refresh}
+                                    />
+                                )}
                             />
-                            <IconButton
-                                icon={<X size={16} />}
-                                label={t('app.operationsDock.collapse', 'Collapse Operations dock')}
-                                onClick={() => setCollapsed(true)}
-                            />
-                        </div>
+                        ) : (
+                            <>
+                                <div className="operations-dock__heading">
+                                    <span className="operations-dock__icon"><Activity size={16} /></span>
+                                    <div>
+                                        <h2>{t('app.operationsDock.title', 'Operations')}</h2>
+                                        <span>{activeLabel}</span>
+                                    </div>
+                                </div>
+                                <div className="operations-dock__header-actions">
+                                    <IconButton
+                                        icon={<RotateCcw size={15} />}
+                                        label={t('common.actions.refresh', 'Refresh')}
+                                        onClick={refresh}
+                                    />
+                                    <IconButton
+                                        icon={<X size={16} />}
+                                        label={t('app.operationsDock.collapse', 'Collapse Operations dock')}
+                                        onClick={() => setCollapsed(true)}
+                                    />
+                                </div>
+                            </>
+                        )}
                     </header>
 
                     <div className="operations-dock__tabs" role="tablist">
