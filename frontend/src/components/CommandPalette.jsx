@@ -34,13 +34,13 @@ import { getFavorites, getRecents } from '../utils/recents';
 // Group order in the list, plus a per-category icon and a scoring weight so the
 // headline categories (Settings, Pages, Actions) outrank raw entity hits on ties.
 const GROUP_ORDER = [
-    'Create', 'Recipes',
+    'Create', 'Walkthroughs',
     'Favorites', 'Recently used', 'Settings', 'Pages', 'Actions', 'Services', 'Servers',
     'Domains', 'Databases', 'Sites', 'Cron Jobs', 'Vaults', 'Extensions', 'Docs',
 ];
 const CATEGORY_ICONS = {
     Create: Plus,
-    Recipes: BookOpenCheck,
+    Walkthroughs: BookOpenCheck,
     Favorites: Star,
     'Recently used': History,
     Settings: SlidersHorizontal,
@@ -57,7 +57,7 @@ const CATEGORY_ICONS = {
     Docs: BookOpen,
 };
 const CATEGORY_WEIGHT = {
-    Create: 5, Recipes: 3,
+    Create: 5, Walkthroughs: 3,
     Favorites: 5,
     Settings: 6, Pages: 4, Actions: 4, Services: 2, Servers: 2, Domains: 2,
     Databases: 2, Sites: 2, 'Cron Jobs': 1, Vaults: 1, Extensions: 1, Docs: 0,
@@ -207,7 +207,8 @@ const CommandPalette = ({ open, onClose }) => {
         keywords: 'recipe walkthrough guide setup steps',
         meta: t('palette.recipeSteps', '{{count}} steps', { count: walkthrough.steps.length }),
         recipeId: walkthrough.id,
-        category: 'Recipes',
+        // Stable identifier matched by GROUP_ORDER below (like 'Docs') — not translated.
+        category: 'Walkthroughs',
     })), [t, walkthroughs]);
 
     const docItems = useMemo(() => {

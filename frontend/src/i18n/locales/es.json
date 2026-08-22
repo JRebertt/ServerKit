@@ -6599,7 +6599,6 @@
             "warnings2": "Advertencias ("
         },
         "walkthroughs": {
-            "allRecipes": "Todas las recetas",
             "doneCount": "{{count}} de {{total}} completados",
             "doneNextStep": "Hecho · siguiente paso",
             "markDone": "Marcar como hecho",

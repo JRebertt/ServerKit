@@ -369,10 +369,10 @@ export default function GlobalStatusBar({ onOpenPalette }) {
                     className={`global-statusbar__segment${activeTab === 'recipes' ? ' is-active' : ''}`}
                     onClick={() => toggleTab('recipes')}
                     aria-expanded={activeTab === 'recipes'}
-                    aria-label={activeWalkthrough?.title || t('app.walkthroughs.recipes', 'Recipes')}
+                    aria-label={activeWalkthrough?.title || t('app.walkthroughs.title', 'Walkthroughs')}
                 >
                     <BookOpenCheck size={13} />
-                    <span>{activeWalkthrough?.title || t('app.walkthroughs.recipes', 'Recipes')}</span>
+                    <span>{activeWalkthrough?.title || t('app.walkthroughs.title', 'Walkthroughs')}</span>
                     {activeWalkthrough && (
                             <span className="global-statusbar__muted mono">{activeProgress?.count || 0}/{activeProgress?.total || 0}</span>
                     )}

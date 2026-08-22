@@ -138,7 +138,7 @@ export default function WalkthroughHub() {
     return (
         <section
             className={`shell-panel shell-recipes${expanded ? ' is-expanded' : ''}`}
-            aria-label={t('app.walkthroughs.recipes', 'Recipes')}
+            aria-label={t('app.walkthroughs.title', 'Walkthroughs')}
         >
             <header className="shell-panel__head">
                 <ShellDockTabs />
@@ -166,7 +166,7 @@ export default function WalkthroughHub() {
                                 </span>
                             </div>
                             <Button type="button" variant="ghost" size="sm" onClick={() => setBrowse(true)}>
-                                {t('app.walkthroughs.allRecipes', 'All recipes')}
+                                {t('app.walkthroughs.all', 'All walkthroughs')}
                             </Button>
                         </div>
                         <div className="shell-recipes__steps" role="tablist" aria-label={activeWalkthrough.title}>

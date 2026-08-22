@@ -27,7 +27,7 @@ export default function ShellDockTabs({ controls = null, expandable = true }) {
         { id: 'alerts', label: t('app.statusbar.alerts', 'Alerts'), badge: notifications?.unreadCount || null },
         {
             id: 'recipes',
-            label: t('app.walkthroughs.recipes', 'Recipes'),
+            label: t('app.walkthroughs.title', 'Walkthroughs'),
             badge: activeWalkthrough
                 ? `${activeProgress?.count || 0}/${activeProgress?.total || 0}`
                 : null,
