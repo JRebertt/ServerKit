@@ -403,6 +403,12 @@
         display: flex;
         align-items: center;
         gap: $space-2;
+
+        // Decorative depth stagger. Twigs start as the rail's second child
+        // (after the leading block), which offsets the 3-cycle by two —
+        // hence 3n / 3n+1 rather than 3n+2 / 3n.
+        &:nth-child(3n) { padding-left: 14px; }
+        &:nth-child(3n + 1) { padding-left: 28px; }
     }
 
     @media (max-width: $breakpoint-md) {

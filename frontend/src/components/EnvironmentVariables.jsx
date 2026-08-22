@@ -689,7 +689,7 @@ const EnvironmentVariables = ({ appId }) => {
                         ref={fileInputRef}
                         accept=".env,.txt"
                         onChange={handleFileUpload}
-                        style={{ display: 'none' }}
+                        className="hidden"
                     />
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
                         {t('app.environmentVariables.chooseFile', 'Choose File')}

@@ -183,7 +183,8 @@ function WidgetChart({
         <svg
             viewBox={`0 0 ${w} ${h}`}
             preserveAspectRatio="none"
-            style={{ width: '100%', height, display: 'block' }}
+            className="skw-chart__svg"
+            style={{ height }}
             aria-hidden="true"
         >
             <defs>
@@ -423,7 +424,7 @@ function WGauge({ cfg, ctx }) {
 
     return (
         <div className="skw-gauge">
-            <svg viewBox="0 0 140 82" style={{ width: '100%', maxWidth: 200 }} role="img" aria-label={`${metric.label} ${formatValue(value, metric.unit)}`}>
+            <svg viewBox="0 0 140 82" className="skw-gauge__svg" role="img" aria-label={`${metric.label} ${formatValue(value, metric.unit)}`}>
                 <path d={GAUGE_PATH} fill="none" stroke="var(--surface-3)" strokeWidth="12" strokeLinecap="round" />
                 <path
                     d={GAUGE_PATH}
@@ -433,7 +434,7 @@ function WGauge({ cfg, ctx }) {
                     strokeLinecap="round"
                     strokeDasharray={`${(GAUGE_ARC * ratio).toFixed(1)} ${GAUGE_ARC.toFixed(1)}`}
                 />
-                <text x="70" y="63" textAnchor="middle" fill={color} style={{ font: '600 24px var(--sans)' }}>
+                <text x="70" y="63" textAnchor="middle" fill={color}>
                     {formatValue(value, metric.unit)}
                 </text>
             </svg>

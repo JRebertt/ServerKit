@@ -880,7 +880,7 @@ function FileManager() {
                 type="file"
                 ref={fileInputRef}
                 multiple
-                style={{ display: 'none' }}
+                className="hidden"
                 onChange={handleUploadInput}
             />
 
