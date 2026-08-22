@@ -151,9 +151,6 @@ function progressLabel(job) {
     return '—';
 }
 
-const isRunning = (s) => ['running', 'queued', 'pending', 'scheduled'].includes(String(s || '').toLowerCase());
-const canRetry = (s) => ['failed', 'error', 'cancelled', 'canceled'].includes(String(s || '').toLowerCase());
-
 export default function Jobs() {
     const { t } = useTranslation();
     const { isAdmin } = useAuth();
@@ -338,12 +335,12 @@ export default function Jobs() {
             cellClassName: 'sk-jobs__actions-cell',
             render: (j) => (
                 <div className="sk-jobs__actions">
-                    {isRunning(j.status) && (
+                    {j.can_cancel && (
                         <Button variant="ghost" size="sm" onClick={() => onCancel(j.id)}>
                             <XCircle size={14} /> {t('app.jobs.cancel', 'Cancel')}
                         </Button>
                     )}
-                    {canRetry(j.status) && (
+                    {j.can_retry && (
                         <Button variant="ghost" size="sm" onClick={() => onRetry(j.id)}>
                             <RotateCcw size={14} /> {t('app.jobs.retry', 'Retry')}
                         </Button>

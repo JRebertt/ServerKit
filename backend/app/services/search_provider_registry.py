@@ -31,8 +31,8 @@ _PROVIDERS = {}
 
 # The core entity types, reserved so a plugin cannot impersonate one — rows
 # tagged 'service' or 'vault' are trusted to have been scoped by core.
-CORE_TYPES = ('service', 'server', 'domain', 'database', 'site', 'cron',
-              'extension', 'vault')
+CORE_TYPES = ('service', 'server', 'project', 'environment', 'domain',
+              'database', 'site', 'cron', 'extension', 'vault')
 
 
 @dataclass(frozen=True)
@@ -47,6 +47,9 @@ class SearchQuery:
     term: str
     user: Any = None
     workspace_id: Optional[int] = None
+    project_id: Optional[int] = None
+    environment_id: Optional[int] = None
+    capabilities: tuple[str, ...] = ()
     limit: int = 5
 
 
@@ -112,11 +115,43 @@ def clean_rows(entity_type: str, rows, limit: int):
             logger.warning('search: %s dropped a row with off-site path %r',
                            entity_type, path)
             continue
+        raw_scope = row.get('scope') if isinstance(row.get('scope'), dict) else {}
+        scope = {}
+        invalid_scope = False
+        for key in ('workspace_id', 'project_id', 'environment_id'):
+            value = raw_scope.get(key)
+            if value in (None, ''):
+                scope[key] = None
+                continue
+            try:
+                scope[key] = int(value)
+            except (TypeError, ValueError):
+                invalid_scope = True
+                break
+        if invalid_scope:
+            logger.warning('search: %s dropped a row with invalid scope', entity_type)
+            continue
+        capabilities = row.get('capabilities') or []
+        if not isinstance(capabilities, (list, tuple, set)):
+            logger.warning('search: %s dropped a row with invalid capabilities', entity_type)
+            continue
+        capabilities = sorted({
+            str(capability).strip() for capability in capabilities
+            if str(capability).strip()
+        })
+        stable_id = str(row.get('id') or path).strip()
         cleaned.append({
             'type': entity_type,
+            # Path fallback keeps existing extension providers compatible.
+            # New providers must return a domain id so identity survives moves.
+            'id': stable_id,
             'label': label,
             'sublabel': str(row.get('sublabel') or ''),
             'path': path,
+            'scope': scope,
+            'status': (str(row['status']).strip()
+                       if row.get('status') is not None else None),
+            'capabilities': capabilities,
         })
     return cleaned
 

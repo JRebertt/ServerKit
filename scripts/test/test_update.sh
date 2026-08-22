@@ -1540,5 +1540,94 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# T10i — retention runs BEFORE the new backup is written, not only in
+# cleanup(). cleanup() is the LAST phase, so it never ran on an update that
+# died earlier — including one that died because the disk was full. A box was
+# found carrying six snapshots under a cap of five for exactly that reason.
+# --------------------------------------------------------------------------
+t="$WORK/t10i"; mkdir -p "$t/backups"
+for i in 1 2 3 4 5; do
+    mkdir -p "$t/backups/serverkit-tree-2026010$i"
+    : > "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db"
+    touch -d "2026-01-0$i 00:00" "$t/backups/serverkit-tree-2026010$i" \
+        "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db" 2>/dev/null || true
+done
+pre_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 BACKUP_DIR="$t/backups" SERVERKIT_BACKUP_RETENTION=2
+    trim_backups
+) >/dev/null 2>&1 || pre_rc=$?
+pre_trees=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name 'serverkit-tree-*' | wc -l)
+pre_dbs=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name '*.db' | wc -l)
+if [ "$pre_rc" -eq 0 ] && [ "$pre_trees" -eq 2 ] && [ "$pre_dbs" -eq 2 ]; then
+    ok "trim_backups caps every kind and is callable before the backup is written"
+else
+    bad "trim_backups: rc=$pre_rc trees=$pre_trees dbs=$pre_dbs (want 2/2)"
+fi
+
+if grep -A16 '^backup_current()' "$UPDATE_SH" | grep -q 'trim_backups'; then
+    ok "backup_current trims BEFORE writing the new snapshot (survives a failed run)"
+else
+    bad "backup_current does not trim before writing — a failed update leaves backups over cap"
+fi
+
+# --------------------------------------------------------------------------
+# T10j — the size budget drops oldest-first until backups fit their share of
+# the disk. A count cap alone is not a disk guarantee: five snapshots of an
+# 800 MB database is 8 GB, a third of a 25 GB droplet.
+# --------------------------------------------------------------------------
+t="$WORK/t10j"; mkdir -p "$t/backups"
+for i in 1 2 3; do
+    dd if=/dev/zero of="$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db" \
+        bs=1024 count=200 2>/dev/null
+    touch -d "2026-01-0$i 00:00" "$t/backups/serverkit-pre-upgrade-2026010$i-00000$i.db" 2>/dev/null || true
+done
+bud_rc=0
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 BACKUP_DIR="$t/backups"
+    SERVERKIT_BACKUP_MAX_PERCENT=0
+    enforce_backup_budget
+) >/dev/null 2>&1 || bud_rc=$?
+left=$(find "$t/backups" -mindepth 1 -maxdepth 1 -name 'serverkit-pre-upgrade-*' | wc -l)
+newest_left=$(find "$t/backups" -name 'serverkit-pre-upgrade-20260103-*' | wc -l)
+if [ "$bud_rc" -eq 0 ] && [ "$left" -eq 1 ] && [ "$newest_left" -eq 1 ]; then
+    ok "enforce_backup_budget trims oldest-first and always keeps one restore point"
+else
+    bad "budget: rc=$bud_rc left=$left newest_kept=$newest_left (want 1/1)"
+fi
+
+t="$WORK/t10k"; mkdir -p "$t/backups"
+: > "$t/backups/serverkit-pre-upgrade-20260101-000001.db"
+: > "$t/backups/serverkit-pre-upgrade-20260102-000002.db"
+(
+    set -Eeuo pipefail
+    DRY_RUN=0 BACKUP_DIR="$t/backups" SERVERKIT_BACKUP_MAX_PERCENT=99
+    enforce_backup_budget
+) >/dev/null 2>&1 || true
+if [ "$(find "$t/backups" -name '*.db' | wc -l)" -eq 2 ]; then
+    ok "enforce_backup_budget is a no-op when backups already fit the budget"
+else
+    bad "enforce_backup_budget deleted backups that were within budget"
+fi
+
+# --------------------------------------------------------------------------
+# T10l — the disk preflight sizes its requirement to what the update will
+# actually write (2 GiB + TWO copies of the database), not a flat 2 GiB. With
+# an 800 MB DB the old check passed at 2.1 GiB free and then filled the disk.
+# --------------------------------------------------------------------------
+if grep -q 'db_kb \* 2' "$UPDATE_SH"; then
+    ok "preflight sizes the disk requirement to two database copies"
+else
+    bad "preflight still uses a flat disk floor — an 800 MB DB overruns it"
+fi
+if grep -q 'trimming old backups' "$UPDATE_SH"; then
+    ok "preflight reclaims stale snapshots before halting on low disk"
+else
+    bad "preflight halts on low disk without first trimming reclaimable backups"
+fi
+
+# --------------------------------------------------------------------------
 printf '\n%d passed, %d failed, %d skipped\n\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]

@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 
 DOCTOR_JOB_KIND = 'doctor.run'
+DOCTOR_REPAIR_JOB_KIND = 'doctor.repair'
 # Name of the built-in ScheduledJob row that runs the doctor sweep daily
 # (seeded by app/jobs/builtin_handlers.py:seed_builtin_schedules).
 DOCTOR_SCHEDULE_NAME = 'doctor'
@@ -955,8 +956,53 @@ class DoctorService:
                 'dns_new_failures': new_failures}
 
     @classmethod
+    def run_doctor_repair_job(cls, job):
+        """Run an explicit repair batch as a persisted shell operation."""
+        from app import db
+        from app.services.run_log_service import stream_for
+
+        items = (job.get_payload() or {}).get('items')
+        if not isinstance(items, list) or not items:
+            raise ValueError('doctor repair job requires a non-empty items list')
+
+        stream = stream_for(job)
+        stream.log('info', f'Starting {len(items)} doctor repair(s)')
+        results = cls.repair(items)
+        failed = []
+        for index, result in enumerate(results, start=1):
+            kind = ((result.get('item') or {}).get('kind') or 'repair')
+            if result.get('success'):
+                stream.log('info', f'{kind} repair succeeded', step_index=index)
+            else:
+                failed.append(result)
+                stream.log(
+                    'error',
+                    f'{kind} repair failed: {result.get("error") or "unknown error"}',
+                    step_index=index,
+                )
+        summary = {
+            'results': results,
+            'completed': len(results),
+            'total': len(items),
+            'failed': len(failed),
+        }
+        # Keep the item-level result when the consumer marks a partial failure
+        # terminal after this handler raises.
+        job.set_result(summary)
+        db.session.commit()
+        stream.flush()
+        if failed:
+            raise RuntimeError(
+                f'{len(failed)} of {len(items)} doctor repairs failed'
+            )
+        return summary
+
+    @classmethod
     def register_jobs(cls):
         """Register the doctor handler with the job registry.
         Called once at app startup (see app/__init__.py)."""
         from app.jobs import registry
         registry.register(DOCTOR_JOB_KIND, cls.run_doctor_job, replace=True)
+        registry.register(
+            DOCTOR_REPAIR_JOB_KIND, cls.run_doctor_repair_job, replace=True,
+        )

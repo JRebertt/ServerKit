@@ -1,0 +1,81 @@
+.sk-resource-picker {
+    &__trigger {
+        justify-content: flex-start;
+        min-width: 190px;
+        max-width: min(340px, 80vw);
+
+        > span {
+            overflow: hidden;
+            flex: 1;
+            text-align: start;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        &--full {
+            width: 100%;
+            max-width: none;
+        }
+    }
+
+    &__chevron {
+        flex: 0 0 auto;
+        color: $text-tertiary;
+    }
+
+    &__popover {
+        width: min(360px, calc(100vw - #{$space-6}));
+        padding: 0;
+        overflow: hidden;
+    }
+
+    &__option-icon,
+    &__check {
+        width: 16px;
+        height: 16px;
+        flex: 0 0 auto;
+    }
+
+    &__option-icon {
+        color: $text-tertiary;
+    }
+
+    &__option-copy {
+        display: grid;
+        min-width: 0;
+        flex: 1;
+
+        > span,
+        small {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        small {
+            color: $text-tertiary;
+            font-size: $font-size-xs;
+        }
+    }
+
+    &__check {
+        color: $primary-color;
+    }
+
+    &__message {
+        padding: $space-6 $space-3;
+        color: $text-tertiary;
+        font-size: $font-size-sm;
+        text-align: center;
+
+        &--error {
+            color: $danger;
+        }
+    }
+}
+
+.target-picker {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+}

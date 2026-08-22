@@ -80,6 +80,18 @@ class PluginToolBinder:
         system prompt for pages matching *route_pattern* (fnmatch glob)."""
         ai_tool_registry.register_context_provider(route_pattern, func, plugin_slug=self.slug)
 
+    def register_attachment_resolver(
+            self, attachment_type: str, func: Callable[..., Any]) -> None:
+        """Register ``fn(user, id) -> {label, source, observed_at, summary}``.
+
+        Attachment types must be namespaced after the plugin slug, for example
+        ``minecraft.world`` for the ``minecraft`` plugin.
+        """
+        from app.services.ai_attachment_registry import ai_attachment_registry
+        ai_attachment_registry.register(
+            attachment_type, func, plugin_slug=self.slug, replace=True,
+        )
+
 
 # Module-level convenience so a plugin can also register a context provider
 # without holding the binder (defaults to no plugin slug → cleared only globally).

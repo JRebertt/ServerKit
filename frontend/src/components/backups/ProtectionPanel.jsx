@@ -8,6 +8,7 @@ import { History, RefreshCw, Loader2, List, CalendarDays, X } from 'lucide-react
 
 import api from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
+import { useOperations } from '@/contexts/OperationsContext';
 import { useConfirm } from '@/hooks/useConfirm';
 import { Button } from '@/components/ui/button';
 
@@ -32,6 +33,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
     const toast = useToast();
     const navigate = useNavigate();
     const { confirm } = useConfirm();
+    const { openRun } = useOperations();
 
     const [view, setView] = useState(null);   // policy view payload
     const [runs, setRuns] = useState([]);
@@ -129,7 +131,8 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
     const handleBackupNow = useCallback(async () => {
         setBackingUp(true);
         try {
-            await api.triggerBackup(targetType, targetId);
+            const result = await api.triggerBackup(targetType, targetId);
+            if (result?.job_id) openRun('job', result.job_id);
             toast.success(t('app.protectionPanel.backupStarted', 'Backup started'));
             scheduleReloads();
         } catch (err) {
@@ -137,7 +140,7 @@ export default function ProtectionPanel({ targetType, targetId, targetName, show
         } finally {
             setBackingUp(false);
         }
-    }, [targetType, targetId, toast, scheduleReloads]);
+    }, [targetType, targetId, toast, scheduleReloads, openRun]);
 
     const handleRunDrill = useCallback(async () => {
         setDrilling(true);

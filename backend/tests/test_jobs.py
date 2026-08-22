@@ -182,18 +182,23 @@ class TestBuiltins:
         # tombstone holds its data volumes and source tree until purge, and
         # nothing else calls purge_expired on a schedule.
         assert 'builtin.recycle_retention' in kinds
-        assert len([k for k in kinds if k.startswith('builtin.')]) == 14
+        # Bounds the telemetry stream. queue_messages/system_events grow a row
+        # per scheduler tick and api_usage_logs one per request; unpruned that
+        # is ~11 MB/day of database forever, which is what filled a 25 GB host
+        # from routine updates alone (each update copies the DB twice).
+        assert 'builtin.telemetry_retention' in kinds
+        assert len([k for k in kinds if k.startswith('builtin.')]) == 15
 
         builtin_handlers.seed_builtin_schedules()
-        # 14 builtin.* schedules (incl. job-retention, the monitor sweep, the
-        # security-feed check and the recycle-bin retention sweep) +
-        # login-link/SSO reapers + drift/FIM/bandwidth sweeps + the host doctor
-        # sweep AND the fleet doctor sweep (plan 26) + the setup-health nag
-        # (plan 22).
-        assert ScheduledJob.query.count() == 22
+        # 15 builtin.* schedules (incl. job-retention, telemetry-retention, the
+        # monitor sweep, the security-feed check and the recycle-bin retention
+        # sweep) + login-link/SSO reapers + drift/FIM/bandwidth sweeps + the
+        # host doctor sweep AND the fleet doctor sweep (plan 26) + the
+        # setup-health nag (plan 22).
+        assert ScheduledJob.query.count() == 23
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 22
+        assert ScheduledJob.query.count() == 23
 
 
 class TestApi:
@@ -202,11 +207,22 @@ class TestApi:
 
         resp = client.get('/api/v1/jobs', headers=auth_headers)
         assert resp.status_code == 200
-        assert any(j['id'] == job.id for j in resp.get_json()['jobs'])
+        listed = next(j for j in resp.get_json()['jobs'] if j['id'] == job.id)
+        assert listed['can_cancel'] is True
+        assert listed['can_retry'] is False
 
         resp = client.get(f'/api/v1/jobs/{job.id}', headers=auth_headers)
         assert resp.status_code == 200
-        assert resp.get_json()['job']['payload'] == {'hello': 'world'}
+        detail = resp.get_json()['job']
+        assert detail['payload'] == {'hello': 'world'}
+        assert detail['can_cancel'] is True
+        assert detail['can_retry'] is False
+
+        job.status = Job.STATUS_FAILED
+        db.session.commit()
+        failed = client.get(f'/api/v1/jobs/{job.id}', headers=auth_headers).get_json()['job']
+        assert failed['can_cancel'] is False
+        assert failed['can_retry'] is True
 
     def test_stats_endpoint(self, client, auth_headers, app):
         JobService.enqueue('test.api', {})
@@ -218,7 +234,10 @@ class TestApi:
         job = JobService.enqueue('test.api', {})
         resp = client.post(f'/api/v1/jobs/{job.id}/cancel', headers=auth_headers)
         assert resp.status_code == 200
-        assert resp.get_json()['job']['status'] == Job.STATUS_CANCELLED
+        payload = resp.get_json()['job']
+        assert payload['status'] == Job.STATUS_CANCELLED
+        assert payload['can_cancel'] is False
+        assert payload['can_retry'] is True
 
     def test_scheduled_listing(self, client, auth_headers, app):
         ScheduledJobService.ensure('api-sched', 'test.x', interval_seconds=60)

@@ -239,7 +239,7 @@
     "api/ai.py::_persist_assistant_message::persistence::db.session.add(msg)::1",
     "api/ai.py::_persist_assistant_message::persistence::db.session.commit()::1",
     "api/ai.py::_persist_assistant_message::persistence::db.session.rollback()::1",
-    "api/ai.py::_persist_user_message::persistence::db.session.add(AiMessage(conversation_id=row.id, role=AiMessage.ROLE_USER, content=content))::1",
+    "api/ai.py::_persist_user_message::persistence::db.session.add(message)::1",
     "api/ai.py::_persist_user_message::persistence::db.session.commit()::1",
     "api/ai.py::_persist_user_message::persistence::db.session.rollback()::1",
     "api/ai.py::chat_confirm::persistence::db.session.get(AiPendingAction, token)::1",

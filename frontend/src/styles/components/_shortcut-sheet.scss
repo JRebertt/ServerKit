@@ -1,0 +1,45 @@
+.sk-shortcuts {
+    display: grid;
+    gap: $space-1;
+    margin: 0;
+
+    &__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-4;
+        min-height: 42px;
+        padding-block: $space-2;
+        border-block-end: 1px solid $border-subtle;
+
+        &:last-child {
+            border-block-end: 0;
+        }
+
+        dt {
+            color: $text-primary;
+            font-size: $font-size-sm;
+        }
+
+        dd {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            gap: $space-1;
+            margin: 0;
+        }
+
+        kbd {
+            padding: 3px $space-2;
+            border: 1px solid $border-default;
+            border-block-end-color: $border-active;
+            border-radius: $radius-sm;
+            background: $bg-elevated;
+            color: $text-secondary;
+            font-family: $font-mono;
+            font-size: $font-size-xs;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+    }
+}

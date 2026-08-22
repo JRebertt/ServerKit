@@ -3844,11 +3844,8 @@
       "user": "使用者"
     },
     "logsDrawer": {
-      "autoScroll": "自動捲動",
       "clear": "清除",
       "close": "關閉",
-      "close2": "關閉",
-      "collapse": "坍塌",
       "waitingForLogs": "等待日誌..."
     },
     "logsTab": {
@@ -8474,6 +8471,16 @@
       "minutes": "{{count}}m",
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}s"
+    },
+    "editing": {
+      "discard": "捨棄變更",
+      "redo": "重做",
+      "save": "儲存",
+      "saved": "已儲存",
+      "saving": "正在儲存…",
+      "undo": "復原",
+      "unsavedChanges": "未儲存的變更",
+      "unsavedCount": "未儲存的變更：{{count}}"
     },
     "error": {
       "failedToLoad": "載入失敗",

@@ -4,10 +4,24 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
 from app.jobs import registry
+from app.jobs.models import Job
 from app.jobs.service import JobService, ScheduledJobService
 from app.middleware.rbac import require_admin_user
 
 jobs_bp = Blueprint('jobs', __name__)
+
+
+def _job_payload(job, include_payload=False):
+    """Serialize the operation actions this admin may invoke right now.
+
+    The Jobs blueprint is admin-only, so permission is already settled at the
+    route boundary. These flags are the remaining state/capability decision the
+    shell needs; clients must not infer it from a status string.
+    """
+    payload = job.to_dict(include_payload=include_payload)
+    payload['can_cancel'] = job.status in (Job.STATUS_PENDING, Job.STATUS_RUNNING)
+    payload['can_retry'] = job.status in (Job.STATUS_FAILED, Job.STATUS_CANCELLED)
+    return payload
 
 
 # --- Static routes first; Werkzeug ranks these above the dynamic /<job_id>. ---
@@ -31,7 +45,7 @@ def list_jobs():
     jobs = JobService.list(limit=limit, offset=offset, **filters)
     total = JobService.count(**filters)
     return jsonify({
-        'jobs': [j.to_dict() for j in jobs],
+        'jobs': [_job_payload(j) for j in jobs],
         'total': total,
         'limit': limit,
         'offset': offset,
@@ -66,7 +80,7 @@ def run_scheduled(scheduled_id):
     job = ScheduledJobService.run_now(scheduled_id)
     if not job:
         return jsonify({'error': 'Scheduled job not found'}), 404
-    return jsonify({'job': job.to_dict()})
+    return jsonify({'job': _job_payload(job)})
 
 
 @jobs_bp.route('/scheduled/<int:scheduled_id>/enabled', methods=['POST'])
@@ -87,7 +101,7 @@ def get_job(job_id):
     job = JobService.get(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
-    return jsonify({'job': job.to_dict(include_payload=True)})
+    return jsonify({'job': _job_payload(job, include_payload=True)})
 
 
 @jobs_bp.route('/<job_id>/cancel', methods=['POST'])
@@ -97,7 +111,7 @@ def cancel_job(job_id):
     job = JobService.cancel(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
-    return jsonify({'job': job.to_dict()})
+    return jsonify({'job': _job_payload(job)})
 
 
 @jobs_bp.route('/<job_id>/retry', methods=['POST'])
@@ -107,4 +121,4 @@ def retry_job(job_id):
     job = JobService.retry(job_id)
     if not job:
         return jsonify({'error': 'Job not found'}), 404
-    return jsonify({'job': job.to_dict()})
+    return jsonify({'job': _job_payload(job)})

@@ -29,14 +29,31 @@ def personas(app):
     from types import SimpleNamespace
     from app import db
     from app.models.application import Application
+    from app.models.server import Server
+    from app.services.project_service import ProjectService
+    from app.services.workspace_service import WorkspaceService
 
     admin = _mk_user(db, 'srch_admin', role='admin')
     owner = _mk_user(db, 'srch_owner')
     foreign = _mk_user(db, 'srch_foreign')
 
+    workspace = WorkspaceService.create_workspace(
+        {'name': 'Search Owner Workspace'}, owner.id)
+    project = ProjectService.create_project(workspace.id, 'Picker Project')
+    environment = ProjectService.list_environments(project.id)[0]
+
     a = Application(name='SecretProjectOne', app_type='php', user_id=owner.id,
-                    root_path='/srv/secretprojectone')
-    db.session.add(a)
+                    root_path='/srv/secretprojectone', workspace_id=workspace.id,
+                    project_id=project.id, environment_id=environment.id)
+    server = Server(
+        name='PickerFleetNode',
+        hostname='picker-node.local',
+        ip_address='192.0.2.30',
+        workspace_id=workspace.id,
+        status='online',
+        cached_capabilities={'docker': True, 'systemd': True, 'cron': False},
+    )
+    db.session.add_all([a, server])
     db.session.commit()
 
     return SimpleNamespace(
@@ -44,6 +61,10 @@ def personas(app):
         owner=_headers(owner.id),
         foreign=_headers(foreign.id),
         app_id=a.id,
+        workspace_id=workspace.id,
+        project_id=project.id,
+        environment_id=environment.id,
+        server_id=server.id,
     )
 
 
@@ -57,7 +78,10 @@ def test_shape(client, personas):
     assert 'results' in body and isinstance(body['results'], list)
     assert len(body['results']) >= 1
     for row in body['results']:
-        assert set(['type', 'label', 'sublabel', 'path']).issubset(row.keys())
+        assert {
+            'type', 'id', 'label', 'sublabel', 'path', 'scope',
+            'status', 'capabilities',
+        }.issubset(row.keys())
 
     svc = [row for row in body['results'] if row['type'] == 'service']
     assert any(row['label'] == 'SecretProjectOne' for row in svc)
@@ -181,3 +205,104 @@ def test_vault_names_only_never_leaks_secret(client, personas):
     # The secret value must not appear anywhere in the serialized response.
     import json
     assert leak_marker not in json.dumps(body)
+
+
+def test_resource_contract_filters_types_scope_and_capabilities(client, personas):
+    response = client.get(
+        '/api/v1/search?q=PickerFleet&types=server&capabilities=docker,systemd&limit=10',
+        headers={**personas.owner, 'X-Workspace-Id': str(personas.workspace_id)},
+    )
+
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body['meta'] == {'total': 1, 'next_cursor': None}
+    assert body['data'] == [{
+        'type': 'server',
+        'id': personas.server_id,
+        'label': 'PickerFleetNode',
+        'sublabel': '192.0.2.30',
+        'path': f'/servers/{personas.server_id}',
+        'scope': {
+            'workspace_id': personas.workspace_id,
+            'project_id': None,
+            'environment_id': None,
+        },
+        'status': 'online',
+        'capabilities': ['docker', 'systemd'],
+    }]
+
+    missing_capability = client.get(
+        '/api/v1/search?q=PickerFleet&types=server&capabilities=cron',
+        headers={**personas.owner, 'X-Workspace-Id': str(personas.workspace_id)},
+    )
+    assert missing_capability.status_code == 200
+    assert missing_capability.get_json()['data'] == []
+
+
+def test_project_environment_filters_and_foreign_workspace_are_sealed(client, personas):
+    projects = client.get(
+        '/api/v1/search?types=project&limit=10',
+        headers={**personas.owner, 'X-Workspace-Id': str(personas.workspace_id)},
+    )
+    assert projects.status_code == 200
+    assert [(row['type'], row['id']) for row in projects.get_json()['data']] == [
+        ('project', str(personas.project_id)),
+    ]
+
+    environments = client.get(
+        f'/api/v1/search?types=environment&project_id={personas.project_id}&limit=10',
+        headers={**personas.owner, 'X-Workspace-Id': str(personas.workspace_id)},
+    )
+    assert environments.status_code == 200
+    assert [row['id'] for row in environments.get_json()['data']] == [
+        str(personas.environment_id),
+    ]
+    assert environments.get_json()['data'][0]['scope'] == {
+        'workspace_id': personas.workspace_id,
+        'project_id': personas.project_id,
+        'environment_id': personas.environment_id,
+    }
+
+    foreign = client.get(
+        '/api/v1/search?types=project&limit=10',
+        headers={**personas.foreign, 'X-Workspace-Id': str(personas.workspace_id)},
+    )
+    assert foreign.status_code == 200
+    assert foreign.get_json()['data'] == []
+
+
+def test_resource_search_cursor_pages_are_stable(client, personas):
+    from app.services.project_service import ProjectService
+
+    for name in ('Picker Alpha', 'Picker Beta', 'Picker Gamma'):
+        ProjectService.create_project(personas.workspace_id, name)
+
+    first = client.get(
+        '/api/v1/search?q=Picker&types=project&limit=2',
+        headers={**personas.owner, 'X-Workspace-Id': str(personas.workspace_id)},
+    )
+    assert first.status_code == 200
+    first_body = first.get_json()
+    assert len(first_body['data']) == 2
+    assert first_body['meta']['next_cursor']
+
+    second = client.get(
+        f"/api/v1/search?q=Picker&types=project&limit=2&cursor={first_body['meta']['next_cursor']}",
+        headers={**personas.owner, 'X-Workspace-Id': str(personas.workspace_id)},
+    )
+    assert second.status_code == 200
+    second_body = second.get_json()
+    assert len(second_body['data']) == 2
+    assert {row['id'] for row in first_body['data']}.isdisjoint(
+        row['id'] for row in second_body['data'])
+    assert second_body['meta']['next_cursor'] is None
+
+
+def test_invalid_resource_search_cursor_is_typed(client, personas):
+    response = client.get(
+        '/api/v1/search?q=Picker&types=project&cursor=not-a-cursor',
+        headers=personas.owner,
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()['code'] == 'invalid_cursor'

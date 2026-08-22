@@ -1270,5 +1270,266 @@ def support_bundle(out_path, passphrase):
     click.echo(click.style(f'Support bundle written: {path}', fg='green'))
 
 
+# ── disk (reclaim space) ─────────────────────────────────────────────────────
+
+@cli.command()
+@click.option('--days', default=None, type=int,
+              help='Prune telemetry rows older than this many days (default 7)')
+@click.option('--keep', default=None, type=int,
+              help='Upgrade snapshots to keep, newest first (default 1)')
+@click.option('--older-than', 'older_than', default=None, type=int,
+              help='Only offer upgrade snapshots at least this many days old')
+@click.option('--only', default=None,
+              help='Comma-separated candidate keys to reclaim, skipping the menu')
+@click.option('--safe', is_flag=True, help='Reclaim every candidate marked safe, no prompt')
+@click.option('--all', 'do_all', is_flag=True, help='Reclaim every candidate, no prompt')
+@click.option('--dry-run', is_flag=True, help='Report what would be freed, change nothing')
+@click.option('--allow-restart', is_flag=True,
+              help='Let the panel restart if the database is locked during VACUUM')
+@click.option('--yes', is_flag=True, help='Skip the confirmation prompt')
+@click.option('--json', 'as_json', is_flag=True, help='Output machine-readable JSON')
+def disk(days, keep, older_than, only, safe, do_all, dry_run, allow_restart, yes, as_json):
+    """Show what is using disk space and reclaim it.
+
+    With no options this lists every reclaimable item with its measured size and
+    asks which to free — pick by number ("1,3"), by "safe", or "all".
+    """
+    from app.services import disk_reclaim_service as svc
+
+    days = svc.DEFAULT_RETENTION_DAYS if days is None else days
+    keep = svc.DEFAULT_KEEP_SNAPSHOTS if keep is None else keep
+    if keep < 0:
+        _fail('--keep cannot be negative.')
+    if days < 0:
+        _fail('--days cannot be negative.')
+
+    app = create_app()
+    with app.app_context():
+        report = svc.scan(days=days, keep=keep, older_than_days=older_than)
+        candidates = report['candidates']
+        usable = [c for c in candidates if (c['bytes'] or 0) > 0]
+
+        if as_json and not (only or safe or do_all):
+            _echo_json(report)
+            return
+
+        disk_info = report['disk'] or {}
+        if not as_json:
+            click.echo()
+            if disk_info:
+                bar_used = disk_info['percent_used']
+                colour = 'red' if bar_used >= 90 else ('yellow' if bar_used >= 75 else 'green')
+                click.echo(click.style(
+                    f"Disk {disk_info['path']}: {svc.human_bytes(disk_info['used'])} used "
+                    f"of {svc.human_bytes(disk_info['total'])} "
+                    f"({bar_used}%), {svc.human_bytes(disk_info['free'])} free",
+                    fg=colour))
+            click.echo()
+            # Number only the items that can actually free something, and
+            # number them exactly the way the prompt reads them back.
+            numbers = {cand['key']: n for n, cand in enumerate(usable, start=1)}
+            rows = []
+            for cand in candidates:
+                size = cand['bytes'] or 0
+                rows.append((
+                    str(numbers.get(cand['key'], '-')),
+                    svc.human_bytes(size) if size else '—',
+                    cand['safety'],
+                    cand['title'],
+                    cand['detail'],
+                ))
+            _echo_table(['#', 'Reclaims', 'Safety', 'Item', 'Detail'], rows)
+            click.echo()
+            click.echo(f"Total reclaimable: "
+                       f"{click.style(svc.human_bytes(report['total_bytes']), bold=True)}")
+
+        # Work out the selection.
+        if do_all:
+            chosen = [c['key'] for c in usable]
+        elif safe:
+            chosen = [c['key'] for c in usable if c['safety'] == 'safe']
+        elif only:
+            wanted = {k.strip() for k in only.split(',') if k.strip()}
+            known = {c['key'] for c in candidates}
+            unknown = wanted - known
+            if unknown:
+                _fail('unknown candidate(s): ' + ', '.join(sorted(unknown))
+                      + '. Known: ' + ', '.join(sorted(known)))
+            chosen = [c['key'] for c in candidates if c['key'] in wanted]
+        elif not usable:
+            click.echo('\nNothing to reclaim.')
+            return
+        else:
+            chosen = _prompt_disk_selection(usable)
+            if chosen is None:
+                click.echo('Aborted.')
+                return
+
+        if not chosen:
+            click.echo('Nothing selected.')
+            return
+
+        # When snapshots were chosen interactively, let the operator say which
+        # ones rather than assuming the keep/age rule.
+        stamps = None
+        interactive = not (do_all or safe or only)
+        if 'upgrade-snapshots' in chosen and interactive and not as_json:
+            snapshot_cand = next(c for c in candidates if c['key'] == 'upgrade-snapshots')
+            stamps = _prompt_snapshot_choice(snapshot_cand)
+            if not stamps:
+                chosen = [k for k in chosen if k != 'upgrade-snapshots']
+                if not chosen:
+                    click.echo('Nothing selected.')
+                    return
+
+        picked = [c for c in candidates if c['key'] in chosen]
+        planned = sum(
+            (sum(s['bytes'] for s in c['snapshots'] if s['stamp'] in stamps)
+             if (stamps is not None and c['key'] == 'upgrade-snapshots')
+             else (c['bytes'] or 0))
+            for c in picked)
+        if not as_json:
+            click.echo()
+            for cand in picked:
+                size = cand['bytes'] or 0
+                label = cand['title']
+                if stamps is not None and cand['key'] == 'upgrade-snapshots':
+                    size = sum(s['bytes'] for s in cand['snapshots'] if s['stamp'] in stamps)
+                    label = f'{len(stamps)} upgrade snapshot(s)'
+                click.echo(f'  • {label} ({svc.human_bytes(size)})')
+            verb = 'Would free' if dry_run else 'Free'
+            click.echo(f"\n{verb} about {click.style(svc.human_bytes(planned), bold=True)}.")
+
+        if not dry_run and not yes and not as_json:
+            if not click.confirm('Proceed?', default=False):
+                click.echo('Aborted.')
+                return
+
+        result = svc.reclaim(chosen, days=days, keep=keep, dry_run=dry_run,
+                             allow_restart=allow_restart, older_than_days=older_than,
+                             snapshot_stamps=stamps)
+
+    if as_json:
+        _echo_json(result)
+        return
+
+    click.echo()
+    _echo_table(['Item', 'Freed', 'Note'],
+                [(r['key'], svc.human_bytes(r['bytes'] or 0), r['note']) for r in result['results']])
+    after = result['disk_after'] or {}
+    click.echo()
+    click.echo(click.style(
+        f"{'Would free' if dry_run else 'Freed'} "
+        f"{svc.human_bytes(result['freed_bytes'])}.", fg='green', bold=True))
+    if after and not dry_run:
+        click.echo(f"Disk now {after['percent_used']}% used, "
+                   f"{svc.human_bytes(after['free'])} free.")
+
+
+def _prompt_snapshot_choice(candidate):
+    """Offer the upgrade snapshots one by one. Returns the stamps to delete.
+
+    One update writes a database copy and a whole tree backup under the same
+    timestamp, so snapshots are picked as units — a half-deleted snapshot is
+    not a restore point.
+    """
+    from app.services import disk_reclaim_service as svc
+
+    snapshots = candidate.get('snapshots') or []
+    if len(snapshots) <= 1:
+        return candidate.get('doomed_stamps') or []
+
+    default_stamps = candidate.get('doomed_stamps') or []
+    click.echo(f'\n{len(snapshots)} upgrade snapshot(s), newest first:')
+    rows = []
+    for index, snap in enumerate(snapshots, start=1):
+        age = snap['age_days']
+        if age is None:
+            when = '-'
+        elif age == 0:
+            when = 'today'
+        else:
+            when = f'{age} day{"s" if age != 1 else ""} ago'
+        rows.append((
+            str(index),
+            snap['stamp'],
+            when,
+            svc.human_bytes(snap['bytes']),
+            'newest — kept by default' if index == 1 else
+            ('would delete' if snap['stamp'] in default_stamps else 'kept'),
+        ))
+    _echo_table(['#', 'Snapshot', 'Taken', 'Size', ''], rows)
+
+    click.echo('\nDelete which? numbers like "1,3", "older-than 14" (days), '
+               '"all-but-newest", or "none".')
+    by_index = {index: snap for index, snap in enumerate(snapshots, start=1)}
+    while True:
+        answer = click.prompt('Snapshots', default='all-but-newest',
+                              show_default=True).strip().lower()
+        if answer in ('none', 'n', 'q'):
+            return []
+        if answer == 'all-but-newest':
+            return [s['stamp'] for s in snapshots[1:]]
+        if answer.startswith('older-than'):
+            raw = answer.replace('older-than', '').strip()
+            if not raw.isdigit():
+                click.echo(click.style('Give a number of days, e.g. "older-than 14".',
+                                       fg='yellow'))
+                continue
+            chosen = svc.select_snapshots(snapshots, keep=1, older_than_days=int(raw))
+            if not chosen:
+                click.echo(click.style(
+                    f'No snapshot besides the newest is {raw}+ days old.', fg='yellow'))
+                continue
+            return [s['stamp'] for s in chosen]
+        picked, bad = [], []
+        for token in answer.replace(' ', ',').split(','):
+            if not token:
+                continue
+            if token.isdigit() and int(token) in by_index:
+                picked.append(by_index[int(token)]['stamp'])
+            else:
+                bad.append(token)
+        if bad:
+            click.echo(click.style('Not a listed number: ' + ', '.join(bad), fg='yellow'))
+            continue
+        if picked:
+            if len(picked) == len(snapshots) and not click.confirm(
+                    'That deletes every snapshot, leaving no restore point. Sure?',
+                    default=False):
+                continue
+            return picked
+        click.echo(click.style('Nothing selected — pick at least one number.', fg='yellow'))
+
+
+def _prompt_disk_selection(usable):
+    """Ask which candidates to reclaim. Returns keys, or None to abort."""
+    by_index = {index: cand for index, cand in enumerate(usable, start=1)}
+    click.echo('\nSelect what to free: numbers like "1,3", "safe" for everything '
+               'marked safe, "all", or "q" to quit.')
+    while True:
+        answer = click.prompt('Selection', default='safe', show_default=True).strip().lower()
+        if answer in ('q', 'quit', 'n', 'no'):
+            return None
+        if answer == 'all':
+            return [c['key'] for c in usable]
+        if answer == 'safe':
+            return [c['key'] for c in usable if c['safety'] == 'safe']
+        picked, bad = [], []
+        for token in answer.replace(' ', ',').split(','):
+            if not token:
+                continue
+            if token.isdigit() and int(token) in by_index:
+                picked.append(by_index[int(token)]['key'])
+            else:
+                bad.append(token)
+        if bad:
+            click.echo(click.style('Not a listed number: ' + ', '.join(bad), fg='yellow'))
+            continue
+        if picked:
+            return picked
+        click.echo(click.style('Nothing selected — pick at least one number.', fg='yellow'))
+
+
 if __name__ == '__main__':
     cli()

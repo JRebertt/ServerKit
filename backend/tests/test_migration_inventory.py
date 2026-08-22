@@ -8,13 +8,13 @@ regenerating the document is part of the commit::
 
     python scripts/generate-migration-inventory.py
 
-Skipped when node is unavailable — the generator shells out to the frontend
-boundary checker for its half of the rows.
+Skipped only when no node binary is reachable at all — the generator shells
+out to the frontend boundary checker for its half of the rows, and resolves
+``$NODE`` / ``node`` / ``node.exe`` so a WSL run still covers it.
 """
 
 import importlib.util
 import os
-import shutil
 import subprocess
 import sys
 
@@ -27,8 +27,6 @@ DOC = os.path.join(REPO, 'docs', 'MIGRATION_INVENTORY.md')
 
 
 def test_the_committed_inventory_matches_the_measured_state():
-    if shutil.which('node') is None:
-        pytest.skip('node is not available to run the frontend half')
     assert os.path.exists(DOC), (
         'docs/MIGRATION_INVENTORY.md is missing; run '
         'python scripts/generate-migration-inventory.py')
@@ -36,6 +34,11 @@ def test_the_committed_inventory_matches_the_measured_state():
     spec = importlib.util.spec_from_file_location('_mig_inventory', GENERATOR)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+
+    # Same resolution the generator uses, so WSL (where the Windows nvm dir
+    # exposes only node.exe) runs this instead of skipping it.
+    if mod.node_command() is None:
+        pytest.skip('node is not available to run the frontend half')
 
     expected = mod.render()
     with open(DOC, encoding='utf-8') as f:

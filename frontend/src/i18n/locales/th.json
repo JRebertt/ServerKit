@@ -3844,11 +3844,8 @@
       "user": "ผู้ใช้"
     },
     "logsDrawer": {
-      "autoScroll": "เลื่อนอัตโนมัติ",
       "clear": "ชัดเจน",
       "close": "ปิด",
-      "close2": "ปิด",
-      "collapse": "ทรุด",
       "waitingForLogs": "กำลังรอบันทึก..."
     },
     "logsTab": {
@@ -8474,6 +8471,16 @@
       "minutes": "{{count}}m",
       "minutesSeconds": "{{minutes}}m {{seconds}}s",
       "seconds": "{{count}}"
+    },
+    "editing": {
+      "discard": "ละทิ้งการเปลี่ยนแปลง",
+      "redo": "ทำซ้ำ",
+      "save": "บันทึก",
+      "saved": "บันทึกแล้ว",
+      "saving": "กำลังบันทึก…",
+      "undo": "เลิกทำ",
+      "unsavedChanges": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก",
+      "unsavedCount": "การเปลี่ยนแปลงที่ยังไม่ได้บันทึก: {{count}}"
     },
     "error": {
       "failedToLoad": "โหลดไม่สำเร็จ",

@@ -1,0 +1,269 @@
+.operations-dock {
+    position: fixed;
+    inset-inline-start: calc(#{$sidebar-width} + #{$space-4});
+    inset-block-end: $space-4;
+    z-index: 1050;
+    font-family: $font-main;
+
+    &__launcher {
+        min-height: 42px;
+        gap: $space-2;
+        border: 1px solid var(--border-strong);
+        border-radius: 999px;
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: $shadow-lg;
+
+        svg.is-active { color: var(--cyan); }
+    }
+
+    &__launcher-count,
+    &__unread {
+        display: inline-grid;
+        min-width: 20px;
+        height: 20px;
+        padding-inline: 5px;
+        place-items: center;
+        border-radius: 999px;
+        font-family: var(--mono);
+        font-size: 10px;
+        line-height: 1;
+    }
+
+    &__launcher-count { @include status-variant(var(--cyan), var(--cyan-bg)); }
+    &__unread { @include status-variant(var(--red), var(--red-bg)); }
+
+    &__panel {
+        display: grid;
+        grid-template-rows: auto auto minmax(92px, 180px) minmax(0, 1fr);
+        width: min(520px, calc(100vw - #{$sidebar-width} - #{$space-8}));
+        height: min(720px, calc(100vh - #{$space-8}));
+        overflow: hidden;
+        border: 1px solid var(--border-strong);
+        border-radius: $radius-lg;
+        background: var(--surface);
+        box-shadow: $shadow-lg;
+    }
+
+    &__header,
+    &__detail-head,
+    &__footer,
+    &__heading,
+    &__header-actions,
+    &__meta,
+    &__progress-copy,
+    &__footer-links,
+    &__footer-actions {
+        display: flex;
+        align-items: center;
+    }
+
+    &__header {
+        justify-content: space-between;
+        gap: $space-3;
+        padding: $space-3 $space-4;
+        border-bottom: 1px solid var(--border-soft);
+    }
+
+    &__heading { gap: $space-3; min-width: 0; }
+    &__heading h2,
+    &__detail-head h3 { margin: 0; color: var(--text); }
+    &__heading h2 { font-size: $font-size-base; }
+    &__heading > div > span { color: var(--text-faint); font-family: var(--mono); font-size: 10px; }
+    &__header-actions { gap: $space-1; }
+
+    &__icon {
+        display: grid;
+        width: 30px;
+        height: 30px;
+        flex: 0 0 auto;
+        place-items: center;
+        border-radius: $radius-md;
+        @include status-variant(var(--cyan), var(--cyan-bg));
+    }
+
+    &__tabs {
+        display: flex;
+        gap: $space-1;
+        padding: $space-2 $space-3;
+        border-bottom: 1px solid var(--border-soft);
+
+        .btn {
+            flex: 1;
+            justify-content: center;
+            gap: 6px;
+            color: var(--text-dim);
+
+            span { color: var(--text-faint); font-family: var(--mono); font-size: 10px; }
+            &.is-active { background: var(--surface-hover); color: var(--text); }
+        }
+    }
+
+    &__list {
+        overflow-y: auto;
+        border-bottom: 1px solid var(--border-soft);
+        scrollbar-width: thin;
+    }
+
+    &__row {
+        position: relative;
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr) auto;
+        width: 100%;
+        min-height: 52px;
+        padding: $space-2 $space-3;
+        gap: $space-3;
+        border-radius: 0;
+        text-align: start;
+
+        &.is-selected { background: var(--surface-hover); }
+    }
+
+    &__row-state {
+        width: 7px;
+        height: 7px;
+        align-self: center;
+        border-radius: 50%;
+        background: var(--text-faint);
+
+        &--green { @include status-variant(var(--green), var(--green)); }
+        &--amber { @include status-variant(var(--amber), var(--amber)); }
+        &--red { @include status-variant(var(--red), var(--red)); }
+        &--cyan { @include status-variant(var(--cyan), var(--cyan)); }
+        &--violet { @include status-variant(var(--violet), var(--violet)); }
+    }
+
+    &__row-copy {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+        align-items: flex-start;
+
+        strong,
+        small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        strong { color: var(--text); font-size: $font-size-sm; }
+        small { color: var(--text-faint); font-family: var(--mono); font-size: 10px; }
+    }
+
+    &__row-unread {
+        position: absolute;
+        inset-block-start: 7px;
+        inset-inline-end: 7px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--red);
+    }
+
+    &__empty {
+        display: grid;
+        min-height: 92px;
+        place-items: center;
+        padding: $space-4;
+        color: var(--text-faint);
+        font-size: $font-size-sm;
+        text-align: center;
+    }
+
+    &__detail {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+        padding: $space-4;
+        gap: $space-3;
+
+        &--empty {
+            align-items: center;
+            justify-content: center;
+            color: var(--text-faint);
+            text-align: center;
+        }
+    }
+
+    &__detail-head { justify-content: space-between; gap: $space-3; }
+    &__detail-head > div { min-width: 0; }
+    &__detail-head h3 { overflow: hidden; font-size: $font-size-lg; text-overflow: ellipsis; white-space: nowrap; }
+    &__eyebrow { color: var(--text-faint); font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    &__meta { gap: $space-3; color: var(--text-faint); font-family: var(--mono); font-size: 10px; }
+    &__meta span { display: inline-flex; align-items: center; gap: 5px; }
+
+    &__progress { display: grid; gap: $space-2; }
+    &__progress-copy { justify-content: space-between; color: var(--text-dim); font-size: $font-size-xs; }
+    &__progress progress {
+        width: 100%;
+        height: 5px;
+        overflow: hidden;
+        border: 0;
+        border-radius: 999px;
+        background: var(--surface-hover);
+        accent-color: var(--accent-primary);
+    }
+    &__progress progress::-webkit-progress-bar { background: var(--surface-hover); }
+    &__progress progress::-webkit-progress-value { background: var(--accent-primary); }
+
+    &__step-rail { display: flex; justify-content: space-between; }
+    &__step-rail span {
+        width: 8px;
+        height: 8px;
+        border: 1px solid var(--border-strong);
+        border-radius: 50%;
+        background: var(--surface);
+
+        &.is-complete { @include status-variant(var(--green), var(--green), var(--green)); }
+        &.is-current { @include status-variant(var(--cyan), null, var(--cyan)); box-shadow: 0 0 0 3px var(--cyan-bg); }
+    }
+
+    &__error {
+        display: flex;
+        align-items: flex-start;
+        gap: $space-2;
+        padding: $space-2 $space-3;
+        border: 1px solid transparent;
+        border-radius: $radius-md;
+        @include status-variant(var(--red), var(--red-bg), var(--red));
+        font-size: $font-size-xs;
+    }
+
+    &__logs {
+        flex: 1;
+        min-height: 100px;
+        overflow: auto;
+        padding: $space-3;
+        border: 1px solid var(--border-soft);
+        border-radius: $radius-md;
+        background: var(--bg-code);
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.6;
+        scrollbar-width: thin;
+    }
+
+    &__logs-empty { display: block; padding-block: $space-4; color: var(--text-faint); text-align: center; }
+    &__log-line { color: var(--text-dim); white-space: pre-wrap; overflow-wrap: anywhere; }
+    &__log-line.is-error { color: var(--red); }
+    &__log-line.is-warn,
+    &__log-line.is-warning { color: var(--amber); }
+
+    &__footer { justify-content: space-between; gap: $space-2; }
+    &__footer--end { justify-content: flex-end; }
+    &__footer-links { min-width: 0; gap: $space-1; }
+    &__footer-links .btn { max-width: 190px; gap: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &__footer-actions { gap: $space-2; }
+
+    @media (max-width: $breakpoint-md) {
+        inset-inline: $space-3;
+        inset-block-end: 72px;
+
+        &__panel {
+            width: auto;
+            height: min(680px, calc(100vh - 92px));
+        }
+
+        &__footer { align-items: stretch; flex-direction: column; }
+        &__footer-links,
+        &__footer-actions { justify-content: flex-end; }
+    }
+}
+
+.operations-dock.is-open { z-index: 1110; }
