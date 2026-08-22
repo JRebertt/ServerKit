@@ -22,7 +22,7 @@ from app.models.project import Project
 from app.models.secret_vault import Secret, SecretVault
 from app.services.manifest_apply_service import ManifestApplyService
 from app.services.run_log_service import stream_for
-from app.utils.crypto import encrypt_secret
+from app.services.secret_vault_service import SecretService
 from app.utils.sensitive_data_filter import mask_payload
 
 
@@ -349,14 +349,11 @@ class RecipeExecutionService:
             db.session.add(vault)
             db.session.flush()
         name = cls._handoff_secret_name(job.id, step_id)
-        secret = Secret.query.filter_by(vault_id=vault.id, name=name).first()
-        if not secret:
-            secret = Secret(vault_id=vault.id, name=name)
-            db.session.add(secret)
-        secret.encrypted_value = encrypt_secret(value)
-        secret.expires_at = expires_at
-        secret.description = 'Encrypted Recipe handoff input; deleted after run completion'
-        db.session.commit()
+        secret = SecretService.upsert_internal_secret(
+            vault.id, name, value,
+            description='Encrypted Recipe handoff input; deleted after run completion',
+            expires_at=expires_at,
+        )
         return secret
 
     @classmethod
