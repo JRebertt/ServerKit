@@ -47,7 +47,7 @@ export function Drawer({
                             {icon}
                         </span>
                     )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div>
                         {/* SheetTitle is required by Radix for a11y; keep it as the visible title. */}
                         <SheetTitle className="sk-drawer__title">{title}</SheetTitle>
                         {subtitle && <div className="sk-drawer__sub">{subtitle}</div>}

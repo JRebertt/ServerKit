@@ -96,8 +96,7 @@ function TopbarTabs({ tabs, label }) {
                             to={tab.to}
                             end={tab.end}
                             ref={(el) => { itemRefs.current[i] = el; }}
-                            className={({ isActive }) => cn('sk-topbar__tab', isActive && 'is-active')}
-                            style={{ display: isHidden ? 'none' : undefined }}
+                            className={({ isActive }) => cn('sk-topbar__tab', isActive && 'is-active', isHidden && 'is-hidden')}
                             data-overflow={isHidden ? 'hidden' : undefined}
                         >
                             {tab.icon}

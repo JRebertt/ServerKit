@@ -75,6 +75,21 @@
         .react-flow__attribution {
             display: none;
         }
+
+        .react-flow__minimap {
+            background: var(--bg-elevated);
+        }
+    }
+
+    // Node label + subtitle rendered inside ReactFlow's default node body.
+    .react-flow__node .app-map__node-name {
+        font-weight: $font-weight-semibold;
+    }
+
+    .react-flow__node .app-map__node-sub {
+        margin-top: 2px;
+        font-size: 10.5px;
+        opacity: 0.7;
     }
 }
 
