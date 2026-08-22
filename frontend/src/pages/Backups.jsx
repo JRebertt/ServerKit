@@ -3,6 +3,7 @@ import useTabParam from '../hooks/useTabParam';
 import { Upload, Check, AlertTriangle, Archive, Clock, Database, Package, FolderArchive, HardDrive, History, Cloud, RefreshCw, Trash2, Plus, FileArchive, DollarSign } from 'lucide-react';
 import api from '../services/api';
 import { formatBytes } from '@/utils/formatBytes';
+import { scrollBehavior } from '@/utils/reducedMotion';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import EmptyState from '../components/EmptyState';
@@ -861,7 +862,7 @@ const Backups = () => {
                         onTest={handleTestConnection}
                         onBrowse={() => setActiveTab('snapshots')}
                         onAdd={() => {
-                            document.getElementById('bk-storage-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            document.getElementById('bk-storage-form')?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
                         }}
                     />
 

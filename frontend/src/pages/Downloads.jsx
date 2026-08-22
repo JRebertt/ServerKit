@@ -3,6 +3,7 @@ import api from '../services/api';
 import { Button } from '@/components/ui/button';
 import { useTopbarActions } from '@/hooks/useTopbarActions';
 import { copyToClipboard } from '@/utils/clipboard';
+import { scrollBehavior } from '@/utils/reducedMotion';
 import { useTranslation } from 'react-i18next';
 
 // Platform icons as SVG components
@@ -190,7 +191,7 @@ function Downloads() {
                             )}
                             <a href="#downloads" className="btn btn-banner-primary" onClick={(e) => {
                                 e.preventDefault();
-                                document.querySelector('.download-cards')?.scrollIntoView({ behavior: 'smooth' });
+                                document.querySelector('.download-cards')?.scrollIntoView({ behavior: scrollBehavior() });
                             }}>
                                 <DownloadIcon />
                                 {t('app.downloads.downloadNow', 'Download Now')}

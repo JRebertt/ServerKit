@@ -3,6 +3,7 @@ import Modal from './Modal';
 import { Button } from '@/components/ui/button';
 import { rooms, SOCKET_EVENTS } from '@/constants/events';
 import { useServerStream } from '@/hooks/useServerStream';
+import { scrollBehavior } from '@/utils/reducedMotion';
 import { useTranslation } from 'react-i18next';
 
 // Subscribes to a remote agent's job:<id> stream channel and renders
@@ -63,7 +64,7 @@ export default function JobProgressModal({
 
     // Auto-scroll to the bottom as new lines arrive.
     useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        logEndRef.current?.scrollIntoView({ behavior: scrollBehavior() });
     }, [lines.length]);
 
     const success = done && done.exitCode === 0 && !done.error;
