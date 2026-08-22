@@ -20,6 +20,7 @@ import importlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -66,9 +67,26 @@ def _controller_boundary_row():
             'service layer extraction', n, n, 'migrate when touched (first-wave ratchet)')
 
 
+def node_command():
+    """Resolve the node binary: ``$NODE``, then ``node``, then ``node.exe``.
+
+    Hardcoding ``node`` made this generator unavailable under WSL, where the
+    Windows nvm directory is on PATH but only exposes ``node.exe`` -- so
+    test_migration_inventory.py skipped on the dev box, and the inventory
+    reached CI stale with nothing local able to say so.
+    """
+    for candidate in (os.environ.get('NODE'), 'node', 'node.exe'):
+        if candidate and shutil.which(candidate):
+            return candidate
+    return None
+
+
 def _frontend_rows():
+    node = node_command()
+    if node is None:
+        raise SystemExit('node is required for the frontend rows (set NODE=/path/to/node)')
     result = subprocess.run(
-        ['node', os.path.join('frontend', 'scripts', 'check-frontend-boundaries.mjs'),
+        [node, os.path.join('frontend', 'scripts', 'check-frontend-boundaries.mjs'),
          '--inventory'],
         capture_output=True, text=True, cwd=REPO)
     if result.returncode != 0:
