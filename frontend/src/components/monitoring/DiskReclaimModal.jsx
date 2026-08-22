@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/contexts/ToastContext';
 import { useOperations } from '@/contexts/OperationsContext';
 import formatBytes from '@/utils/formatBytes';
-import '@/styles/components/disk-reclaim.scss';
 
 /**
  * Curated "safe" disk reclaim. Shows what a fresh measurement says can be
