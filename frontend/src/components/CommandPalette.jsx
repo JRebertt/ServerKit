@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { translateLabel } from '../i18n/labels';
 import {
     History, SlidersHorizontal, LayoutGrid, Zap, Server, Globe,
-    Database, Boxes, Puzzle, BookOpen, KeyRound, Clock, ExternalLink, Star,
+    Database, Boxes, Puzzle, BookOpen, BookOpenCheck, KeyRound, Clock,
+    ExternalLink, Minus, Plus, Star,
 } from 'lucide-react';
 import api from '../services/api';
 import {
@@ -17,8 +18,11 @@ import {
 } from '@/components/ui/command';
 import { useContributions } from '../plugins/contributions';
 import { useAuth } from '../contexts/AuthContext';
+import { useShellDock } from '../contexts/ShellDockContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useWalkthroughs } from '../contexts/walkthroughContextValue';
 import usePaletteAuthz from '../hooks/usePaletteAuthz';
+import { CREATE_ITEMS } from '../data/createItems';
 import { PALETTE_PAGES } from '../data/palettePages';
 import { SETTINGS_INDEX } from '../data/settingsIndex';
 import { COMMAND_ACTIONS } from '../data/commandActions';
@@ -30,10 +34,13 @@ import { getFavorites, getRecents } from '../utils/recents';
 // Group order in the list, plus a per-category icon and a scoring weight so the
 // headline categories (Settings, Pages, Actions) outrank raw entity hits on ties.
 const GROUP_ORDER = [
+    'Create', 'Recipes',
     'Favorites', 'Recently used', 'Settings', 'Pages', 'Actions', 'Services', 'Servers',
     'Domains', 'Databases', 'Sites', 'Cron Jobs', 'Vaults', 'Extensions', 'Docs',
 ];
 const CATEGORY_ICONS = {
+    Create: Plus,
+    Recipes: BookOpenCheck,
     Favorites: Star,
     'Recently used': History,
     Settings: SlidersHorizontal,
@@ -50,6 +57,7 @@ const CATEGORY_ICONS = {
     Docs: BookOpen,
 };
 const CATEGORY_WEIGHT = {
+    Create: 5, Recipes: 3,
     Favorites: 5,
     Settings: 6, Pages: 4, Actions: 4, Services: 2, Servers: 2, Domains: 2,
     Databases: 2, Sites: 2, 'Cron Jobs': 1, Vaults: 1, Extensions: 1, Docs: 0,
@@ -104,6 +112,9 @@ const CommandPalette = ({ open, onClose }) => {
     const { logout } = useAuth();
     const { resolvedTheme, setTheme, whiteLabel } = useTheme();
     const { allowItem } = usePaletteAuthz();
+    const { walkthroughs, start: startWalkthrough } = useWalkthroughs();
+    const { openTab } = useShellDock();
+    const [showMoreCreates, setShowMoreCreates] = useState(false);
 
     // Prefix modes: `>` = actions only, `?` = docs only, bare = everything.
     const { mode, term } = useMemo(() => {
@@ -114,8 +125,10 @@ const CommandPalette = ({ open, onClose }) => {
 
     // Reset transient state each time the palette opens/closes.
     useEffect(() => {
-        if (open) setQuery('');
-        else setEntityItems([]);
+        if (open) {
+            setQuery('');
+            setShowMoreCreates(false);
+        } else setEntityItems([]);
     }, [open]);
 
     // --- Sync providers ------------------------------------------------------
@@ -164,6 +177,38 @@ const CommandPalette = ({ open, onClose }) => {
             })),
         [pluginPaletteItems, t],
     );
+
+    // Create tiles (shared with the sidebar "+") — the palette's empty state
+    // leads with them, prototype-style, so ⌘K is also the "new thing" door.
+    const createItems = useMemo(() => CREATE_ITEMS.map((item) => ({
+        id: `create:${item.kind}`,
+        label: translateLabel(t, item),
+        keywords: `new create add ${item.kind}`,
+        path: item.path,
+        icon: item.icon,
+        more: item.more,
+        category: 'Create',
+    })), [t]);
+
+    // Extension-contributed "New …" commands join the hidden shelf of the
+    // Create grid, so the expander truthfully says "including extensions".
+    const pluginCreateItems = useMemo(
+        () => pluginItems
+            .filter((item) => /^(new|create)\b/i.test(item.label))
+            .map((item) => ({
+                ...item, id: `create-ext:${item.id}`, category: 'Create', icon: Puzzle, more: true, ext: true,
+            })),
+        [pluginItems],
+    );
+
+    const recipeItems = useMemo(() => walkthroughs.map((walkthrough) => ({
+        id: `recipe:${walkthrough.id}`,
+        label: walkthrough.title,
+        keywords: 'recipe walkthrough guide setup steps',
+        meta: t('palette.recipeSteps', '{{count}} steps', { count: walkthrough.steps.length }),
+        recipeId: walkthrough.id,
+        category: 'Recipes',
+    })), [t, walkthroughs]);
 
     const docItems = useMemo(() => {
         if (whiteLabel?.enabled) return [];
@@ -241,6 +286,10 @@ const CommandPalette = ({ open, onClose }) => {
         if (!t) {
             if (mode === 'actions') return capGroups(actionItems);
             if (mode === 'docs') return capGroups(docItems);
+            const creates = [
+                ...createItems.filter((item) => !item.more || showMoreCreates),
+                ...(showMoreCreates ? pluginCreateItems : []),
+            ];
             const pool = [...settingsItems, ...pageItems, ...actionItems, ...pluginItems, ...docItems];
             const byId = new Map(pool.map((i) => [i.id, i]));
             const recents = recentIds(8)
@@ -251,19 +300,24 @@ const CommandPalette = ({ open, onClose }) => {
                 ? recents
                 : pageItems.slice(0, 6).map((i) => ({ ...i, category: 'Recently used' }));
             const suggestions = actionItems.filter((a) => a.suggested).slice(0, 4);
-            return capGroups([
-                ...favoriteItems.slice(0, 4),
-                ...visitItems,
-                ...base,
-                ...suggestions,
-            ], 8, OVERALL_CAP);
+            return [
+                ...creates,
+                ...recipeItems,
+                ...capGroups([
+                    ...favoriteItems.slice(0, 4),
+                    ...visitItems,
+                    ...base,
+                    ...suggestions,
+                ], 8, OVERALL_CAP),
+            ];
         }
 
         const syncPool = mode === 'actions'
             ? actionItems
             : mode === 'docs'
                 ? docItems
-                : [...settingsItems, ...pageItems, ...actionItems, ...pluginItems, ...docItems,
+                : [...createItems, ...pluginCreateItems, ...recipeItems,
+                    ...settingsItems, ...pageItems, ...actionItems, ...pluginItems, ...docItems,
                     ...favoriteItems, ...visitItems];
 
         const scored = [];
@@ -285,12 +339,18 @@ const CommandPalette = ({ open, onClose }) => {
         }
         scored.sort((a, b) => b._score - a._score);
         return capGroups(scored);
-    }, [term, mode, settingsItems, pageItems, actionItems, pluginItems, docItems, entityItems]);
+    }, [term, mode, settingsItems, pageItems, actionItems, pluginItems, docItems, entityItems,
+        createItems, pluginCreateItems, recipeItems, showMoreCreates, favoriteItems, visitItems]);
 
     // --- Selection -----------------------------------------------------------
     const handleSelect = useCallback((item) => {
         recordUse(item.id);
         onClose();
+        if (item.recipeId) {
+            startWalkthrough(item.recipeId);
+            openTab('recipes');
+            return;
+        }
         if (typeof item.perform === 'function') {
             item.perform({
                 navigate,
@@ -305,7 +365,7 @@ const CommandPalette = ({ open, onClose }) => {
             return;
         }
         navigate(item.path);
-    }, [navigate, onClose, logout, resolvedTheme, setTheme]);
+    }, [navigate, onClose, logout, resolvedTheme, setTheme, startWalkthrough, openTab]);
 
     // Group + order for rendering.
     const grouped = useMemo(() => {
@@ -321,10 +381,10 @@ const CommandPalette = ({ open, onClose }) => {
     }, [results]);
 
     const placeholder = mode === 'actions'
-        ? 'Run an action…'
+        ? t('palette.placeholderActions', 'Run an action…')
         : mode === 'docs'
-            ? 'Search docs…'
-            : 'Search pages, settings, actions, services…';
+            ? t('palette.placeholderDocs', 'Search docs…')
+            : t('palette.placeholderAll', 'Search, or create something new…');
 
     return (
         <CommandDialog
@@ -342,26 +402,74 @@ const CommandPalette = ({ open, onClose }) => {
                 <CommandEmpty>{t('common.state.noResults', 'No results found')}</CommandEmpty>
                 {grouped.map(([category, items]) => {
                     const Icon = CATEGORY_ICONS[category] || LayoutGrid;
+
+                    // Empty-query Create group renders as the prototype's tile
+                    // grid with the "+ n more" shelf toggle underneath.
+                    if (category === 'Create' && !term.trim()) {
+                        const hiddenCount = createItems.filter((item) => item.more).length
+                            + pluginCreateItems.length;
+                        return (
+                            <CommandGroup key={category} heading={category} className="command-palette__create">
+                                {items.map((item) => {
+                                    const TileIcon = item.icon || Plus;
+                                    return (
+                                        <CommandItem
+                                            key={item.id}
+                                            value={item.id}
+                                            className="command-palette__tile"
+                                            onSelect={() => handleSelect(item)}
+                                        >
+                                            {item.ext && <Puzzle className="command-palette__tile-ext" aria-hidden="true" />}
+                                            <span className="command-palette__tile-icon"><TileIcon aria-hidden="true" /></span>
+                                            <span className="command-palette__tile-label">{item.label}</span>
+                                        </CommandItem>
+                                    );
+                                })}
+                                {hiddenCount > 0 && (
+                                    <button
+                                        type="button"
+                                        className="command-palette__more"
+                                        onClick={() => setShowMoreCreates((value) => !value)}
+                                    >
+                                        {showMoreCreates ? (
+                                            <><Minus size={12} aria-hidden="true" /> {t('palette.showFewer', 'Show fewer')}</>
+                                        ) : (
+                                            <><Plus size={12} aria-hidden="true" /> {pluginCreateItems.length
+                                                ? t('palette.moreIncludingExtensions', '{{count}} more · including extensions', { count: hiddenCount })
+                                                : t('palette.moreCreates', '{{count}} more', { count: hiddenCount })}</>
+                                        )}
+                                    </button>
+                                )}
+                            </CommandGroup>
+                        );
+                    }
+
                     return (
                         <CommandGroup key={category} heading={category}>
-                            {items.map((item) => (
-                                <CommandItem
-                                    key={item.id}
-                                    value={item.id}
-                                    onSelect={() => handleSelect(item)}
-                                >
-                                    <Icon className="command-palette__item-icon" aria-hidden="true" />
-                                    <span className="command-palette__item-body">
-                                        <span className="command-palette__item-label">{item.label}</span>
-                                        {item.sublabel && (
-                                            <span className="command-palette__item-sublabel">{item.sublabel}</span>
+                            {items.map((item) => {
+                                const ItemIcon = item.icon || Icon;
+                                return (
+                                    <CommandItem
+                                        key={item.id}
+                                        value={item.id}
+                                        onSelect={() => handleSelect(item)}
+                                    >
+                                        <ItemIcon className="command-palette__item-icon" aria-hidden="true" />
+                                        <span className="command-palette__item-body">
+                                            <span className="command-palette__item-label">{item.label}</span>
+                                            {item.sublabel && (
+                                                <span className="command-palette__item-sublabel">{item.sublabel}</span>
+                                            )}
+                                        </span>
+                                        {item.meta && (
+                                            <span className="command-palette__item-meta mono">{item.meta}</span>
                                         )}
-                                    </span>
-                                    {item.external && (
-                                        <ExternalLink className="command-palette__item-ext" aria-hidden="true" />
-                                    )}
-                                </CommandItem>
-                            ))}
+                                        {item.external && (
+                                            <ExternalLink className="command-palette__item-ext" aria-hidden="true" />
+                                        )}
+                                    </CommandItem>
+                                );
+                            })}
                         </CommandGroup>
                     );
                 })}
