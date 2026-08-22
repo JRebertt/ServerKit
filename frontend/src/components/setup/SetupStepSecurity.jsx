@@ -117,7 +117,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                 </div>
 
-                <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+                <div className="wizard-nav wizard-nav--flush">
                     <button
                         type="button"
                         className="btn-wizard-next"
@@ -159,7 +159,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                 )}
 
-                <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+                <div className="wizard-nav wizard-nav--flush">
                     <Button variant="ghost" onClick={() => onComplete(false)} disabled={busy}>
                         {t('app.setupStepSecurity.skipForNow', 'Skip for now')}
                     </Button>
@@ -229,7 +229,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                     </div>
                 )}
 
-                <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+                <div className="wizard-nav wizard-nav--flush">
                     <Button variant="ghost" onClick={() => onComplete(false)} disabled={busy}>
                         {t('app.setupStepSecurity.skipForNow2', 'Skip for now')}
                     </Button>
@@ -279,7 +279,7 @@ const SetupStepSecurity = ({ onComplete }) => {
                 )}
             </div>
 
-            <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+            <div className="wizard-nav wizard-nav--flush">
                 <button
                     type="button"
                     className="btn-wizard-next"

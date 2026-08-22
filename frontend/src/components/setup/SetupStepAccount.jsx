@@ -105,9 +105,8 @@ const SetupStepAccount = ({ onComplete }) => {
 
                     <button
                         type="submit"
-                        className="btn-wizard-next"
+                        className="btn-wizard-next btn-wizard-next--block"
                         disabled={loading}
-                        style={{ width: '100%', justifyContent: 'center' }}
                     >
                         {loading ? 'Signing in...' : 'Sign In & Continue'}
                     </button>
@@ -184,9 +183,8 @@ const SetupStepAccount = ({ onComplete }) => {
 
                 <button
                     type="submit"
-                    className="btn-wizard-next"
+                    className="btn-wizard-next btn-wizard-next--block"
                     disabled={loading}
-                    style={{ width: '100%', justifyContent: 'center' }}
                 >
                     {loading ? 'Creating account...' : 'Continue'}
                 </button>

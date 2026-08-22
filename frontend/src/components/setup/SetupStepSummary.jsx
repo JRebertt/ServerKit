@@ -251,7 +251,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 {(recsLoading || recommendations.length > 0) && (
                     <div className="summary-section">
                         <div className="summary-section-title">
-                            <Sparkles size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+                            <Sparkles size={14} className="summary-rec-ico" />
                             {t('app.setupStepSummary.recommendedForYou', 'Recommended for you')}
                         </div>
                         {recsLoading ? (
@@ -298,7 +298,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 )}
             </div>
 
-            <div className="wizard-nav" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+            <div className="wizard-nav wizard-nav--flush">
                 <button
                     type="button"
                     className="btn-wizard-next"
