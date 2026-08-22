@@ -92,6 +92,30 @@ test('keeps a handoff-waiting Recipe active and attention-worthy', () => {
     assert.equal(recipe.handoff.step_id, 'claim');
 });
 
+test('keeps a boolean handoff flag out of the handoff descriptor', () => {
+    const withDescriptor = normalizeDeploymentOperation({
+        id: 'recipe-flagged',
+        kind: 'recipe.run',
+        status: 'waiting',
+        handoff: true,
+        result: { handoff: { step_id: 'credentials', title: 'Add credentials' } },
+    });
+    const flagOnly = normalizeDeploymentOperation({
+        id: 'recipe-flag-only',
+        kind: 'recipe.run',
+        status: 'waiting',
+        handoff: true,
+    });
+
+    assert.equal(withDescriptor.requiresAction, true);
+    assert.deepEqual(withDescriptor.handoff, {
+        step_id: 'credentials',
+        title: 'Add credentials',
+    });
+    assert.equal(flagOnly.requiresAction, true);
+    assert.equal(flagOnly.handoff, null);
+});
+
 test('reconciles one run and marks a newly failed terminal operation unread', () => {
     const current = [normalizeJobOperation({ id: 'job-1', kind: 'doctor.run', status: 'running' })];
     const result = reconcileOperationStatus(current, {

@@ -85,9 +85,19 @@ function deploymentResource(job) {
     return null;
 }
 
+function deploymentHandoff(job) {
+    const candidates = [job?.handoff, job?.result?.handoff];
+    return candidates.find((candidate) => (
+        candidate !== null
+        && typeof candidate === 'object'
+        && !Array.isArray(candidate)
+    )) || null;
+}
+
 export function normalizeDeploymentOperation(job) {
     if (!job?.id) return null;
     const target = job.app_name || job.target_server_name;
+    const handoff = deploymentHandoff(job);
     return {
         id: stringId(job.id),
         runKind: 'deploy',
@@ -106,7 +116,7 @@ export function normalizeDeploymentOperation(job) {
         canRetry: permissionFlag(job, 'can_retry', 'canRetry'),
         requiresAction: permissionFlag(job, 'requires_action', 'requiresAction') || job.handoff === true,
         needsAttention: permissionFlag(job, 'needs_attention', 'needsAttention'),
-        handoff: job.handoff || job.result?.handoff || null,
+        handoff,
         detailPath: job.detailPath || `/deployments/${encodeURIComponent(String(job.id))}`,
     };
 }
