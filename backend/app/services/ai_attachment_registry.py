@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from threading import RLock
 from typing import Any, Callable
 
+from app.exceptions import ValidationError
 from app.utils.sensitive_data_filter import mask_payload
 
 logger = logging.getLogger(__name__)
@@ -26,8 +27,16 @@ MAX_LABEL_CHARS = 160
 _TYPE_RE = re.compile(r'^[a-z0-9][a-z0-9._-]{0,63}$')
 
 
-class AttachmentValidationError(ValueError):
-    """The submitted attachment manifest is malformed or exceeds its cap."""
+class AttachmentValidationError(ValidationError):
+    """The submitted attachment manifest is malformed or exceeds its cap.
+
+    A typed error, so the global handler owns the 400 body, the ``code``, and
+    the ``X-Request-ID`` correlation -- routes do not hand-shape it. Still a
+    ``ValueError`` (via ``app.exceptions.ValidationError``) for existing
+    ``except ValueError`` callers.
+    """
+
+    code = 'attachment_invalid'
 
 
 class AttachmentDeniedError(PermissionError):

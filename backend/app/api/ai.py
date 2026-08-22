@@ -35,7 +35,6 @@ from app.middleware.rbac import admin_required, get_current_user
 from app.models.ai import AiConversation, AiMessage, AiPendingAction
 from app.services import ai_service
 from app.services.ai_attachment_registry import (
-    AttachmentValidationError,
     normalize_references,
     resolve_attachments,
 )
@@ -293,10 +292,9 @@ def chat():
         return jsonify({'error': 'message is required'}), 400
     mode = data.get('mode') or AiConversation.MODE_ASSISTANT
     page_context = data.get('page_context') or {}
-    try:
-        attachment_refs = _attachment_references(data)
-    except AttachmentValidationError as exc:
-        return jsonify({'error': str(exc)}), 400
+    # AttachmentValidationError is typed (app.exceptions.ValidationError), so the
+    # global handler renders the 400 with a code and request_id.
+    attachment_refs = _attachment_references(data)
 
     row = _load_or_create(data.get('conversation_id'), user, mode)
     if row is None:
@@ -344,10 +342,9 @@ def chat_stream():
         return jsonify({'error': 'message is required'}), 400
     mode = data.get('mode') or AiConversation.MODE_ASSISTANT
     page_context = data.get('page_context') or {}
-    try:
-        attachment_refs = _attachment_references(data)
-    except AttachmentValidationError as exc:
-        return jsonify({'error': str(exc)}), 400
+    # AttachmentValidationError is typed (app.exceptions.ValidationError), so the
+    # global handler renders the 400 with a code and request_id.
+    attachment_refs = _attachment_references(data)
 
     row = _load_or_create(data.get('conversation_id'), user, mode)
     if row is None:
