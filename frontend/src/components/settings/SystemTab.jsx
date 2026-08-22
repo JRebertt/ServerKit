@@ -227,7 +227,7 @@ const SystemTab = () => {
             <div {...register('system-timezone', 'settings-card')}>
                 <h3>{t('app.systemTab.serverTimeTimezone', 'Server Time & Timezone')}</h3>
                 {metrics?.time && (
-                    <InfoList style={{ marginBottom: '1rem' }}>
+                    <InfoList className="info-list--spaced">
                         <InfoItem label={t('app.systemTab.currentTime', 'Current Time')} value={metrics.time.current_time_formatted} />
                         <InfoItem label={t('app.systemTab.utcOffset', 'UTC Offset')} value={metrics.time.utc_offset} />
                         <InfoItem label={t('app.systemTab.currentTimezone', 'Current Timezone')} value={metrics.time.timezone_id || metrics.time.timezone_name} />
@@ -273,7 +273,7 @@ const SystemTab = () => {
             <div {...register('system-canonical-domain', 'settings-card')}>
                 <h3>{t('app.systemTab.panelDomain', 'Panel Domain')}</h3>
                 {!encryptionConfigured && (
-                    <div className="alert alert-warning" style={{ marginBottom: '1rem' }}>
+                    <div className="alert alert-warning settings-alert-spaced">
                         <strong>{t('app.systemTab.encryptionKeyNotConfigured', 'Encryption key not configured.')}</strong> {t('app.systemTab.agentPairingAndSecretEncryptionWill', 'Agent pairing and secret encryption will fail until SERVERKIT_ENCRYPTION_KEY is set in your .env file.')}
                     </div>
                 )}
@@ -284,8 +284,8 @@ const SystemTab = () => {
                         {detectedDomain?.detected_domain && (
                             <div className="form-group">
                                 <label>{t('app.systemTab.detectedDomain', 'Detected Domain')}</label>
-                                <div className="form-row" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                                    <code style={{ flex: 1 }}>
+                                <div className="form-row system-domain-row">
+                                    <code>
                                         {detectedDomain.is_https ? 'https' : 'http'}://{detectedDomain.detected_domain}
                                     </code>
                                     <Button
@@ -323,14 +323,14 @@ const SystemTab = () => {
                                 {t('app.systemTab.theDomainYouPointAtThis', 'The domain you point at this ServerKit panel. Used for CORS and agent install commands.')}
                             </span>
                         </div>
-                        <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div className="form-group system-switch-row">
                             <Switch
                                 id="canonical-https"
                                 checked={canonicalHttps}
                                 onCheckedChange={setCanonicalHttps}
                                 disabled={savingDomain}
                             />
-                            <label htmlFor="canonical-https" style={{ margin: 0 }}>
+                            <label htmlFor="canonical-https">
                                 {t('app.systemTab.httpsEnabledForCanonicalDomain', 'HTTPS enabled for canonical domain')}
                             </label>
                         </div>
@@ -342,7 +342,7 @@ const SystemTab = () => {
                             {savingDomain ? 'Saving...' : 'Save Canonical Domain'}
                         </Button>
                         {domainMessage && (
-                            <div className={`timezone-message ${domainMessage.type}`} style={{ marginTop: '0.75rem' }}>
+                            <div className={`timezone-message timezone-message--save-result ${domainMessage.type}`}>
                                 {domainMessage.text}
                             </div>
                         )}

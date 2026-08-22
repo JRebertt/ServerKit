@@ -125,7 +125,7 @@ const AppearanceTab = () => {
                                     ref={fileInputRef}
                                     type="file"
                                     accept="application/json,.json"
-                                    style={{ display: 'none' }}
+                                    className="hidden"
                                     onChange={onImportFile}
                                 />
                                 <Button variant="outline" size="sm" onClick={() => setBrowseOpen(true)}>

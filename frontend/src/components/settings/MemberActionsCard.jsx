@@ -47,12 +47,12 @@ const MemberActionsCard = () => {
     return (
         <div className="settings-card">
             <h3>{t('app.memberActionsCard.memberActions', 'Member Actions')}</h3>
-            <p className="form-help" style={{ marginTop: 0 }}>
+            <p className="form-help form-help--flush">
                 {t('app.memberActionsCard.letWorkspaceMembersRunASmall', 'Let workspace members run a small set of curated, parameterized actions (like adjusting an app\'s backup frequency) for apps they can reach. Every action is validated against a fixed schema and audit-logged — no free text ever reaches the server shell. Turn this off to disable the whole member-action surface.')}
             </p>
 
             <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <label className="member-check-label">
                     <input
                         type="checkbox"
                         checked={enabled}
@@ -67,7 +67,7 @@ const MemberActionsCard = () => {
                     {saving ? 'Saving…' : 'Save'}
                 </Button>
                 {message && (
-                    <span className={`timezone-message ${message.type}`} style={{ marginLeft: '0.75rem' }}>
+                    <span className={`timezone-message timezone-message--inline ${message.type}`}>
                         {message.text}
                     </span>
                 )}

@@ -213,7 +213,7 @@ const AISettingsTab = () => {
                     </div>
                 </div>
 
-                <div className="settings-actions" style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                <div className="settings-actions">
                     <Button variant="outline" onClick={handleTest} disabled={testing || !settings.provider || !settings.model}>
                         {testing ? 'Testing…' : 'Test connection'}
                     </Button>

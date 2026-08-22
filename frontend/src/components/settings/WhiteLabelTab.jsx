@@ -100,7 +100,7 @@ const WhiteLabelTab = () => {
                                             ref={logoInputRef}
                                             type="file"
                                             accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                                            style={{ display: 'none' }}
+                                            className="hidden"
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;

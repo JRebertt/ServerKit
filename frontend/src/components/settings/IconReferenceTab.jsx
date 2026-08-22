@@ -89,14 +89,13 @@ const IconReferenceTab = () => {
 
             <div className="settings-card">
                 <div className="form-group">
-                    <div className="search-input-wrapper" style={{ position: 'relative' }}>
-                        <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+                    <div className="search-input-wrapper">
+                        <Search size={16} className="icon-search-ico" />
                         <Input
                             type="text"
                             placeholder={t('app.iconReferenceTab.searchIcons', 'Search icons...')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            style={{ paddingLeft: 36 }}
                         />
                     </div>
                 </div>
@@ -125,7 +124,7 @@ const IconReferenceTab = () => {
 
             {Object.keys(filteredCatalog).length === 0 && (
                 <div className="settings-card">
-                    <p style={{ textAlign: 'center', opacity: 0.5 }}>{t('app.iconReferenceTab.noIconsMatch', 'No icons match "{{query}}"', { query: searchQuery })}</p>
+                    <p className="icon-ref-empty">{t('app.iconReferenceTab.noIconsMatch', 'No icons match "{{query}}"', { query: searchQuery })}</p>
                 </div>
             )}
         </div>
