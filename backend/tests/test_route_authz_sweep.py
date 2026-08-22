@@ -206,6 +206,7 @@ VIEWER_WRITABLE = {
     'notifications.test_user_notification',
     'notifications.unmute_own_email',
     'two_factor.initiate_2fa_setup',
+    'walkthroughs.update_walkthrough_state',
     'mobile.execute_quick_action',
     # STATELESS — parse/validate/dry-run helpers; no persisted mutation.
     'cron.preview_schedule',

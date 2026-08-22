@@ -323,6 +323,9 @@ export function useNewServiceForm() {
         setSourceMode(mode);
         if (mode === 'local') setAppType('docker');
         if (mode === 'upload') setAppType('auto');
+        window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+            detail: { type: 'service-source-selected', mode },
+        }));
     }
 
     // Pick a template by id (deep link or list click): fetch its detail, then apply.
@@ -397,6 +400,9 @@ export function useNewServiceForm() {
                     ...projectEnvPayload,
                 };
                 const result = await api.createManualApp(payload);
+                window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                    detail: { type: 'service-created', appId: result.app.id },
+                }));
                 toast.success(t('app.useNewServiceForm.manualServiceRegistered', 'Manual service registered'));
                 navigate(`/services/${result.app.id}`);
             } else if (sourceMode === 'upload') {
@@ -409,6 +415,9 @@ export function useNewServiceForm() {
                 if (projectEnvPayload.project_id) formData.append('project_id', projectEnvPayload.project_id);
                 if (projectEnvPayload.environment_id) formData.append('environment_id', projectEnvPayload.environment_id);
                 const result = await api.uploadAppZip(formData);
+                window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                    detail: { type: 'service-created', appId: result.app.id },
+                }));
                 toast.success(t('app.useNewServiceForm.uploadServiceCreated', 'Upload service created'));
                 navigate(`/services/${result.app.id}`);
             } else {
@@ -441,6 +450,9 @@ export function useNewServiceForm() {
                 }
 
                 const result = await api.createAppFromRepository(payload);
+                window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                    detail: { type: 'service-created', appId: result.app?.id },
+                }));
                 if (result.deploy_job_id) {
                     // A deploy job was queued — take the user straight to the
                     // full-page Deploy Console to watch the build/startup live.

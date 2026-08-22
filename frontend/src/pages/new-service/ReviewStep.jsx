@@ -84,7 +84,7 @@ const ReviewStep = ({ form }) => {
     };
 
     return (
-        <div className="new-service-page__step new-service-page__review">
+        <div className="new-service-page__step new-service-page__review" data-walkthrough="service-review">
             <div className="new-service-page__step-head">
                 <h2>{t('app.reviewStep.reviewDeploy', 'Review & deploy')}</h2>
                 <p>{t('app.reviewStep.confirmTheDetectedSettingsThenCreate', 'Confirm the detected settings, then create the service.')}</p>

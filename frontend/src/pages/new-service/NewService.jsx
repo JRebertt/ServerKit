@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Link2, Rocket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,14 @@ const NewService = () => {
     const form = useNewServiceForm();
     const { step, setStep, submitting, canSubmit, canProceedFromConnect, handleSubmit } = form;
 
+    useEffect(() => {
+        if (step === 3) {
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'service-review-ready' },
+            }));
+        }
+    }, [step]);
+
     useTopbarActions(() =>
         <>
             <DocsLink to="deploySources" />
@@ -36,7 +45,7 @@ const NewService = () => {
     );
 
     return (
-        <div className="sk-tabgroup__inner new-service-page">
+        <div className="sk-tabgroup__inner new-service-page" data-walkthrough="new-service">
             {/* Slim stepper header */}
             <nav className="new-service-page__stepper" aria-label={t('app.newService.progress', 'Progress')}>
                 {STEPS.map(({ n, label }) => {
@@ -86,7 +95,7 @@ const NewService = () => {
                         </Button>
                     )}
                     {step === 3 && (
-                        <Button type="submit" disabled={!canSubmit || submitting}>
+                        <Button type="submit" data-walkthrough="service-submit" disabled={!canSubmit || submitting}>
                             <Rocket size={16} />
                             {submitting
                                 ? (form.sourceMode === 'local' ? 'Registering…' : form.sourceMode === 'upload' ? 'Uploading…' : 'Deploying…')

@@ -193,6 +193,9 @@ const SecuritySettingsTab = () => {
             const data = await api.initiate2FASetup();
             setSetupData(data);
             setShowSetupModal(true);
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'two-factor-setup-started' },
+            }));
         } catch (err) {
             setTwoFAError(err.message);
         } finally {
@@ -215,6 +218,9 @@ const SecuritySettingsTab = () => {
             setShowBackupCodesModal(true);
             setVerificationCode('');
             load2FAStatus();
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'two-factor-enabled' },
+            }));
         } catch (err) {
             setTwoFAError(err.message || 'Invalid verification code');
         } finally {
@@ -295,7 +301,7 @@ Keep these codes in a safe place.`;
             )}
 
             {/* Two-Factor Authentication Section */}
-            <div {...register('security-2fa', 'settings-card two-fa-card')}>
+            <div {...register('security-2fa', 'settings-card two-fa-card')} data-walkthrough="two-factor-card">
                 <div className="two-fa-header">
                     <div className="two-fa-icon">
                         <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" fill="none" strokeWidth="2">
@@ -435,7 +441,7 @@ Keep these codes in a safe place.`;
             {/* 2FA Setup Modal */}
             {showSetupModal && setupData && (
                 <Modal open={true} onClose={() => setShowSetupModal(false)} title={t('app.securitySettingsTab.setUpTwoFactorAuthentication', 'Set Up Two-Factor Authentication')} size="md">
-                            <div className="setup-steps">
+                            <div className="setup-steps" data-walkthrough="two-factor-verify">
                                 <div className="setup-step">
                                     <span className="step-number">1</span>
                                     <div className="step-content">

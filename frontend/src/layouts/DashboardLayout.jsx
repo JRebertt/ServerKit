@@ -19,6 +19,8 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { useShortcut } from '../hooks/useShortcut';
 import { useTranslation } from 'react-i18next';
 import { OperationsProvider } from '../contexts/OperationsContext';
+import { WalkthroughProvider } from '../contexts/WalkthroughContext';
+import WalkthroughHub from '../components/WalkthroughHub';
 
 // The Automations extension (tramo) contributes /automations/edit/:slug with
 // layout:'full', so it's picked up dynamically via fullPagePaths below.
@@ -102,6 +104,7 @@ const DashboardLayout = () => {
         <LogsDrawerProvider>
             <AIProvider>
             <ConfirmProvider>
+            <WalkthroughProvider>
             <div className="dashboard-layout">
                 <StagingBanner />
                 <MobileTopBar navOpen={navOpen} onToggle={() => setNavOpen(prev => !prev)} />
@@ -125,9 +128,11 @@ const DashboardLayout = () => {
                 </main>
                 <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
                 <OperationsDock />
+                <WalkthroughHub />
                 <AIAssistant />
                 <PluginLoader api={api} />
             </div>
+            </WalkthroughProvider>
             </ConfirmProvider>
             </AIProvider>
         </LogsDrawerProvider>
