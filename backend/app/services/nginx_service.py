@@ -707,14 +707,11 @@ location /p/ {{
                 return {'success': False,
                         'error': f"micro-cache zone setup failed: {zone.get('error')}"}
 
-        # Write config file
-        config_path = os.path.join(cls.SITES_AVAILABLE, name)
         try:
-            written = write_privileged_file(config_path, config)
-            if not written['success']:
-                return {'success': False, 'error': written['error']}
-
-            return {'success': True, 'message': f'Site {name} created', 'path': config_path}
+            result = cls.write_vhost(name, config)
+            if result.get('success'):
+                result['message'] = f'Site {name} created'
+            return result
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -888,8 +885,9 @@ location /p/ {{
             return {'success': False, 'error': f'Site {name} not found'}
 
         try:
-            with open(config_path, 'r') as f:
-                content = f.read()
+            content = cls.read_vhost(name)
+            if content is None:
+                return {'success': False, 'error': f'Could not read site {name}'}
 
             # Extract domains for redirect
             match = re.search(r'server_name\s+([^;]+);', content)
@@ -910,11 +908,7 @@ location /p/ {{
             # Prepend redirect block
             final_content = redirect_block + '\n' + new_content
 
-            # Write updated config
-            written = write_privileged_file(config_path, final_content)
-            if not written['success']:
-                return {'success': False, 'error': written['error']}
-            return cls.reload()
+            return cls.write_vhost(name, final_content)
 
         except Exception as e:
             return {'success': False, 'error': str(e)}

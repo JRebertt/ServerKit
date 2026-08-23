@@ -167,23 +167,32 @@ def test_ensure_cache_zone_writes_once_and_is_idempotent(tmp_path, fake_subproce
     assert len([c for c in fake_subprocess.commands() if c[0] == 'tee']) == 1  # no rewrite
 
 
-def test_create_site_ensures_zone_when_enabled(tmp_path, fake_subprocess, monkeypatch):
-    monkeypatch.setattr(NginxService, 'SITES_AVAILABLE', str(tmp_path))
+def test_create_site_ensures_zone_when_enabled(monkeypatch):
     ensured = []
+    writes = []
     monkeypatch.setattr(NginxService, 'ensure_cache_zone',
                         classmethod(lambda cls: ensured.append(True) or {'success': True}))
-    fake_subprocess.script(['tee'])
+    monkeypatch.setattr(
+        NginxService,
+        'write_vhost',
+        classmethod(lambda cls, name, content: writes.append((name, content)) or {
+            'success': True,
+            'path': f'/etc/nginx/sites-available/{name}',
+        }),
+    )
 
     res = NginxService.create_site('shop', 'docker', ['shop.lvh.me'],
                                    root_path=None, port=8300, micro_cache=True)
     assert res['success'] is True
     assert ensured == [True]
-    assert 'proxy_cache serverkit_microcache;' in fake_subprocess.kwargs_for(['tee'])['input']
+    assert writes[0][0] == 'shop'
+    assert 'proxy_cache serverkit_microcache;' in writes[0][1]
 
     # Disabled writes never touch the zone.
     NginxService.create_site('shop', 'docker', ['shop.lvh.me'],
                              root_path=None, port=8300)
     assert ensured == [True]
+    assert len(writes) == 2
 
 
 # ── kwargs plumbing / drift consistency ──────────────────────────────────────
