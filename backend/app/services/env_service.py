@@ -25,10 +25,17 @@ def _new_batch_id():
 
 def _auto_capture(application_id, action, user_id):
     """Best-effort checkpoint immediately before an env mutation."""
-    from app.services.restore_point_service import auto_capture
+    from app.services.restore_point_service import (
+        auto_capture,
+        auto_capture_is_suppressed,
+    )
 
+    if auto_capture_is_suppressed():
+        return None
+    application = Application.query_active().filter_by(id=application_id).first()
     return auto_capture(
         'env', str(application_id), action, actor=user_id,
+        server_id=application.server_id if application else None,
     )
 
 

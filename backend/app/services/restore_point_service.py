@@ -73,6 +73,10 @@ class RestorePointNotFoundError(NotFoundError):
     code = 'restore_point_not_found'
 
 
+class RestorePointScopeNotFoundError(NotFoundError):
+    code = 'restore_point_scope_not_found'
+
+
 class RestorePointAdapterError(DependencyUnavailableError):
     code = 'restore_point_adapter_unavailable'
 
@@ -133,6 +137,11 @@ def get_adapter(scope_type):
 def clear_adapters():
     """Test/plugin-reload helper."""
     ADAPTERS.clear()
+
+
+def auto_capture_is_suppressed():
+    """Let mutation doors avoid pre-capture setup during restore replay."""
+    return _AUTO_CAPTURE_SUPPRESSED.get()
 
 
 def auto_capture(scope_type, scope_id, action, label=None, actor=None,
@@ -343,6 +352,128 @@ def _point_or_raise(point_id):
     point = db.session.get(RestorePoint, point_id)
     if point is None:
         raise RestorePointNotFoundError(f'Restore point {point_id} not found')
+    return point
+
+
+def get(point_id):
+    """Return one restore point or raise the public typed 404."""
+    return _point_or_raise(point_id)
+
+
+_FILTER_UNSET = object()
+
+
+def list_points(scope_type=None, scope_id=None, server_id=_FILTER_UNSET,
+                limit=50, allowed_application_scope_ids=None,
+                include_operational=True):
+    """List restore points without leaking ORM work into the API boundary.
+
+    ``allowed_application_scope_ids`` applies the grant-aware application
+    portion of the union *before* limit/order. ``None`` means every app scope
+    (admin); an empty iterable means no app scopes. Operational rows are an
+    independent branch controlled by ``include_operational``.
+    """
+    from app.models.restore_point import RestorePoint
+
+    query = RestorePoint.query
+    if scope_type is not None:
+        query = query.filter(RestorePoint.scope_type == str(scope_type))
+    if scope_id is not None:
+        query = query.filter(RestorePoint.scope_id == str(scope_id))
+    if server_id is not _FILTER_UNSET:
+        query = query.filter(RestorePoint.server_id == server_id)
+    app_types = ('application', 'env')
+    authorized = []
+    if include_operational:
+        authorized.append(RestorePoint.scope_type.notin_(app_types))
+    if allowed_application_scope_ids is None:
+        authorized.append(RestorePoint.scope_type.in_(app_types))
+    else:
+        allowed_ids = tuple(
+            str(value) for value in allowed_application_scope_ids
+        )
+        if allowed_ids:
+            authorized.append(and_(
+                RestorePoint.scope_type.in_(app_types),
+                RestorePoint.scope_id.in_(allowed_ids),
+            ))
+    query = query.filter(or_(*authorized) if authorized else False)
+    return (query.order_by(
+        RestorePoint.created_at.desc(), RestorePoint.id.desc(),
+    ).limit(int(limit)).all())
+
+
+def accessible_application_scope_ids(user):
+    """Application ids visible through the exact ResourceGrant seam."""
+    if user is None:
+        return set()
+
+    from app.models.application import Application
+    from app.services.workspace_service import WorkspaceService
+
+    query = WorkspaceService.scope_query(
+        Application.query_active(), Application, user,
+        owner_attr='user_id', grant_resource_type='application',
+    )
+    return {
+        str(application_id)
+        for application_id, in query.with_entities(Application.id).all()
+    }
+
+
+def resolve_application_scope(scope_type, scope_id):
+    """Resolve an app-owned scope for ResourceGrant authorization."""
+    if str(scope_type) not in {'application', 'env'}:
+        return None
+    try:
+        application_id = int(scope_id)
+    except (TypeError, ValueError) as exc:
+        raise RestorePointError('Invalid application scope id') from exc
+
+    from app.models.application import Application
+
+    application = Application.query_active().filter_by(id=application_id).first()
+    if application is None:
+        raise RestorePointScopeNotFoundError(
+            f'Application {application_id} not found',
+        )
+    return application
+
+
+def resolve_server(server_id):
+    """Resolve a server filter/target through the service persistence seam."""
+    if server_id in (None, ''):
+        return None
+    from app.models.server import Server
+
+    server = db.session.get(Server, str(server_id))
+    if server is None:
+        raise RestorePointScopeNotFoundError(
+            f'Server {server_id} not found',
+        )
+    return server
+
+
+def capture_manual(scope_type, scope_id, label=None, actor=None,
+                   server_id=None):
+    """Strict HTTP-facing wrapper around best-effort door capture.
+
+    Automatic mutation hooks intentionally tolerate capture failure. A manual
+    quicksave is the requested operation itself, so failure must be visible to
+    the caller as a typed error instead of a false-success response.
+    """
+    if get_adapter(scope_type) is None:
+        raise RestorePointError(
+            f'Unsupported restore-point scope type: {scope_type}',
+        )
+    point = capture(
+        scope_type, scope_id, 'manual', label=label, actor=actor,
+        server_id=server_id,
+    )
+    if point is None:
+        raise RestorePointAdapterError(
+            f'Could not capture restore point for {scope_type}/{scope_id}',
+        )
     return point
 
 
@@ -653,10 +784,14 @@ class RestorePointService:
     """Class facade matching other ServerKit service modules."""
 
     capture = staticmethod(capture)
+    capture_manual = staticmethod(capture_manual)
+    get = staticmethod(get)
+    list_points = staticmethod(list_points)
     diff = staticmethod(diff)
     preview = staticmethod(preview)
     restore = staticmethod(restore)
     prune = staticmethod(prune)
     register_adapter = staticmethod(register_adapter)
     auto_capture = staticmethod(auto_capture)
+    auto_capture_is_suppressed = staticmethod(auto_capture_is_suppressed)
     suppress_auto_capture = staticmethod(suppress_auto_capture)
