@@ -26,6 +26,12 @@ class ManagedDnsRecord(SerializableMixin, TimestampMixin, db.Model):
     record_type = db.Column(db.String(10), nullable=False)
     name = db.Column(db.String(256), nullable=False)                 # FQDN
     content = db.Column(db.Text)
+    ttl = db.Column(db.Integer)
+    priority = db.Column(db.Integer)
+    # Nullable on purpose: rows predating migration 092 do not know these
+    # provider attributes. Restore must preserve/hydrate unknowns, not invent
+    # a default that could change live DNS behavior.
+    proxied = db.Column(db.Boolean)
     source = db.Column(db.String(40))                                # zone|ddns|preset|wordpress|email
     app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True)
 

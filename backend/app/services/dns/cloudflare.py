@@ -43,6 +43,17 @@ def _first_error(data: dict) -> str:
         return 'Unknown error'
 
 
+def _is_missing_record(data: dict) -> bool:
+    errors = data.get('errors') or []
+    for error in errors:
+        if error.get('code') in (81044, 81057):
+            return True
+        message = str(error.get('message') or '').lower()
+        if 'does not exist' in message or 'not found' in message:
+            return True
+    return False
+
+
 class CloudflareClient:
     """Stateless wrapper around the Cloudflare v4 DNS API for one credential."""
 
@@ -183,7 +194,10 @@ class CloudflareClient:
             f'{API_BASE}/zones/{zone_id}/dns_records?type={record_type}&name={name}',
             headers=self._headers(), timeout=15,
         )
-        existing = (resp.json() or {}).get('result', []) or []
+        data = resp.json() or {}
+        if data.get('success') is False:
+            raise RuntimeError(_first_error(data))
+        existing = data.get('result', []) or []
         if caa is not None:
             existing = [
                 r for r in existing
@@ -235,11 +249,21 @@ class CloudflareClient:
             else:
                 resp = requests.get(f'{base}?type={record_type}&name={name}',
                                     headers=self._headers(), timeout=15)
-                ids = [r['id'] for r in (resp.json() or {}).get('result', []) or []]
+                data = resp.json() or {}
+                if data.get('success') is False:
+                    return {'success': False, 'error': _first_error(data)}
+                ids = [r['id'] for r in data.get('result', []) or []]
                 if not ids:
                     return {'success': True, 'message': 'Record not found (already deleted)'}
             for rid in ids:
-                requests.delete(f'{base}/{rid}', headers=self._headers(), timeout=15)
+                resp = requests.delete(
+                    f'{base}/{rid}', headers=self._headers(), timeout=15,
+                )
+                data = resp.json() or {}
+                if data.get('success') is False:
+                    if _is_missing_record(data):
+                        continue
+                    return {'success': False, 'error': _first_error(data)}
             return {'success': True, 'message': 'Record deleted'}
         except Exception as e:
             return {'success': False, 'error': str(e)}

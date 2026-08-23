@@ -28,6 +28,26 @@ SHIM_PATH = os.path.join(
     'serverkit_cron_run.py',
 )
 
+_UNSET = object()
+
+
+def _auto_capture_cron(action):
+    """Best-effort local CRON checkpoint without burdening utility callers.
+
+    Several unit-level and bootstrap callers use CronService outside a Flask
+    application context. Restore points are database-backed, so those callers
+    must retain the pre-existing standalone service behaviour.
+    """
+    from flask import has_app_context
+
+    if not has_app_context():
+        return None
+    from app.services.restore_point_service import auto_capture, get_adapter
+
+    if get_adapter('cron') is None:
+        return None
+    return auto_capture('cron', 'cron', action)
+
 
 class CronService:
     """Service for managing cron jobs and scheduled tasks."""
@@ -57,14 +77,22 @@ class CronService:
     @classmethod
     def _load_jobs_metadata(cls) -> Dict:
         """Load job metadata from file."""
+        try:
+            return cls._load_jobs_metadata_strict()
+        except (json.JSONDecodeError, IOError, ValueError):
+            return {'jobs': {}}
+
+    @classmethod
+    def _load_jobs_metadata_strict(cls) -> Dict:
+        """Load metadata without converting corruption into an empty schedule."""
         cls._ensure_data_dir()
-        if os.path.exists(JOBS_FILE):
-            try:
-                with open(JOBS_FILE, 'r') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                pass
-        return {'jobs': {}}
+        if not os.path.exists(JOBS_FILE):
+            return {'jobs': {}}
+        with open(JOBS_FILE, 'r') as handle:
+            data = json.load(handle)
+        if not isinstance(data, dict) or not isinstance(data.get('jobs'), dict):
+            raise ValueError('CRON metadata is malformed')
+        return data
 
     @classmethod
     def _save_jobs_metadata(cls, data: Dict):
@@ -319,6 +347,8 @@ class CronService:
         if not cls._validate_command(command):
             return {'success': False, 'error': 'Invalid command: must use absolute paths and cannot contain shell operators (;, &&, ||, |, `, $())'}
 
+        _auto_capture_cron('add_job')
+
         # Generate job ID
         job_id = f"job_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
@@ -367,6 +397,9 @@ class CronService:
 
         job_data = metadata.get('jobs', {}).get(job_id)
 
+        if job_data is not None:
+            _auto_capture_cron('remove_job')
+
         if cls.is_linux() and job_data:
             current = cls._read_crontab()
             if current is not None:
@@ -408,6 +441,7 @@ class CronService:
             return {'success': False, 'error': 'Job not found'}
 
         job_data = metadata['jobs'][job_id]
+        _auto_capture_cron('toggle_job')
 
         if cls.is_linux():
             current = cls._read_crontab()
@@ -526,6 +560,8 @@ class CronService:
 
         if schedule and not cls._validate_schedule(schedule):
             return {'success': False, 'error': 'Invalid cron schedule format'}
+
+        _auto_capture_cron('update_job')
 
         # Update crontab on Linux if schedule or command changed
         if cls.is_linux() and (new_schedule != old_schedule or new_command != old_command):
@@ -660,7 +696,8 @@ class CronService:
         return job
 
     @classmethod
-    def set_tracking(cls, job_id: str, enabled: bool) -> Dict:
+    def set_tracking(cls, job_id: str, enabled: bool, *,
+                     alert_on_failure=_UNSET) -> Dict:
         """Enable/disable run tracking for a job.
 
         On Linux this rewrites the job's crontab line to add/remove the
@@ -673,6 +710,7 @@ class CronService:
         job_data = metadata['jobs'][job_id]
         enabled = bool(enabled)
         was_tracked = bool(job_data.get('tracked', False))
+        _auto_capture_cron('set_tracking')
 
         if cls.is_linux() and enabled != was_tracked:
             schedule = job_data.get('schedule', '')
@@ -684,6 +722,8 @@ class CronService:
                 return err
 
         job_data['tracked'] = enabled
+        if alert_on_failure is not _UNSET:
+            job_data['alert_on_failure'] = bool(alert_on_failure)
         job_data['updated_at'] = datetime.now().isoformat()
         cls._save_jobs_metadata(metadata)
 
@@ -732,13 +772,18 @@ class CronService:
         delete uses `suspend_for_application` instead, which is reversible.
         """
         metadata = cls._load_jobs_metadata()
+        targets = [
+            job_data for job_data in metadata.get('jobs', {}).values()
+            if cls._same_application(job_data.get('application_id'), application_id)
+        ]
+        if targets:
+            _auto_capture_cron('clear_application')
         changed = 0
-        for job_data in metadata.get('jobs', {}).values():
-            if cls._same_application(job_data.get('application_id'), application_id):
-                job_data['application_id'] = None
-                job_data['suspended_by_app'] = False
-                job_data['updated_at'] = datetime.now().isoformat()
-                changed += 1
+        for job_data in targets:
+            job_data['application_id'] = None
+            job_data['suspended_by_app'] = False
+            job_data['updated_at'] = datetime.now().isoformat()
+            changed += 1
         if changed:
             cls._save_jobs_metadata(metadata)
         return changed
@@ -765,8 +810,12 @@ class CronService:
             if cls._same_application(job_data.get('application_id'), application_id)
             and job_data.get('enabled')
         ]
-        for job_id in targets:
-            cls.toggle_job(job_id, False)
+        if targets:
+            _auto_capture_cron('suspend_for_application')
+        from app.services.restore_point_service import suppress_auto_capture
+        with suppress_auto_capture():
+            for job_id in targets:
+                cls.toggle_job(job_id, False)
 
         if targets:
             # Re-read: toggle_job persists on each call, so the copy above is
@@ -787,8 +836,12 @@ class CronService:
             if cls._same_application(job_data.get('application_id'), application_id)
             and job_data.get('suspended_by_app')
         ]
-        for job_id in targets:
-            cls.toggle_job(job_id, True)
+        if targets:
+            _auto_capture_cron('resume_for_application')
+        from app.services.restore_point_service import suppress_auto_capture
+        with suppress_auto_capture():
+            for job_id in targets:
+                cls.toggle_job(job_id, True)
 
         if targets:
             metadata = cls._load_jobs_metadata()

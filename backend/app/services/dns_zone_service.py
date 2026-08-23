@@ -289,7 +289,16 @@ class DNSZoneService:
         if not res.get('success'):
             return res
 
-        owned_ids, owned_keys = DnsOwnershipService.owned_keys(zone.provider_zone_id)
+        owned_ids, owned_keys = DnsOwnershipService.owned_keys(
+            zone.provider_zone_id, provider=zone.provider,
+            config_id=zone.dns_provider_config_id,
+        )
+        if zone.dns_provider_config_id is not None:
+            legacy_ids, legacy_keys = DnsOwnershipService.owned_keys(
+                zone.provider_zone_id, provider=zone.provider, config_id=None,
+            )
+            owned_ids |= legacy_ids
+            owned_keys |= legacy_keys
         records = []
         for r in res['records']:
             owned = (r['id'] in owned_ids) or \
@@ -326,7 +335,14 @@ class DNSZoneService:
         res = CloudflareClient(DnsCredential.from_provider_config(config)).list_records(provider_zone_id)
         if not res.get('success'):
             return res
-        owned_ids, owned_keys = DnsOwnershipService.owned_keys(provider_zone_id)
+        owned_ids, owned_keys = DnsOwnershipService.owned_keys(
+            provider_zone_id, provider=config.provider, config_id=config.id,
+        )
+        legacy_ids, legacy_keys = DnsOwnershipService.owned_keys(
+            provider_zone_id, provider=config.provider, config_id=None,
+        )
+        owned_ids |= legacy_ids
+        owned_keys |= legacy_keys
         records = []
         for r in res['records']:
             owned = (r['id'] in owned_ids) or \

@@ -8,6 +8,19 @@ from app.utils.system import (ServiceControl, is_command_available,
                              run_privileged, write_privileged_file)
 
 
+def _auto_capture_vhost(name, action):
+    """Best-effort checkpoint for request-bound vhost lifecycle mutations."""
+    from flask import has_app_context
+
+    if not has_app_context():
+        return None
+    from app.services.restore_point_service import auto_capture, get_adapter
+
+    if get_adapter('nginx_vhost') is None:
+        return None
+    return auto_capture('nginx_vhost', name, action)
+
+
 def _validate_domain(domain: str) -> bool:
     """Validate domain name to prevent nginx config injection."""
     return bool(re.match(r'^(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?$', domain, re.IGNORECASE))
@@ -782,6 +795,7 @@ location /p/ {{
         enabled_path = os.path.join(cls.SITES_ENABLED, name)
         previous = cls.read_vhost(name)
         was_enabled = os.path.exists(enabled_path)
+        _auto_capture_vhost(name, 'write_vhost')
 
         written = write_privileged_file(available_path, content)
         if not written['success']:
@@ -833,6 +847,8 @@ location /p/ {{
         if not os.path.exists(available_path):
             return {'success': False, 'error': f'Site {name} not found in sites-available'}
 
+        _auto_capture_vhost(name, 'enable_site')
+
         try:
             result = run_privileged(['ln', '-sf', available_path, enabled_path])
             if result.returncode == 0:
@@ -849,6 +865,7 @@ location /p/ {{
     def disable_site(cls, name: str) -> Dict:
         """Disable a site by removing symlink from sites-enabled."""
         enabled_path = os.path.join(cls.SITES_ENABLED, name)
+        _auto_capture_vhost(name, 'disable_site')
 
         try:
             result = run_privileged(['rm', '-f', enabled_path])
@@ -864,8 +881,11 @@ location /p/ {{
     @classmethod
     def delete_site(cls, name: str) -> Dict:
         """Delete a site configuration."""
+        _auto_capture_vhost(name, 'delete_site')
         # First disable it
-        cls.disable_site(name)
+        from app.services.restore_point_service import suppress_auto_capture
+        with suppress_auto_capture():
+            cls.disable_site(name)
 
         available_path = os.path.join(cls.SITES_AVAILABLE, name)
         try:

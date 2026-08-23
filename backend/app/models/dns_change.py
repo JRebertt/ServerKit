@@ -22,10 +22,10 @@ class DnsChange(SerializableMixin, db.Model):
     record_type = db.Column(db.String(10))
     name = db.Column(db.String(256))
     content = db.Column(db.Text)                             # value we set (after)
+    before_json = db.Column(db.Text)                         # complete owned pre-image
     provider_record_id = db.Column(db.String(128))
     source = db.Column(db.String(40))                        # zone|ddns|wordpress|email|auto-dns|caa|...
     result = db.Column(db.String(16), nullable=False)        # ok | error | conflict | skipped
     error = db.Column(db.Text)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-

@@ -47,8 +47,10 @@ BASE_COVERAGE = (
 
 SCOPE_COVERAGE = {
     'firewall': (
-        "Rules added outside the panel (fail2ban runtime bans, Docker's "
-        'iptables chains) are not captured.',
+        'Persisted panel-supported UFW rules and firewalld service, port, and '
+        'rich-rule families are part of this checkpoint, including matching '
+        'rules created outside the panel. Other firewalld families, interfaces, '
+        'sources, and runtime-only fail2ban/Docker chains are not captured.',
     ),
     'dns': (
         'Records that exist only at the provider and were never managed by '

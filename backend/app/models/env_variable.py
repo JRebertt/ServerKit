@@ -140,6 +140,10 @@ class EnvironmentVariableHistory(db.Model):
     action = db.Column(db.String(20), nullable=False)  # 'created', 'updated', 'deleted'
     old_value_hash = db.Column(db.String(64), nullable=True)  # SHA256 hash (not the actual value)
     new_value_hash = db.Column(db.String(64), nullable=True)
+    # One logical operation (bulk import, clear, or restore replay) may write
+    # several per-variable audit rows.  ``batch_id`` keeps those rows grouped
+    # without weakening the existing one-row-per-key history.
+    batch_id = db.Column(db.String(36), nullable=True, index=True)
     changed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     changed_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -151,7 +155,8 @@ class EnvironmentVariableHistory(db.Model):
         return hashlib.sha256(value.encode()).hexdigest()
 
     @classmethod
-    def record_change(cls, env_var, action, old_value=None, new_value=None, user_id=None):
+    def record_change(cls, env_var, action, old_value=None, new_value=None,
+                      user_id=None, batch_id=None):
         """Record a change to an environment variable."""
         history = cls(
             env_variable_id=env_var.id if env_var.id else 0,
@@ -160,7 +165,8 @@ class EnvironmentVariableHistory(db.Model):
             action=action,
             old_value_hash=cls.hash_value(old_value) if old_value else None,
             new_value_hash=cls.hash_value(new_value) if new_value else None,
-            changed_by=user_id
+            batch_id=batch_id,
+            changed_by=user_id,
         )
         db.session.add(history)
         return history
@@ -172,6 +178,7 @@ class EnvironmentVariableHistory(db.Model):
             'application_id': self.application_id,
             'key': self.key,
             'action': self.action,
+            'batch_id': self.batch_id,
             'changed_by': self.changed_by,
             'changed_at': self.changed_at.isoformat() if self.changed_at else None,
         }

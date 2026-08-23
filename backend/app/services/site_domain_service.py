@@ -571,9 +571,6 @@ class SiteDomainService:
             return {'nginx': None, 'warning': str(e)}
         if not res.get('success'):
             return {'nginx': res, 'warning': f"nginx vhost not created: {res.get('error')}"}
-        en = NginxService.enable_site(app.name)
-        if not en.get('success'):
-            return {'nginx': res, 'warning': f"vhost written but not enabled: {en.get('error')}"}
         return {'nginx': res, 'warning': None}
 
     @classmethod
