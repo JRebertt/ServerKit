@@ -244,6 +244,28 @@ def run_snapshot_retention():
     return result if isinstance(result, dict) else None
 
 
+def run_restore_point_retention():
+    """Prune expired and over-cap generic restore points."""
+    from app.services.restore_point_service import (
+        DEFAULT_RETENTION_DAYS,
+        prune,
+    )
+    from app.services.settings_service import SettingsService
+
+    days = SettingsService.get(
+        'restore_point_retention_days', DEFAULT_RETENTION_DAYS,
+    )
+    try:
+        days = int(days)
+    except (TypeError, ValueError):
+        days = DEFAULT_RETENTION_DAYS
+    result = prune(retention_days=days)
+    if not isinstance(result, dict) or result.get('success') is False:
+        detail = result.get('error') if isinstance(result, dict) else None
+        raise RuntimeError(detail or 'Restore-point retention failed')
+    return result
+
+
 def run_pairing_prune():
     """Prune expired pending agent pairings."""
     from app.services import pairing_service
@@ -420,6 +442,7 @@ def run_extension_update_check():
 _BUILTINS = [
     ('builtin.auto_sync',           check_auto_sync_schedules, 'auto-sync',          60,    60),
     ('builtin.snapshot_retention',  run_snapshot_retention,    'snapshot-retention', 3600,  120),
+    ('builtin.restore_point_retention', run_restore_point_retention, 'restore-point-retention', 3600, 180),
     ('builtin.workflow_schedules',  check_workflow_schedules,  'workflow-schedules', 60,    60),
     ('builtin.health_check',        run_health_checks,         'health-check',       300,   30),
     # 30s tick, not the monitor interval: the sweep only polls monitors whose own
