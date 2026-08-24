@@ -54,6 +54,7 @@ import * as errorLogMethods from './errorLogs.js';
 import * as walkthroughMethods from './walkthroughs.js';
 import * as diskMethods from './disk.js';
 import * as recipeMethods from './recipes.js';
+import * as restorePointMethods from './restorePoints.js';
 
 class ApiService extends ApiClient {
     constructor() {
@@ -115,6 +116,7 @@ class ApiService extends ApiClient {
             walkthroughMethods,
             diskMethods,
             recipeMethods,
+            restorePointMethods,
         ];
         for (const mod of modules) {
             for (const [key, fn] of Object.entries(mod)) {

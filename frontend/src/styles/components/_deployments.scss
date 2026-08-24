@@ -40,13 +40,13 @@
     // The vertical spine that connects markers.
     &__item {
         position: relative;
-        padding-left: $space-8;
+        padding-inline-start: $space-8;
         padding-bottom: $space-4;
 
         &::before {
             content: '';
             position: absolute;
-            left: 7px;
+            inset-inline-start: 7px;
             top: 0;
             bottom: 0;
             width: 2px;
@@ -61,7 +61,7 @@
 
     &__marker {
         position: absolute;
-        left: 0;
+        inset-inline-start: 0;
         top: 4px;
         width: 16px;
         height: 16px;
@@ -133,6 +133,194 @@
         margin: 0;
         color: $text-secondary;
         font-size: 0.8125rem;
+    }
+
+    &--server {
+        gap: $space-5;
+
+        .sk-listhead {
+            margin: 0;
+        }
+
+        .deploy-timeline__item {
+            padding-inline-start: 44px;
+
+            &::before {
+                inset-inline-start: 13px;
+            }
+        }
+
+        .deploy-timeline__marker {
+            inset-inline-start: 0;
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: $text-secondary;
+            background: $bg-elevated;
+
+            &--restore_point {
+                color: $violet;
+                border-color: $violet;
+                background: $violet-bg;
+            }
+
+            &--deployment_snapshot {
+                color: $cyan;
+                border-color: $cyan;
+                background: $cyan-bg;
+            }
+
+            &--audit {
+                color: $text-secondary;
+                border-color: $border-active;
+            }
+        }
+    }
+
+    &__count {
+        color: $text-tertiary;
+        font-family: $font-mono;
+        font-size: $font-size-sm;
+        white-space: nowrap;
+    }
+
+    &__event-heading {
+        display: flex;
+        align-items: baseline;
+        gap: $space-2;
+        flex-wrap: wrap;
+
+        h3 {
+            margin: 0;
+            color: $text-primary;
+            font-size: $font-size-base;
+            font-weight: $font-weight-semibold;
+        }
+
+        span {
+            color: $text-tertiary;
+            font-size: $font-size-sm;
+        }
+    }
+
+    &__coverage-note {
+        margin: 0;
+        color: $warning;
+        font-size: $font-size-sm;
+    }
+
+    &__error,
+    &__footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: $space-3;
+    }
+}
+
+// -------------------------------------------------------- Server restore tab
+.server-restore-points {
+    display: flex;
+    flex-direction: column;
+    gap: $space-5;
+
+    &__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: $space-4;
+
+        h2 {
+            margin: 0;
+            color: $text-primary;
+            font-size: $font-size-xl;
+        }
+
+        p {
+            margin: $space-1 0 0;
+            color: $text-secondary;
+            max-width: 70ch;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        gap: $space-2;
+        flex-shrink: 0;
+    }
+
+    &__scope-note {
+        display: flex;
+        align-items: flex-start;
+        gap: $space-3;
+        padding: $space-3 $space-4;
+        @include status-variant($info, $info-bg, $info-border);
+        border: 1px solid $info-border;
+        border-radius: $radius-lg;
+
+        svg {
+            flex-shrink: 0;
+            margin-block-start: 2px;
+        }
+
+        p {
+            margin: 0;
+            color: $text-secondary;
+            line-height: $line-height-normal;
+        }
+    }
+
+    &__apps-status {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+        color: $text-secondary;
+        font-size: $font-size-sm;
+
+        &--empty {
+            justify-content: flex-start;
+            align-items: flex-start;
+            padding: $space-3 $space-4;
+            background: $bg-elevated;
+            border: 1px solid $border-subtle;
+            border-radius: $radius-lg;
+
+            > svg {
+                flex-shrink: 0;
+                margin-block-start: 2px;
+                color: $text-tertiary;
+            }
+
+            div {
+                display: flex;
+                flex-direction: column;
+                gap: $space-1;
+            }
+
+            strong {
+                color: $text-primary;
+                font-weight: $font-weight-semibold;
+            }
+
+            span {
+                color: $text-secondary;
+            }
+        }
+    }
+
+    &__form {
+        display: flex;
+        flex-direction: column;
+        gap: $space-4;
+    }
+
+    &__form-intro {
+        margin: 0;
+        color: $text-secondary;
+        line-height: $line-height-normal;
     }
 }
 
@@ -241,6 +429,7 @@
         border-radius: $radius-sm;
         font-family: $font-mono;
         font-size: 0.8125rem;
+        min-width: 0;
 
         &--add {
             @include status-variant($success, $success-bg);
@@ -260,6 +449,19 @@
         width: 12px;
         display: inline-block;
         text-align: center;
+    }
+
+    &__path {
+        flex-shrink: 0;
+        font-weight: $font-weight-semibold;
+    }
+
+    &__value {
+        margin-inline-start: auto;
+        min-width: 0;
+        color: $text-secondary;
+        overflow-wrap: anywhere;
+        text-align: end;
     }
 
     &__scalar {
@@ -288,5 +490,139 @@
         margin-right: auto;
         color: $text-secondary;
         font-size: 0.875rem;
+    }
+
+    &__point-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $space-3;
+        padding-block-end: $space-3;
+        border-bottom: 1px solid $border-subtle;
+    }
+
+    &__group {
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+    }
+
+    &__group-heading,
+    &__coverage-heading {
+        h3 {
+            margin: 0;
+            color: $text-primary;
+            font-size: $font-size-base;
+        }
+
+        p {
+            margin: $space-1 0 0;
+            color: $text-secondary;
+            font-size: $font-size-sm;
+            line-height: $line-height-normal;
+        }
+    }
+
+    &__coverage {
+        display: flex;
+        flex-direction: column;
+        gap: $space-3;
+        padding: $space-4;
+        background: $warning-bg;
+        border: 1px solid $warning-border;
+        border-radius: $radius-lg;
+
+        > ul {
+            margin: 0;
+            padding-inline-start: $space-5;
+            color: $text-secondary;
+            font-size: $font-size-sm;
+        }
+    }
+
+    &__coverage-heading {
+        display: flex;
+        align-items: flex-start;
+        gap: $space-2;
+
+        > svg {
+            flex-shrink: 0;
+            margin-block-start: 1px;
+            color: $warning;
+        }
+    }
+
+    &__refusals {
+        display: flex;
+        align-items: flex-start;
+        gap: $space-2;
+        padding: $space-4;
+        background: $danger-bg;
+        border: 1px solid $danger-border;
+        border-radius: $radius-lg;
+        color: $danger;
+
+        > svg {
+            flex-shrink: 0;
+            margin-block-start: 1px;
+        }
+
+        h3 {
+            margin: 0 0 $space-2;
+            color: $text-primary;
+            font-size: $font-size-base;
+        }
+
+        ul {
+            margin: 0;
+            padding-inline-start: $space-5;
+            color: $text-secondary;
+            font-size: $font-size-sm;
+        }
+    }
+}
+
+@media (max-width: $breakpoint-md) {
+    .server-restore-points {
+        &__header {
+            flex-direction: column;
+        }
+
+        &__actions {
+            width: 100%;
+
+            .btn {
+                flex: 1;
+            }
+        }
+    }
+
+    .deploy-timeline--server {
+        .sk-listhead {
+            align-items: stretch;
+        }
+
+        .sk-seg {
+            width: 100%;
+            overflow-x: auto;
+        }
+    }
+
+    .config-diff {
+        &__point-meta {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        &__line {
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+
+        &__value {
+            width: 100%;
+            margin-inline-start: 20px;
+            text-align: start;
+        }
     }
 }

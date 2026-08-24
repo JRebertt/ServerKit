@@ -29,6 +29,8 @@ import RemoteAccess from '../pages/RemoteAccess';
 import EmptyState from '../components/EmptyState';
 import { usePolling } from '@/hooks/usePolling';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
+import ServerRestorePointsTab from '../components/serverdetail/ServerRestorePointsTab';
 
 // Live host metrics cadence while the server is online.
 const METRICS_POLL_MS = 10000;
@@ -37,6 +39,7 @@ const ServerDetail = () => {
     const { t } = useTranslation();
     const { id, tab } = useParams();
     const navigate = useNavigate();
+    const { isDeveloper } = useAuth();
     const { confirm } = useConfirm();
     const [server, setServer] = useState(null);
     useRecordVisit(server && {
@@ -50,7 +53,21 @@ const ServerDetail = () => {
     const [securityAlerts, setSecurityAlerts] = useState([]);
     const toast = useToast();
 
-    const validTabs = ['overview', 'docker', 'proxy', 'cron', 'cloudflared', 'packages', 'services', 'survey', 'metrics', 'alerts', 'remote-access', 'settings'];
+    const validTabs = [
+        'overview',
+        ...(isDeveloper ? ['restore-points'] : []),
+        'docker',
+        'proxy',
+        'cron',
+        'cloudflared',
+        'packages',
+        'services',
+        'survey',
+        'metrics',
+        'alerts',
+        'remote-access',
+        'settings',
+    ];
     const activeTab = validTabs.includes(tab) ? tab : 'overview';
 
     const loadServer = useCallback(async () => {
@@ -89,6 +106,12 @@ const ServerDetail = () => {
     useEffect(() => {
         loadServer();
     }, [loadServer]);
+
+    useEffect(() => {
+        if (tab === 'restore-points' && !isDeveloper) {
+            navigate(`/servers/${id}`, { replace: true });
+        }
+    }, [id, isDeveloper, navigate, tab]);
 
     const loadSecurityAlerts = useCallback(async () => {
         try {
@@ -230,20 +253,21 @@ const ServerDetail = () => {
     // hiding the tab matches the rest of the panel's "don't expose what
     // the host can't do" behaviour.
     const tabs = [
-        { id: 'overview', labelKey: 'common.labels.overview', label: 'Overview' },
-        { id: 'docker', labelKey: 'common.labels.docker', label: 'Docker' },
-        { id: 'proxy', labelKey: 'app.serverDetail.proxy', label: 'Proxy' },
-        ...(server.capabilities?.cron ? [{ id: 'cron', labelKey: 'app.serverDetail.cron', label: 'Cron' }] : []),
-        ...(server.capabilities?.cloudflared ? [{ id: 'cloudflared', labelKey: 'app.serverDetail.tunnels', label: 'Tunnels' }] : []),
-        ...(server.capabilities?.packages ? [{ id: 'packages', labelKey: 'app.serverDetail.packages', label: 'Packages' }] : []),
-        ...(server.capabilities?.systemd ? [{ id: 'services', labelKey: 'common.labels.services', label: 'Services' }] : []),
-        ...(server.capabilities?.survey ? [{ id: 'survey', labelKey: 'app.serverDetail.survey', label: 'Survey' }] : []),
-        { id: 'metrics', labelKey: 'app.serverDetail.metrics', label: 'Metrics' },
+        { id: 'overview', label: t('common.labels.overview', 'Overview') },
+        ...(isDeveloper ? [{ id: 'restore-points', label: t('app.serverDetail.restorePoints', 'Restore Points') }] : []),
+        { id: 'docker', label: t('common.labels.docker', 'Docker') },
+        { id: 'proxy', label: t('app.serverDetail.proxy', 'Proxy') },
+        ...(server.capabilities?.cron ? [{ id: 'cron', label: t('app.serverDetail.cron', 'Cron') }] : []),
+        ...(server.capabilities?.cloudflared ? [{ id: 'cloudflared', label: t('app.serverDetail.tunnels', 'Tunnels') }] : []),
+        ...(server.capabilities?.packages ? [{ id: 'packages', label: t('app.serverDetail.packages', 'Packages') }] : []),
+        ...(server.capabilities?.systemd ? [{ id: 'services', label: t('common.labels.services', 'Services') }] : []),
+        ...(server.capabilities?.survey ? [{ id: 'survey', label: t('app.serverDetail.survey', 'Survey') }] : []),
+        { id: 'metrics', label: t('app.serverDetail.metrics', 'Metrics') },
         ...(totalAlertCount > 0
-            ? [{ id: 'alerts', labelKey: 'app.serverDetail.alerts', label: 'Alerts', badge: totalAlertCount }]
-            : [{ id: 'alerts', labelKey: 'app.serverDetail.alerts', label: 'Alerts' }]),
-        ...(server.capabilities?.wireguard ? [{ id: 'remote-access', labelKey: 'app.serverDetail.remoteAccess', label: 'Remote Access' }] : []),
-        { id: 'settings', labelKey: 'common.labels.settings', label: 'Settings' }
+            ? [{ id: 'alerts', label: t('app.serverDetail.alerts', 'Alerts'), badge: totalAlertCount }]
+            : [{ id: 'alerts', label: t('app.serverDetail.alerts', 'Alerts') }]),
+        ...(server.capabilities?.wireguard ? [{ id: 'remote-access', label: t('app.serverDetail.remoteAccess', 'Remote Access') }] : []),
+        { id: 'settings', label: t('common.labels.settings', 'Settings') }
     ];
 
     return (
@@ -323,10 +347,10 @@ const ServerDetail = () => {
                 }
             >
                 <TabsList>
-                    {tabs.map(t => (
-                        <TabsTrigger key={t.id} value={t.id}>
-                            {t.label}
-                            {t.badge ? <span className="tab-badge">{t.badge}</span> : null}
+                    {tabs.map((item) => (
+                        <TabsTrigger key={item.id} value={item.id}>
+                            {item.label}
+                            {item.badge ? <span className="tab-badge">{item.badge}</span> : null}
                         </TabsTrigger>
                     ))}
                 </TabsList>
@@ -340,6 +364,11 @@ const ServerDetail = () => {
                             onRefreshServer={loadServer}
                         />
                     </TabsContent>
+                    {isDeveloper && (
+                        <TabsContent value="restore-points">
+                            <ServerRestorePointsTab serverId={id} />
+                        </TabsContent>
+                    )}
                     <TabsContent value="docker">
                         <ServerDockerTab serverId={id} serverStatus={server.status} server={server} />
                     </TabsContent>
