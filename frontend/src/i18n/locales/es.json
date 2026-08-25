@@ -808,7 +808,6 @@
             "imageTag": "Imagen / etiqueta",
             "inPlainLanguage": "En lenguaje sencillo",
             "loadingDiff": "Cargando diferencias…",
-            "noChange": "Sin cambios (",
             "noChanges": "Sin cambios",
             "restoreFailed": "No se pudo restaurar",
             "restoreThisConfig": "Restaurar esta configuración",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Configuración modificada",
-            "envVar": "variable de entorno",
             "loadingDeploymentTimeline": "Cargando la cronología de despliegues…",
             "noConfigCheckpointsYetOneIs": "Aún no hay puntos de control de configuración. Se captura uno antes de cada despliegue.",
             "viewDiff": "Ver diff"

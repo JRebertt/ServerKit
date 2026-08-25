@@ -808,7 +808,6 @@
             "imageTag": "الصورة / العلامة",
             "inPlainLanguage": "بلغة واضحة",
             "loadingDiff": "جارٍ تحميل الفرق…",
-            "noChange": "لا تغيير (",
             "noChanges": "لا تغييرات",
             "restoreFailed": "فشلت عملية الاستعادة",
             "restoreThisConfig": "استعادة هذا التكوين",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "تم تغيير التكوين",
-            "envVar": "بيئى فار",
             "loadingDeploymentTimeline": "جارٍ تحميل المخطط الزمني للنشر…",
             "noConfigCheckpointsYetOneIs": "لا توجد نقاط تفتيش التكوين حتى الآن. يتم التقاط واحد قبل كل عملية نشر.",
             "viewDiff": "عرض الفرق"

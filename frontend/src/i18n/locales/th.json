@@ -808,7 +808,6 @@
             "imageTag": "รูปภาพ / แท็ก",
             "inPlainLanguage": "ในภาษาธรรมดา",
             "loadingDiff": "กำลังโหลดความแตกต่าง...",
-            "noChange": "ไม่มีการเปลี่ยนแปลง (",
             "noChanges": "ไม่มีการเปลี่ยนแปลง",
             "restoreFailed": "การคืนค่าล้มเหลว",
             "restoreThisConfig": "คืนค่าการกำหนดค่านี้",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "มีการเปลี่ยนแปลงการกำหนดค่า",
-            "envVar": "สภาพแวดล้อมที่หลากหลาย",
             "loadingDeploymentTimeline": "กำลังโหลดไทม์ไลน์การทำให้ใช้งานได้...",
             "noConfigCheckpointsYetOneIs": "ยังไม่มีจุดตรวจสอบการกำหนดค่า มีการบันทึกหนึ่งรายการก่อนการปรับใช้แต่ละครั้ง",
             "viewDiff": "ดูความแตกต่าง"

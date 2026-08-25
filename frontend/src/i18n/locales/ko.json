@@ -808,7 +808,6 @@
             "imageTag": "이미지/태그",
             "inPlainLanguage": "일반 언어로",
             "loadingDiff": "차이점 로드 중…",
-            "noChange": "변화 없음(",
             "noChanges": "변경사항 없음",
             "restoreFailed": "복원 실패",
             "restoreThisConfig": "이 구성 복원",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "구성이 변경됨",
-            "envVar": "환경변수",
             "loadingDeploymentTimeline": "배포 타임라인 로드 중…",
             "noConfigCheckpointsYetOneIs": "아직 구성 체크포인트가 없습니다. 각 배포 전에 하나가 캡처됩니다.",
             "viewDiff": "차이점 보기"

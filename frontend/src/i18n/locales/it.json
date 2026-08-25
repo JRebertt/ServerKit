@@ -808,7 +808,6 @@
             "imageTag": "Immagine/etichetta",
             "inPlainLanguage": "In parole povere",
             "loadingDiff": "Caricamento differenziale...",
-            "noChange": "Nessun cambiamento (",
             "noChanges": "Nessun cambiamento",
             "restoreFailed": "Ripristino non riuscito",
             "restoreThisConfig": "Ripristina questa configurazione",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "La configurazione è cambiata",
-            "envVar": "var",
             "loadingDeploymentTimeline": "Caricamento della sequenza temporale della distribuzione…",
             "noConfigCheckpointsYetOneIs": "Nessun checkpoint di configurazione ancora. Uno viene catturato prima di ogni distribuzione.",
             "viewDiff": "Visualizza differenze"

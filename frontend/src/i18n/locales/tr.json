@@ -808,7 +808,6 @@
             "imageTag": "Resim / etiket",
             "inPlainLanguage": "Sade bir dille",
             "loadingDiff": "Fark yükleniyor…",
-            "noChange": "Değişiklik yok (",
             "noChanges": "Değişiklik yok",
             "restoreFailed": "Geri yükleme başarısız oldu",
             "restoreThisConfig": "Bu yapılandırmayı geri yükle",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Yapılandırma değiştirildi",
-            "envVar": "env var",
             "loadingDeploymentTimeline": "Dağıtım zaman çizelgesi yükleniyor…",
             "noConfigCheckpointsYetOneIs": "Henüz yapılandırma kontrol noktası yok. Her dağıtımdan önce bir tanesi yakalanır.",
             "viewDiff": "Farkı görüntüle"
