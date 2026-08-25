@@ -1,12 +1,11 @@
 """Immutable checkpoints for panel-managed configuration surfaces."""
 
-import json
-
 from app import db
+from app.models.json_column_mixin import JsonColumnMixin
 from app.models.mixins import SerializableMixin, TimestampMixin, uuid_pk
 
 
-class RestorePoint(TimestampMixin, SerializableMixin, db.Model):
+class RestorePoint(JsonColumnMixin, TimestampMixin, SerializableMixin, db.Model):
     """One point on a scope's linear configuration timeline."""
 
     __tablename__ = 'restore_points'
@@ -42,17 +41,10 @@ class RestorePoint(TimestampMixin, SerializableMixin, db.Model):
     __serialize_exclude__ = ('payload_json', 'coverage_json')
 
     def get_payload(self):
-        try:
-            return json.loads(self.payload_json)
-        except (TypeError, ValueError):
-            return {}
+        return self._json_read('payload_json', expect=dict)
 
     def get_coverage(self):
-        try:
-            value = json.loads(self.coverage_json)
-        except (TypeError, ValueError):
-            return []
-        return value if isinstance(value, list) else []
+        return self._json_read('coverage_json', default=[], expect=list)
 
     def serialize_extra(self):
         return {

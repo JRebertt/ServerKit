@@ -246,18 +246,23 @@ def test_restoring_the_last_domain_re_enables_the_site(app, app_with_domain, mon
 
     When the deleted domain was the app's LAST one, delete_domain ran
     disable_site() + delete_site() — the sites-enabled symlink is gone, not just
-    the server_name. A bare NginxService.create_site rewrites the file and
-    leaves it UNSERVED. Restore has to go through SiteDomainService.write_app_vhost,
-    which calls enable_site as well.
+    the server_name. Restore has to go back through the enabling door:
+    write_app_vhost → create_site → write_vhost, whose default enable=True
+    re-links sites-enabled. A write that opted out of enabling would leave
+    the site UNSERVED.
     """
     from app.services import domain_restore
     from app.services.nginx_service import NginxService
 
     seen = {'create': 0, 'enable': 0}
-    monkeypatch.setattr(NginxService, 'create_site',
-                        classmethod(lambda cls, **kw: seen.__setitem__('create', seen['create'] + 1) or {'success': True}))
-    monkeypatch.setattr(NginxService, 'enable_site',
-                        classmethod(lambda cls, name: seen.__setitem__('enable', seen['enable'] + 1) or {'success': True}))
+
+    def fake_write_vhost(cls, name, content, *, enable=True):
+        seen['create'] += 1
+        if enable:
+            seen['enable'] += 1
+        return {'success': True, 'path': f'/etc/nginx/sites-available/{name}'}
+
+    monkeypatch.setattr(NginxService, 'write_vhost', classmethod(fake_write_vhost))
 
     assert domain_restore is not None        # hook module must be importable
 
