@@ -132,8 +132,10 @@ def update_env_var(app_id, key):
         updates['value'] = data['value']
     if data.get('is_secret') is not None:
         updates['is_secret'] = data['is_secret']
-    if data.get('description') is not None:
-        updates['description'] = data['description']
+    # Key-presence, not non-null: an explicit JSON null clears the
+    # description (the service's _UNSET sentinel keeps absent = untouched).
+    if 'description' in data:
+        updates['description'] = data.get('description')
     if 'target_service' in data:
         updates['target_service'] = data.get('target_service')
 
