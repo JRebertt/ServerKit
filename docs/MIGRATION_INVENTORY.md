@@ -18,7 +18,7 @@ debt. Regenerate with `python scripts/generate-migration-inventory.py`.
 | API crashes swallowed without recording | app.error_reporting | 0 | 0 | INVARIANT at 0 |
 | Hand-shaped {'error': ...} bodies in app/api | typed errors + the global handler | 1150 | 1150 | migrate when touched; new endpoints raise |
 | Raw subprocess calls outside the runners | app/utils/system.py runners | 24 | 24 | migrate when touched |
-| Controller-boundary violations (routes doing service work) | service layer extraction | 515 | 515 | migrate when touched (first-wave ratchet) |
+| Controller-boundary violations (routes doing service work) | service layer extraction | 514 | 514 | migrate when touched (first-wave ratchet) |
 | raw api.* calls in pages/ | E1: useServerQuery/useServerMutation | 460 | 460 | migrate when touched |
 | per-page toast.error extractions in pages/ | E1: query-layer error presentation | 264 | 264 | migrate when touched |
 | hand-rolled form-group blocks | F2: FormField/useForm | 343 | 343 | migrate when touched |

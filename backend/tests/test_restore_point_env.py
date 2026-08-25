@@ -24,23 +24,20 @@ def registered_env_adapter():
 
 def _make_app():
     from app import db
-    from app.models import Application, User
+    from factories import make_application, make_user
 
-    user = User(
+    user = make_user(
+        db,
         username='restore-env-owner',
         email='restore-env-owner@example.test',
         role='admin',
     )
-    db.session.add(user)
-    db.session.flush()
-    application = Application(
+    application = make_application(
+        db,
         name='restore-env-app',
-        app_type='docker',
         user_id=user.id,
         status='running',
     )
-    db.session.add(application)
-    db.session.commit()
     return application, user
 
 

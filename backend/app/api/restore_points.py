@@ -6,10 +6,9 @@ surfaces are operational and require a developer role even when their local
 """
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required
 
 from app.exceptions import PermissionDeniedError, ValidationError
-from app.middleware.rbac import developer_required, get_current_user
+from app.middleware.rbac import auth_required, developer_required, get_current_user
 from app.services import restore_point_service
 from app.services.resource_grant_service import ResourceGrantService
 
@@ -104,7 +103,7 @@ def _serialize(point, *, include_payload):
 
 
 @restore_points_bp.route('', methods=['GET'])
-@jwt_required()
+@auth_required()
 def list_restore_points():
     """List a scope's linear restore-point timeline, newest first."""
     unknown = set(request.args) - _LIST_QUERY_KEYS
@@ -191,7 +190,7 @@ def create_restore_point():
 
 
 @restore_points_bp.route('/<point_id>', methods=['GET'])
-@jwt_required()
+@auth_required()
 def get_restore_point(point_id):
     """Fetch a restore point including its already-secret-safe payload."""
     point = _point_for_caller(point_id)
@@ -201,7 +200,7 @@ def get_restore_point(point_id):
 
 
 @restore_points_bp.route('/<point_id>/diff', methods=['GET'])
-@jwt_required()
+@auth_required()
 def diff_restore_point(point_id):
     """Diff against the previous point or an explicit same-scope point."""
     unknown = set(request.args) - {'against'}
