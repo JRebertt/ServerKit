@@ -49,6 +49,11 @@ class SettingsService:
             'type': 'integer',
             'description': 'Number of days to retain audit logs'
         },
+        'restore_point_retention_days': {
+            'value': 30,
+            'type': 'integer',
+            'description': 'Number of days to retain untagged restore points'
+        },
         'jobs.retention_days': {
             'value': 14,
             'type': 'integer',

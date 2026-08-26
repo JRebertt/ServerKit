@@ -3,7 +3,7 @@
   "policy": "Exact reviewed inventory of direct persistence, subprocess, and filesystem mutation calls in Flask API controllers. New calls are forbidden; remove entries as controllers delegate to services.",
   "counts": {
     "filesystem": 11,
-    "persistence": 504
+    "persistence": 503
   },
   "owners": {
     "api/admin.py": {
@@ -533,7 +533,6 @@
     "api/domains.py::verify_domain::persistence::Domain.query_active().filter_by(id=domain_id).first()::1",
     "api/env_vars.py::check_app_access::persistence::Application.query_active().filter_by(id=app_id).first()::1",
     "api/env_vars.py::check_app_access::persistence::User.query.get(user_id)::1",
-    "api/env_vars.py::update_env_var::persistence::db.session.commit()::1",
     "api/environments.py::_accessible_workspace_ids::persistence::Workspace.query.all()::1",
     "api/environments.py::create_environment::persistence::db.session.commit()::1",
     "api/files.py::upload_file::filesystem::os.makedirs(parent)::1",

@@ -808,7 +808,6 @@
             "imageTag": "Bild / Tag",
             "inPlainLanguage": "Im Klartext",
             "loadingDiff": "Unterschiede werden geladen…",
-            "noChange": "Keine Änderung (",
             "noChanges": "Keine Änderungen",
             "restoreFailed": "Wiederherstellung fehlgeschlagen",
             "restoreThisConfig": "Stellen Sie diese Konfiguration wieder her",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Konfiguration geändert",
-            "envVar": "Umgebungsvar",
             "loadingDeploymentTimeline": "Bereitstellungszeitplan wird geladen…",
             "noConfigCheckpointsYetOneIs": "Noch keine Konfigurationskontrollpunkte. Einer wird vor jedem Einsatz erfasst.",
             "viewDiff": "Diff. anzeigen"

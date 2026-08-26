@@ -808,7 +808,6 @@
             "imageTag": "Image/balise",
             "inPlainLanguage": "En langage clair",
             "loadingDiff": "Chargement du différentiel…",
-            "noChange": "Aucun changement (",
             "noChanges": "Aucun changement",
             "restoreFailed": "La restauration a échoué",
             "restoreThisConfig": "Restaurer cette configuration",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Configuration modifiée",
-            "envVar": "variable d'environnement",
             "loadingDeploymentTimeline": "Chargement du calendrier de déploiement…",
             "noConfigCheckpointsYetOneIs": "Aucun point de contrôle de configuration pour l'instant. Un est capturé avant chaque déploiement.",
             "viewDiff": "Voir la différence"

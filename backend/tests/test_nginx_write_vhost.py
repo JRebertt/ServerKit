@@ -142,6 +142,40 @@ class TestRollback:
         assert not any(c[:2] == ['systemctl', 'reload'] for c in nginx.commands())
 
 
+class TestConsolidatedCallers:
+    """The high-traffic renderers must inherit the lifecycle door's rollback."""
+
+    def test_create_site_removes_a_new_vhost_when_config_test_fails(self, nginx):
+        nginx.script(['nginx', '-t'], returncode=1, stderr='rendered config is invalid')
+
+        res = NginxService.create_site(
+            'shop', 'docker', ['shop.example.com'], port=8080)
+
+        assert res['success'] is False
+        assert 'rendered config is invalid' in res['error']
+        available, enabled = _paths()
+        assert not os.path.exists(available), 'create_site bypassed write_vhost rollback'
+        assert not os.path.exists(enabled), 'create_site left a broken vhost enabled'
+
+    def test_add_ssl_restores_the_previous_vhost_when_config_test_fails(self, nginx):
+        original = '''server {
+    listen 80;
+    server_name shop.example.com;
+}
+'''
+        assert NginxService.write_vhost('shop', original)['success'] is True
+        nginx.script(['nginx', '-t'], returncode=1, stderr='bad certificate config')
+
+        res = NginxService.add_ssl_to_site(
+            'shop', '/certs/fullchain.pem', '/certs/privkey.pem')
+
+        assert res['success'] is False
+        assert 'bad certificate config' in res['error']
+        available, enabled = _paths()
+        assert open(available).read() == original
+        assert os.path.exists(enabled), 'SSL rollback disabled an existing site'
+
+
 class TestFailedWrite:
     def test_a_failed_write_is_reported_and_nothing_is_enabled(self, nginx):
         nginx.script(['tee'], returncode=1, stderr='Permission denied')

@@ -127,36 +127,23 @@ def update_env_var(app_id, key):
     if not data:
         return jsonify({'error': 'No data provided'}), 400
 
-    value = data.get('value')
-    is_secret = data.get('is_secret')
-    description = data.get('description')
-
-    # Get existing
-    existing = EnvService.get_env_var(app_id, key)
-    if not existing:
-        return jsonify({'error': 'Environment variable not found'}), 404
-
-    # Update only provided fields
-    if value is not None:
-        old_value = existing.value
-        existing.value = value
-        from app.models import EnvironmentVariableHistory
-        from app import db
-        EnvironmentVariableHistory.record_change(
-            existing, 'updated', old_value=old_value, new_value=value, user_id=current_user_id
-        )
-
-    if is_secret is not None:
-        existing.is_secret = is_secret
-
-    if description is not None:
-        existing.description = description
-
+    updates = {}
+    if data.get('value') is not None:
+        updates['value'] = data['value']
+    if data.get('is_secret') is not None:
+        updates['is_secret'] = data['is_secret']
+    # Key-presence, not non-null: an explicit JSON null clears the
+    # description (the service's _UNSET sentinel keeps absent = untouched).
+    if 'description' in data:
+        updates['description'] = data.get('description')
     if 'target_service' in data:
-        existing.target_service = data.get('target_service') or None
+        updates['target_service'] = data.get('target_service')
 
-    from app import db
-    db.session.commit()
+    existing, err = EnvService.update_env_var(
+        app_id, key, user_id=current_user_id, **updates,
+    )
+    if err:
+        return jsonify({'error': err}), 404
 
     return jsonify({
         'message': 'Environment variable updated',

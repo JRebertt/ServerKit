@@ -231,14 +231,11 @@ def toggle_tracking(job_id):
     serverkit-cron-run shim; disabling restores the bare command)."""
     data = request.get_json(silent=True) or {}
     enabled = bool(data.get('enabled', True))
-    result = CronService.set_tracking(job_id, enabled)
+    options = {}
+    if 'alert_on_failure' in data:
+        options['alert_on_failure'] = data['alert_on_failure']
+    result = CronService.set_tracking(job_id, enabled, **options)
     if result.get('success'):
-        # Persist the optional per-job "alert on failure" flag alongside.
-        if 'alert_on_failure' in data:
-            meta = CronService._load_jobs_metadata()
-            if job_id in meta.get('jobs', {}):
-                meta['jobs'][job_id]['alert_on_failure'] = bool(data['alert_on_failure'])
-                CronService._save_jobs_metadata(meta)
         return jsonify(result)
     return jsonify(result), 400
 

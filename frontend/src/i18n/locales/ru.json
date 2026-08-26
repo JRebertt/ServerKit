@@ -808,7 +808,6 @@
             "imageTag": "Изображение/тег",
             "inPlainLanguage": "На простом языке",
             "loadingDiff": "Загрузка разницы…",
-            "noChange": "Никаких изменений(",
             "noChanges": "Никаких изменений",
             "restoreFailed": "Восстановление не удалось",
             "restoreThisConfig": "Восстановите эту конфигурацию",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Конфигурация изменена",
-            "envVar": "окружающая переменная",
             "loadingDeploymentTimeline": "Загрузка графика развертывания…",
             "noConfigCheckpointsYetOneIs": "Контрольных точек конфигурации пока нет. Один захватывается перед каждым развертыванием.",
             "viewDiff": "Посмотреть разницу"

@@ -808,7 +808,6 @@
             "imageTag": "Gambar / tag",
             "inPlainLanguage": "Dalam bahasa yang sederhana",
             "loadingDiff": "Memuat perbedaan…",
-            "noChange": "Tidak ada perubahan (",
             "noChanges": "Tidak ada perubahan",
             "restoreFailed": "Pemulihan gagal",
             "restoreThisConfig": "Pulihkan konfigurasi ini",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Konfigurasi berubah",
-            "envVar": "env var",
             "loadingDeploymentTimeline": "Memuat garis waktu penerapan…",
             "noConfigCheckpointsYetOneIs": "Belum ada pos pemeriksaan konfigurasi. Satu ditangkap sebelum setiap penerapan.",
             "viewDiff": "Lihat perbedaan"

@@ -53,7 +53,7 @@ class DnsRecordSpec:
     content: str
     ttl: int = 3600
     priority: Optional[int] = None     # MX / SRV
-    proxied: bool = False              # Cloudflare orange-cloud
+    proxied: Optional[bool] = False    # Cloudflare orange-cloud; None = legacy unknown
 
     @classmethod
     def from_record(cls, record) -> 'DnsRecordSpec':

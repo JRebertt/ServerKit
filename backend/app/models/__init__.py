@@ -85,6 +85,7 @@ from app.models.dns_cutover_snapshot import DnsCutoverSnapshot
 from app.models.theme import Theme
 from app.models.plugin_store import PluginStore
 from app.models.saved_view import SavedView
+from app.models.restore_point import RestorePoint
 
 __all__ = [
     'User', 'Application', 'Domain', 'EnvironmentVariable', 'EnvironmentVariableHistory',
@@ -139,4 +140,5 @@ __all__ = [
     'Theme',
     'PluginStore',
     'SavedView',
+    'RestorePoint',
 ]

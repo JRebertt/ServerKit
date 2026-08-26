@@ -808,7 +808,6 @@
             "imageTag": "Hình ảnh/thẻ",
             "inPlainLanguage": "Bằng ngôn ngữ đơn giản",
             "loadingDiff": "Đang tải khác biệt…",
-            "noChange": "Không thay đổi (",
             "noChanges": "Không có thay đổi",
             "restoreFailed": "Khôi phục không thành công",
             "restoreThisConfig": "Khôi phục cấu hình này",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Cấu hình đã thay đổi",
-            "envVar": "biến env",
             "loadingDeploymentTimeline": "Đang tải tiến trình triển khai…",
             "noConfigCheckpointsYetOneIs": "Chưa có điểm kiểm tra cấu hình nào. Một chiếc bị bắt trước mỗi lần triển khai.",
             "viewDiff": "Xem khác biệt"

@@ -220,6 +220,11 @@ def create_app(config_name=None):
     from app.services import recycle_bin_service
     recycle_bin_service.register_builtin_types()
 
+    # Restore adapters are process-local strategy registrations. They do not
+    # touch the database and must exist in testing/CLI app factories too.
+    from app.services.restore_point_adapters import register_builtin_restore_point_adapters
+    register_builtin_restore_point_adapters()
+
     # Handle database migrations (Alembic) — must run before plugin loader
     # since the loader queries the installed_plugins table.
     with app.app_context():

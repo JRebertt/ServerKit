@@ -178,6 +178,7 @@ class TestBuiltins:
         assert 'builtin.security_feed' in kinds
         assert 'builtin.job_retention' in kinds
         assert 'builtin.monitor_check' in kinds
+        assert 'builtin.restore_point_retention' in kinds
         # Reclaims the disk a soft delete no longer frees: an Application
         # tombstone holds its data volumes and source tree until purge, and
         # nothing else calls purge_expired on a schedule.
@@ -187,18 +188,18 @@ class TestBuiltins:
         # is ~11 MB/day of database forever, which is what filled a 25 GB host
         # from routine updates alone (each update copies the DB twice).
         assert 'builtin.telemetry_retention' in kinds
-        assert len([k for k in kinds if k.startswith('builtin.')]) == 15
+        assert len([k for k in kinds if k.startswith('builtin.')]) == 16
 
         builtin_handlers.seed_builtin_schedules()
-        # 15 builtin.* schedules (incl. job-retention, telemetry-retention, the
-        # monitor sweep, the security-feed check and the recycle-bin retention
-        # sweep) + login-link/SSO reapers + drift/FIM/bandwidth sweeps + the
-        # host doctor sweep AND the fleet doctor sweep (plan 26) + the
-        # setup-health nag (plan 22).
-        assert ScheduledJob.query.count() == 23
+        # 16 builtin.* schedules (incl. restore-point/job/telemetry retention,
+        # the monitor sweep, security-feed check and recycle-bin retention)
+        # + login-link/SSO reapers + drift/FIM/bandwidth sweeps + the host
+        # doctor sweep AND the fleet doctor sweep (plan 26) + the setup-health
+        # nag (plan 22).
+        assert ScheduledJob.query.count() == 24
         # Seeding twice doesn't duplicate.
         builtin_handlers.seed_builtin_schedules()
-        assert ScheduledJob.query.count() == 23
+        assert ScheduledJob.query.count() == 24
 
 
 class TestApi:

@@ -7,6 +7,7 @@ including encryption, history tracking, and .env file operations.
 
 import logging
 import re
+import uuid
 from app import db
 from app.models import Application, EnvironmentVariable, EnvironmentVariableHistory
 
@@ -15,6 +16,27 @@ logger = logging.getLogger(__name__)
 # Sentinel so callers can distinguish "leave target_service unchanged" (default)
 # from "clear it to all-services" (None) on update.
 _UNSET = object()
+
+
+def _new_batch_id():
+    """Return the shared ledger id for one multi-variable operation."""
+    return str(uuid.uuid4())
+
+
+def _auto_capture(application_id, action, user_id):
+    """Best-effort checkpoint immediately before an env mutation."""
+    from app.services.restore_point_service import (
+        auto_capture,
+        auto_capture_is_suppressed,
+    )
+
+    if auto_capture_is_suppressed():
+        return None
+    application = Application.query_active().filter_by(id=application_id).first()
+    return auto_capture(
+        'env', str(application_id), action, actor=user_id,
+        server_id=application.server_id if application else None,
+    )
 
 
 class EnvService:
@@ -112,7 +134,9 @@ class EnvService:
             return ''
 
     @staticmethod
-    def set_env_reference(application_id, key, reference, user_id=None, target_service=_UNSET):
+    def set_env_reference(application_id, key, reference, user_id=None,
+                          target_service=_UNSET, description=_UNSET,
+                          batch_id=None):
         """Create/update a variable that resolves from a reference (manifest).
 
         ``reference`` is a dict e.g. {'kind':'secret','secret':'name'} or
@@ -128,12 +152,20 @@ class EnvService:
 
         norm_target = None if target_service in ('', _UNSET) else target_service
         existing = EnvService.get_env_var(application_id, key)
+        _auto_capture(application_id, 'env.set_env_reference', user_id)
         if existing:
+            old_value = '<reference>' if existing.get_reference() else existing.value
             existing.set_reference(reference)
             existing.is_secret = True
             existing.value = ''  # clear any stored literal
             if target_service is not _UNSET:
                 existing.target_service = norm_target
+            if description is not _UNSET:
+                existing.description = description
+            EnvironmentVariableHistory.record_change(
+                existing, 'updated', old_value=old_value,
+                new_value='<reference>', user_id=user_id, batch_id=batch_id,
+            )
             db.session.commit()
             return existing, False, None
 
@@ -141,12 +173,16 @@ class EnvService:
             application_id=application_id, key=key, is_secret=True,
             target_service=norm_target, created_by=user_id,
         )
+        if description is not _UNSET:
+            env_var.description = description
         env_var.set_reference(reference)
         env_var.value = ''
         db.session.add(env_var)
         db.session.flush()
-        EnvironmentVariableHistory.record_change(env_var, 'created', new_value='<reference>',
-                                                 user_id=user_id)
+        EnvironmentVariableHistory.record_change(
+            env_var, 'created', new_value='<reference>', user_id=user_id,
+            batch_id=batch_id,
+        )
         db.session.commit()
         return env_var, True, None
 
@@ -214,7 +250,7 @@ class EnvService:
 
     @staticmethod
     def set_env_var(application_id, key, value, is_secret=False, description=None,
-                    user_id=None, target_service=_UNSET):
+                    user_id=None, target_service=_UNSET, batch_id=None):
         """
         Set an environment variable (create or update).
         Returns (env_var, created, error)
@@ -237,10 +273,15 @@ class EnvService:
 
         # Check if key already exists
         existing = EnvService.get_env_var(application_id, key)
+        _auto_capture(application_id, 'env.set_env_var', user_id)
 
         if existing:
             # Update existing
-            old_value = existing.value
+            old_value = '<reference>' if existing.get_reference() else existing.value
+            # A literal write intentionally replaces a manifest reference.
+            # Restore code skips masked literals before reaching this door, so
+            # a redaction sentinel can never accidentally clear a reference.
+            existing.set_reference(None)
             existing.value = value
             existing.is_secret = is_secret
             if description is not None:
@@ -250,7 +291,8 @@ class EnvService:
 
             # Record history
             EnvironmentVariableHistory.record_change(
-                existing, 'updated', old_value=old_value, new_value=value, user_id=user_id
+                existing, 'updated', old_value=old_value, new_value=value,
+                user_id=user_id, batch_id=batch_id,
             )
 
             db.session.commit()
@@ -272,25 +314,67 @@ class EnvService:
 
             # Record history
             EnvironmentVariableHistory.record_change(
-                env_var, 'created', new_value=value, user_id=user_id
+                env_var, 'created', new_value=value, user_id=user_id,
+                batch_id=batch_id,
             )
 
             db.session.commit()
             return env_var, True, None
 
     @staticmethod
-    def delete_env_var(application_id, key, user_id=None):
+    def update_env_var(application_id, key, *, value=_UNSET,
+                       is_secret=_UNSET, description=_UNSET,
+                       target_service=_UNSET, user_id=None, batch_id=None):
+        """Update only supplied fields on an existing environment variable.
+
+        This is the service-layer door used by the PUT controller.  Keeping
+        partial-update semantics here prevents API code from mutating ORM rows
+        directly and ensures the restore-point hook cannot be bypassed.
+        """
+        existing = EnvService.get_env_var(application_id, key)
+        if not existing:
+            return None, 'Environment variable not found'
+
+        if all(value is _UNSET for value in (
+                value, is_secret, description, target_service)):
+            return existing, None
+
+        _auto_capture(application_id, 'env.update_env_var', user_id)
+
+        old_value = '<reference>' if existing.get_reference() else existing.value
+        if value is not _UNSET:
+            existing.set_reference(None)
+            existing.value = value
+        if is_secret is not _UNSET:
+            existing.is_secret = bool(is_secret)
+        if description is not _UNSET:
+            existing.description = description
+        if target_service is not _UNSET:
+            existing.target_service = target_service or None
+
+        new_value = '<reference>' if existing.get_reference() else existing.value
+        EnvironmentVariableHistory.record_change(
+            existing, 'updated', old_value=old_value, new_value=new_value,
+            user_id=user_id, batch_id=batch_id,
+        )
+        db.session.commit()
+        return existing, None
+
+    @staticmethod
+    def delete_env_var(application_id, key, user_id=None, batch_id=None):
         """Delete an environment variable. Returns (success, error)."""
         env_var = EnvService.get_env_var(application_id, key)
 
         if not env_var:
             return False, "Environment variable not found"
 
-        old_value = env_var.value
+        _auto_capture(application_id, 'env.delete_env_var', user_id)
+        old_value = '<reference>' if env_var.get_reference() else env_var.value
 
         # Record history before deletion
         EnvironmentVariableHistory.record_change(
-            env_var, 'deleted', old_value=old_value, user_id=user_id
+            env_var, 'deleted', old_value=old_value, user_id=user_id,
+            batch_id=batch_id,
         )
 
         db.session.delete(env_var)
@@ -299,18 +383,22 @@ class EnvService:
         return True, None
 
     @staticmethod
-    def delete_env_var_by_id(env_var_id, user_id=None):
+    def delete_env_var_by_id(env_var_id, user_id=None, batch_id=None):
         """Delete an environment variable by ID. Returns (success, error)."""
         env_var = EnvironmentVariable.query.get(env_var_id)
 
         if not env_var:
             return False, "Environment variable not found"
 
-        old_value = env_var.value
+        _auto_capture(
+            env_var.application_id, 'env.delete_env_var_by_id', user_id,
+        )
+        old_value = '<reference>' if env_var.get_reference() else env_var.value
 
         # Record history before deletion
         EnvironmentVariableHistory.record_change(
-            env_var, 'deleted', old_value=old_value, user_id=user_id
+            env_var, 'deleted', old_value=old_value, user_id=user_id,
+            batch_id=batch_id,
         )
 
         db.session.delete(env_var)
@@ -319,7 +407,8 @@ class EnvService:
         return True, None
 
     @staticmethod
-    def bulk_set_env_vars(application_id, env_vars_dict, user_id=None):
+    def bulk_set_env_vars(application_id, env_vars_dict, user_id=None,
+                          batch_id=None):
         """
         Set multiple environment variables at once.
         env_vars_dict: {key: value} or {key: {value, is_secret, description}}
@@ -327,25 +416,34 @@ class EnvService:
         """
         count = 0
         errors = []
+        batch_id = batch_id or _new_batch_id()
 
-        for key, val in env_vars_dict.items():
-            if isinstance(val, dict):
-                value = val.get('value', '')
-                is_secret = val.get('is_secret', False)
-                description = val.get('description')
-            else:
-                value = val
-                is_secret = False
-                description = None
+        _auto_capture(application_id, 'env.bulk_set_env_vars', user_id)
+        from app.services.restore_point_service import suppress_auto_capture
 
-            env_var, created, error = EnvService.set_env_var(
-                application_id, key, value, is_secret, description, user_id
-            )
+        with suppress_auto_capture():
+            for key, val in env_vars_dict.items():
+                if isinstance(val, dict):
+                    value = val.get('value', '')
+                    is_secret = val.get('is_secret', False)
+                    description = val.get('description')
+                    target_service = val.get('target_service', _UNSET)
+                else:
+                    value = val
+                    is_secret = False
+                    description = None
+                    target_service = _UNSET
 
-            if error:
-                errors.append(f"{key}: {error}")
-            else:
-                count += 1
+                env_var, created, error = EnvService.set_env_var(
+                    application_id, key, value, is_secret, description,
+                    user_id, target_service=target_service,
+                    batch_id=batch_id,
+                )
+
+                if error:
+                    errors.append(f"{key}: {error}")
+                else:
+                    count += 1
 
         return count, errors
 
@@ -471,16 +569,22 @@ class EnvService:
         return {ev.key: ev.value for ev in env_vars}
 
     @staticmethod
-    def clear_all(application_id, user_id=None):
+    def clear_all(application_id, user_id=None, batch_id=None):
         """Delete all environment variables for an application."""
         env_vars = EnvironmentVariable.query.filter_by(
             application_id=application_id
         ).all()
 
+        if env_vars:
+            _auto_capture(application_id, 'env.clear_all', user_id)
+        batch_id = batch_id or _new_batch_id()
+
         count = 0
         for ev in env_vars:
+            old_value = '<reference>' if ev.get_reference() else ev.value
             EnvironmentVariableHistory.record_change(
-                ev, 'deleted', old_value=ev.value, user_id=user_id
+                ev, 'deleted', old_value=old_value, user_id=user_id,
+                batch_id=batch_id,
             )
             db.session.delete(ev)
             count += 1

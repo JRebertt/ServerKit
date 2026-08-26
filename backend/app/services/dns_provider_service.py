@@ -145,40 +145,22 @@ class DNSProviderService:
                    name: str, value: str, ttl: int = 3600,
                    proxied: bool = False, priority: int = None,
                    source: str = 'provider') -> Dict:
-        """Create or update a DNS record. ``proxied``/``priority`` are honored by
-        the Cloudflare path; other providers ignore them. ``source`` tags the write
-        in the ownership ledger."""
+        """Create or update through the common client + ownership door."""
         config = DNSProviderConfig.query.get(provider_id)
         if not config:
             return {'success': False, 'error': 'Provider not found'}
-
-        if config.provider == 'cloudflare':
-            return cls._cloudflare_set_record(config, zone_id, record_type, name, value, ttl,
-                                              proxied=proxied, priority=priority, source=source)
-        elif config.provider == 'route53':
-            return cls._route53_set_record(config, zone_id, record_type, name, value, ttl)
-        elif config.provider == 'digitalocean':
-            return cls._digitalocean_set_record(config, zone_id, record_type, name, value, ttl)
-        elif config.provider == 'godaddy':
-            return cls._godaddy_set_record(config, zone_id, record_type, name, value, ttl)
-        return {'success': False, 'error': 'Unknown provider'}
+        return cls._guarded_set_record(
+            config, zone_id, record_type, name, value, ttl,
+            proxied=proxied, priority=priority, source=source,
+        )
 
     @classmethod
     def delete_record(cls, provider_id: int, zone_id: str, record_type: str, name: str) -> Dict:
-        """Delete a DNS record."""
+        """Delete through the common client + ownership door."""
         config = DNSProviderConfig.query.get(provider_id)
         if not config:
             return {'success': False, 'error': 'Provider not found'}
-
-        if config.provider == 'cloudflare':
-            return cls._cloudflare_delete_record(config, zone_id, record_type, name)
-        elif config.provider == 'route53':
-            return cls._route53_delete_record(config, zone_id, record_type, name)
-        elif config.provider == 'digitalocean':
-            return cls._digitalocean_delete_record(config, zone_id, record_type, name)
-        elif config.provider == 'godaddy':
-            return cls._godaddy_delete_record(config, zone_id, record_type, name)
-        return {'success': False, 'error': 'Unknown provider'}
+        return cls._guarded_delete_record(config, zone_id, record_type, name)
 
     @classmethod
     def deploy_email_records(cls, provider_id: int, zone_id: str, domain: str,
@@ -271,6 +253,58 @@ class DNSProviderService:
         return _parse(value)
 
     @classmethod
+    def record_client(cls, config: DNSProviderConfig):
+        """Build the normalized record client for a connected provider."""
+        from app.services.dns import get_record_client
+        from app.services.dns.base import DnsCredential
+        return get_record_client(DnsCredential.from_provider_config(config))
+
+    @classmethod
+    def _guarded_set_record(cls, config, zone_id, record_type, name, value,
+                            ttl=3600, *, proxied=False, priority=None,
+                            source='provider'):
+        from app.services.dns.base import DnsRecordSpec
+        from app.services.dns_ownership_service import DnsOwnershipService
+
+        spec = DnsRecordSpec(
+            record_type=record_type, name=name, content=value, ttl=ttl,
+            priority=priority, proxied=proxied,
+        )
+        try:
+            result = DnsOwnershipService.guarded_upsert(
+                cls.record_client(config), provider=config.provider,
+                provider_zone_id=zone_id, spec=spec, source=source,
+                config_id=config.id, allow_foreign=False,
+            )
+        except (TypeError, ValueError, RuntimeError) as exc:
+            return {'success': False, 'error': str(exc)}
+
+        if result.get('success'):
+            return {
+                'success': True,
+                'message': result.get(
+                    'message', f'{record_type} record set for {name}',
+                ),
+            }
+        output = {'success': False, 'error': result.get('error', 'Unknown error')}
+        if result.get('conflict'):
+            output['conflict'] = True
+        return output
+
+    @classmethod
+    def _guarded_delete_record(cls, config, zone_id, record_type, name,
+                               *, source='provider'):
+        from app.services.dns_ownership_service import DnsOwnershipService
+        try:
+            return DnsOwnershipService.guarded_delete(
+                cls.record_client(config), provider=config.provider,
+                provider_zone_id=zone_id, record_type=record_type, name=name,
+                source=source, config_id=config.id,
+            )
+        except (TypeError, ValueError, RuntimeError) as exc:
+            return {'success': False, 'error': str(exc)}
+
+    @classmethod
     def ensure_caa_record(cls, domain: str, ca: str = 'letsencrypt.org') -> Dict:
         """Ensure a CAA record authorizing ``ca`` (default Let's Encrypt) exists at
         the apex of whichever connected provider zone covers ``domain``. CAA is
@@ -332,34 +366,17 @@ class DNSProviderService:
                                 record_type: str, name: str, value: str, ttl: int,
                                 proxied: bool = False, priority: int = None,
                                 source: str = 'provider') -> Dict:
-        """Create or update a Cloudflare DNS record (idempotent upsert by name),
-        gated by the ownership guard so an automatic write never clobbers a record
-        the user created themselves."""
-        from app.services.dns.base import DnsRecordSpec
-        from app.services.dns_ownership_service import DnsOwnershipService
-        spec = DnsRecordSpec(record_type=record_type, name=name, content=value,
-                             ttl=ttl, priority=priority, proxied=proxied)
-        res = DnsOwnershipService.guarded_upsert(
-            cls._cloudflare_client(config), provider='cloudflare', provider_zone_id=zone_id,
-            spec=spec, source=source, config_id=config.id, allow_foreign=False)
-        # Preserve the historical {success, message|error} contract callers expect.
-        if res.get('success'):
-            return {'success': True,
-                    'message': res.get('message', f'{record_type} record set for {name}')}
-        out = {'success': False, 'error': res.get('error', 'Unknown error')}
-        if res.get('conflict'):
-            out['conflict'] = True
-        return out
+        return cls._guarded_set_record(
+            config, zone_id, record_type, name, value, ttl,
+            proxied=proxied, priority=priority, source=source,
+        )
 
     @classmethod
     def _cloudflare_delete_record(cls, config: DNSProviderConfig, zone_id: str,
                                    record_type: str, name: str) -> Dict:
         """Delete a Cloudflare DNS record ServerKit owns (by type+name); a foreign
         record with that name is left untouched."""
-        from app.services.dns_ownership_service import DnsOwnershipService
-        return DnsOwnershipService.guarded_delete(
-            cls._cloudflare_client(config), provider_zone_id=zone_id,
-            record_type=record_type, name=name, config_id=config.id)
+        return cls._guarded_delete_record(config, zone_id, record_type, name)
 
     @staticmethod
     def _host_relative_to_zone(name: str, zone: str) -> str:
@@ -425,71 +442,14 @@ class DNSProviderService:
     @classmethod
     def _route53_set_record(cls, config: DNSProviderConfig, zone_id: str,
                              record_type: str, name: str, value: str, ttl: int) -> Dict:
-        """Create or update a Route53 DNS record."""
-        try:
-            client = cls._get_route53_client(config)
-            # Ensure name ends with a dot for Route53
-            fqdn = name if name.endswith('.') else f'{name}.'
-
-            resource_record = {'Value': value}
-            if record_type == 'TXT':
-                # TXT records need to be quoted
-                resource_record = {'Value': f'"{value}"'}
-            elif record_type == 'MX':
-                resource_record = {'Value': value}
-
-            client.change_resource_record_sets(
-                HostedZoneId=zone_id,
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'UPSERT',
-                        'ResourceRecordSet': {
-                            'Name': fqdn,
-                            'Type': record_type,
-                            'TTL': ttl,
-                            'ResourceRecords': [resource_record],
-                        }
-                    }]
-                }
-            )
-            return {'success': True, 'message': f'{record_type} record set for {name}'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return cls._guarded_set_record(
+            config, zone_id, record_type, name, value, ttl,
+        )
 
     @classmethod
     def _route53_delete_record(cls, config: DNSProviderConfig, zone_id: str,
                                 record_type: str, name: str) -> Dict:
-        """Delete a Route53 DNS record."""
-        try:
-            client = cls._get_route53_client(config)
-            fqdn = name if name.endswith('.') else f'{name}.'
-
-            # Get current record to know its value (required for DELETE)
-            resp = client.list_resource_record_sets(
-                HostedZoneId=zone_id,
-                StartRecordName=fqdn,
-                StartRecordType=record_type,
-                MaxItems='1',
-            )
-            records = resp.get('ResourceRecordSets', [])
-            matching = [r for r in records if r['Name'] == fqdn and r['Type'] == record_type]
-
-            if not matching:
-                return {'success': True, 'message': 'Record not found (already deleted)'}
-
-            record = matching[0]
-            client.change_resource_record_sets(
-                HostedZoneId=zone_id,
-                ChangeBatch={
-                    'Changes': [{
-                        'Action': 'DELETE',
-                        'ResourceRecordSet': record,
-                    }]
-                }
-            )
-            return {'success': True, 'message': f'{record_type} record deleted for {name}'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return cls._guarded_delete_record(config, zone_id, record_type, name)
 
     # ── DigitalOcean Implementation ──
 
@@ -538,75 +498,14 @@ class DNSProviderService:
     @classmethod
     def _digitalocean_set_record(cls, config: DNSProviderConfig, zone_id: str,
                                   record_type: str, name: str, value: str, ttl: int) -> Dict:
-        """Create or update a DigitalOcean DNS record (zone_id is the domain)."""
-        try:
-            headers = cls._digitalocean_headers(config)
-            base = f'https://api.digitalocean.com/v2/domains/{zone_id}/records'
-            host = cls._host_relative_to_zone(name, zone_id)
-
-            payload = {'type': record_type, 'name': host, 'data': value, 'ttl': ttl}
-            if record_type == 'MX':
-                # Input is "<priority> <target>"; split into priority + data.
-                parts = value.split(None, 1)
-                if len(parts) == 2 and parts[0].isdigit():
-                    payload['priority'] = int(parts[0])
-                    payload['data'] = parts[1]
-            elif record_type == 'CAA':
-                # DigitalOcean wants flags/tag as separate fields, data = CA value.
-                caa = cls.parse_caa_value(value)
-                payload['flags'] = caa['flags']
-                payload['tag'] = caa['tag']
-                payload['data'] = caa['value']
-
-            # Find an existing record of the same type/host to update.
-            resp = requests.get(
-                f'{base}?type={record_type}&per_page=200',
-                headers=headers, timeout=15,
-            )
-            data = resp.json()
-            existing = [r for r in data.get('domain_records', []) if r.get('name') == host]
-
-            if existing:
-                record_id = existing[0]['id']
-                resp = requests.put(
-                    f'{base}/{record_id}',
-                    headers=headers, json=payload, timeout=15,
-                )
-            else:
-                resp = requests.post(base, headers=headers, json=payload, timeout=15)
-
-            if resp.status_code in (200, 201):
-                return {'success': True, 'message': f'{record_type} record set for {name}'}
-            data = resp.json()
-            return {'success': False, 'error': data.get('message', f'HTTP {resp.status_code}')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return cls._guarded_set_record(
+            config, zone_id, record_type, name, value, ttl,
+        )
 
     @classmethod
     def _digitalocean_delete_record(cls, config: DNSProviderConfig, zone_id: str,
                                      record_type: str, name: str) -> Dict:
-        """Delete a DigitalOcean DNS record (zone_id is the domain)."""
-        try:
-            headers = cls._digitalocean_headers(config)
-            base = f'https://api.digitalocean.com/v2/domains/{zone_id}/records'
-            host = cls._host_relative_to_zone(name, zone_id)
-
-            resp = requests.get(
-                f'{base}?type={record_type}&per_page=200',
-                headers=headers, timeout=15,
-            )
-            data = resp.json()
-            existing = [r for r in data.get('domain_records', []) if r.get('name') == host]
-
-            if not existing:
-                return {'success': True, 'message': 'Record not found (already deleted)'}
-
-            for record in existing:
-                requests.delete(f'{base}/{record["id"]}', headers=headers, timeout=15)
-
-            return {'success': True, 'message': f'{record_type} record deleted for {name}'}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return cls._guarded_delete_record(config, zone_id, record_type, name)
 
     # ── GoDaddy Implementation ──
 
@@ -656,43 +555,11 @@ class DNSProviderService:
     @classmethod
     def _godaddy_set_record(cls, config: DNSProviderConfig, zone_id: str,
                              record_type: str, name: str, value: str, ttl: int) -> Dict:
-        """Create or update a GoDaddy DNS record (record-typed PUT, zone_id is the domain)."""
-        try:
-            headers = cls._godaddy_headers(config)
-            host = cls._host_relative_to_zone(name, zone_id)
-            url = f'https://api.godaddy.com/v1/domains/{zone_id}/records/{record_type}/{host}'
-
-            record = {'data': value, 'ttl': ttl}
-            if record_type == 'MX':
-                # Input is "<priority> <target>"; GoDaddy wants priority + data.
-                parts = value.split(None, 1)
-                if len(parts) == 2 and parts[0].isdigit():
-                    record['priority'] = int(parts[0])
-                    record['data'] = parts[1]
-
-            resp = requests.put(url, headers=headers, json=[record], timeout=15)
-            if resp.status_code in (200, 201):
-                return {'success': True, 'message': f'{record_type} record set for {name}'}
-            data = resp.json()
-            return {'success': False, 'error': data.get('message', f'HTTP {resp.status_code}')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return cls._guarded_set_record(
+            config, zone_id, record_type, name, value, ttl,
+        )
 
     @classmethod
     def _godaddy_delete_record(cls, config: DNSProviderConfig, zone_id: str,
                                 record_type: str, name: str) -> Dict:
-        """Delete a GoDaddy DNS record (record-typed DELETE, zone_id is the domain)."""
-        try:
-            headers = cls._godaddy_headers(config)
-            host = cls._host_relative_to_zone(name, zone_id)
-            url = f'https://api.godaddy.com/v1/domains/{zone_id}/records/{record_type}/{host}'
-
-            resp = requests.delete(url, headers=headers, timeout=15)
-            if resp.status_code in (200, 204):
-                return {'success': True, 'message': f'{record_type} record deleted for {name}'}
-            if resp.status_code == 404:
-                return {'success': True, 'message': 'Record not found (already deleted)'}
-            data = resp.json()
-            return {'success': False, 'error': data.get('message', f'HTTP {resp.status_code}')}
-        except Exception as e:
-            return {'success': False, 'error': str(e)}
+        return cls._guarded_delete_record(config, zone_id, record_type, name)

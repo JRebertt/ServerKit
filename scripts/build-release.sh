@@ -168,10 +168,31 @@ rm -rf "$BUILD_DIR/frontend/node_modules"
 find "$BUILD_DIR" -type d -name __pycache__    -exec rm -rf {} + 2>/dev/null || true
 find "$BUILD_DIR" -type d -name .pytest_cache  -exec rm -rf {} + 2>/dev/null || true
 find "$BUILD_DIR" -type f -name '*.pyc' -delete 2>/dev/null || true
-find "$BUILD_DIR" -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.jpg' \) -delete 2>/dev/null || true
+# Never strip the built SPA bundle: Vite emits real image assets into
+# frontend/dist/assets (extension icons, etc.) that the panel 404s without.
+# (Use ! -path, not -prune: -delete implies -depth, which disables -prune.)
+find "$BUILD_DIR" -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.jpg' \) \
+    ! -path "$BUILD_DIR/frontend/dist/*" -delete 2>/dev/null || true
 
 # Runtime directory the app expects to exist.
 mkdir -p "$BUILD_DIR/backend/instance"
+
+# ---------------------------------------------------------------------------
+# Verify the bundle: every /assets/<file> the built JS/HTML references must
+# exist on disk. A missing hashed asset (e.g. an over-broad cleanup deleting
+# dist images) is a silent runtime 404 — fail the build here instead.
+# ---------------------------------------------------------------------------
+step "Verifying bundle asset references..."
+missing_assets=0
+while IFS= read -r asset; do
+    if [ ! -f "$BUILD_DIR/frontend/dist/$asset" ]; then
+        printf '    missing: %s\n' "$asset" >&2
+        missing_assets=1
+    fi
+done < <(grep -rhoE 'assets/[A-Za-z0-9_.-]+\.(png|jpe?g|gif|webp|avif|svg|woff2?|ttf|otf|mp4|webm)' \
+         "$BUILD_DIR/frontend/dist/index.html" "$BUILD_DIR/frontend/dist/assets" 2>/dev/null | sort -u)
+[ "$missing_assets" = "0" ] || halt "Bundle references assets missing from dist/ (see above)."
+good "Bundle asset references verified"
 
 # ---------------------------------------------------------------------------
 # Pack the tarball with an /opt/serverkit prefix and generate checksums
@@ -180,6 +201,9 @@ step "Creating the tarball..."
 DEST_DIR="$REPO_ROOT"
 
 cd "$(dirname "$BUILD_DIR")"
+# Image slimming happens in the cleanup step above (which preserves
+# frontend/dist); do NOT re-exclude *.png/*.jpg here — that would strip the
+# built bundle's hashed image assets out of the tarball.
 tar czf "${DEST_DIR}/${OUTPUT}" \
     --exclude='node_modules' \
     --exclude='__pycache__' \
@@ -189,9 +213,6 @@ tar czf "${DEST_DIR}/${OUTPUT}" \
     --exclude='/backend/instance/backups' \
     --exclude='/backend/dev-data/backups' \
     --exclude='/scripts/test/output' \
-    --exclude='*.png' \
-    --exclude='*.jpeg' \
-    --exclude='*.jpg' \
     --exclude='*.log' \
     --exclude='*.tmp' \
     --exclude='*.pyc' \

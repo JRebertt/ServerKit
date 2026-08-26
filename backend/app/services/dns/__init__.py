@@ -7,16 +7,25 @@ provider lives in exactly one module.
 """
 from app.services.dns.base import DnsCredential, DnsRecordSpec
 from app.services.dns.cloudflare import CloudflareClient
+from app.services.dns.providers import (
+    DigitalOceanClient,
+    GoDaddyClient,
+    Route53Client,
+    get_record_client,
+)
 
-__all__ = ['DnsCredential', 'DnsRecordSpec', 'CloudflareClient', 'get_client']
+__all__ = [
+    'DnsCredential', 'DnsRecordSpec', 'CloudflareClient', 'Route53Client',
+    'DigitalOceanClient', 'GoDaddyClient', 'get_client', 'get_record_client',
+]
 
 
 def get_client(credential: DnsCredential):
     """Return the API client for ``credential.provider``.
 
-    Only Cloudflare is shared today (it was the duplicated path); Route53 /
-    DigitalOcean / GoDaddy still live in ``DNSProviderService`` and can move
-    behind this factory later without changing callers.
+    This legacy factory remains Cloudflare-only because DNS cutover currently
+    has Cloudflare-specific snapshot semantics. Record-management callers use
+    ``get_record_client`` for the four-provider contract.
     """
     if credential.provider == 'cloudflare':
         return CloudflareClient(credential)

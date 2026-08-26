@@ -808,7 +808,6 @@
             "imageTag": "圖片/標籤",
             "inPlainLanguage": "用簡單易懂的語言",
             "loadingDiff": "加載差異...",
-            "noChange": "沒有變化（",
             "noChanges": "沒有變化",
             "restoreFailed": "恢復失敗",
             "restoreThisConfig": "恢復此配置",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "配置已更改",
-            "envVar": "環境變數",
             "loadingDeploymentTimeline": "正在載入部署時間表...",
             "noConfigCheckpointsYetOneIs": "還沒有配置檢查點。每次部署前都會捕獲一個。",
             "viewDiff": "查看差異"

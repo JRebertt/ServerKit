@@ -69,7 +69,8 @@ def test_failed_write_logs_error_and_notifies(app, monkeypatch):
 def test_delete_is_logged(app):
     from app.services.dns_ownership_service import DnsOwnershipService as O
     from app.models.dns_change import DnsChange
-    O.record_write('cloudflare', 'z1', 'A', 'www.example.com', provider_record_id='R1', source='zone')
+    O.record_write('cloudflare', 'z1', 'A', 'www.example.com',
+                   provider_record_id='R1', source='zone', config_id=3)
     O.guarded_delete(FakeClient(), provider_zone_id='z1', record_type='A',
                      name='www.example.com', provider_record_id='R1', source='zone', config_id=3)
     row = DnsChange.query.filter_by(provider_zone_id='z1', action='delete').first()

@@ -19,6 +19,24 @@ class FirewallService:
     """Service for managing firewall (firewalld or ufw)."""
 
     @classmethod
+    def _checkpoint(cls, action: str, detail: str = ''):
+        """Best-effort checkpoint immediately before an accepted mutation."""
+        from flask import has_app_context
+
+        if not has_app_context():
+            return None
+        from app.services.restore_point_service import auto_capture, get_adapter
+
+        if get_adapter('firewall') is None:
+            return None
+
+        suffix = f' {detail}' if detail else ''
+        return auto_capture(
+            'firewall', 'firewall', action,
+            label=f'before firewall.{action}{suffix}',
+        )
+
+    @classmethod
     def get_status(cls) -> Dict:
         """Get firewall status and detect which firewall is in use."""
         firewalld = cls._check_firewalld()
@@ -163,18 +181,28 @@ class FirewallService:
         return sorted(set(ports)) or None
 
     @classmethod
-    def _ufw_default_incoming_allow(cls) -> bool:
-        """True when ufw's default inbound policy is ACCEPT (no lockout risk)."""
+    def _ufw_default_incoming_policy(cls) -> Optional[bool]:
+        """Observed UFW inbound policy, or ``None`` when it cannot be read."""
         try:
             with open('/etc/default/ufw', 'r') as handle:
                 for line in handle:
                     match = re.match(r'^\s*DEFAULT_INPUT_POLICY\s*=\s*"?(\w+)"?',
                                      line)
                     if match:
-                        return match.group(1).upper() == 'ACCEPT'
+                        policy = match.group(1).upper()
+                        if policy == 'ACCEPT':
+                            return True
+                        if policy in ('DROP', 'REJECT', 'DENY'):
+                            return False
+                        return None
         except Exception:
             pass
-        return False
+        return None
+
+    @classmethod
+    def _ufw_default_incoming_allow(cls) -> bool:
+        """True only when UFW's observed inbound policy is ACCEPT."""
+        return cls._ufw_default_incoming_policy() is True
 
     @classmethod
     def _ufw_allowed_ports(cls) -> set:
@@ -294,6 +322,7 @@ class FirewallService:
                     'override': 'Send force=true to enable anyway.',
                 }
 
+        cls._checkpoint('enable', firewall)
         if firewall == 'firewalld':
             return cls._enable_firewalld()
         return cls._enable_ufw()
@@ -329,8 +358,10 @@ class FirewallService:
             firewall = status['active_firewall']
 
         if firewall == 'firewalld':
+            cls._checkpoint('disable', firewall)
             return cls._disable_firewalld()
         elif firewall == 'ufw':
+            cls._checkpoint('disable', firewall)
             return cls._disable_ufw()
         else:
             return {'success': False, 'error': 'No firewall detected'}
@@ -460,38 +491,72 @@ class FirewallService:
         status = cls.get_status()
         firewall = status['active_firewall']
 
+        error = cls._validate_rule_request(rule_type, kwargs)
+        if error:
+            return {'success': False, 'error': error}
+
         if firewall == 'firewalld':
+            cls._checkpoint('add_rule', cls._rule_label(rule_type, kwargs))
+            kwargs['_offline'] = status.get('firewalld', {}).get('running') is False
             return cls._add_firewalld_rule(rule_type, **kwargs)
         elif firewall == 'ufw':
+            cls._checkpoint('add_rule', cls._rule_label(rule_type, kwargs))
             return cls._add_ufw_rule(rule_type, **kwargs)
         else:
             return {'success': False, 'error': 'No firewall detected'}
+
+    @staticmethod
+    def _rule_label(rule_type: str, values: Dict) -> str:
+        target = (values.get('port') or values.get('service') or
+                  values.get('ip') or values.get('rule') or '')
+        return f'{rule_type} {target}'.strip()
+
+    @staticmethod
+    def _validate_rule_request(rule_type: str, values: Dict,
+                               *, removing: bool = False) -> Optional[str]:
+        if removing and values.get('number') is not None:
+            return None
+        required = {
+            'port': ('port', 'Port number required'),
+            'service': ('service', 'Service name required'),
+            'block_ip': ('ip', 'IP address required'),
+            'allow_ip': ('ip', 'IP address required'),
+            'rich': ('rule', 'Rich rule required'),
+        }
+        entry = required.get(rule_type)
+        if entry is None:
+            return f'Unknown rule type: {rule_type}'
+        field, message = entry
+        return None if values.get(field) not in (None, '') else message
 
     @classmethod
     def _add_firewalld_rule(cls, rule_type: str, **kwargs) -> Dict:
         """Add a firewalld rule."""
         try:
             permanent = kwargs.get('permanent', True)
-            perm_flag = ['--permanent'] if permanent else []
+            offline = bool(kwargs.get('_offline'))
+            command = 'firewall-offline-cmd' if offline else 'firewall-cmd'
+            perm_flag = ['--permanent'] if permanent and not offline else []
+            zone_flag = [f'--zone={kwargs["zone"]}'] if kwargs.get('zone') else []
 
             if rule_type == 'service':
                 service = kwargs.get('service')
                 if not service:
                     return {'success': False, 'error': 'Service name required'}
-                cmd = ['firewall-cmd'] + perm_flag + [f'--add-service={service}']
+                cmd = [command] + perm_flag + zone_flag + [f'--add-service={service}']
 
             elif rule_type == 'port':
                 port = kwargs.get('port')
                 protocol = kwargs.get('protocol', 'tcp')
                 if not port:
                     return {'success': False, 'error': 'Port number required'}
-                cmd = ['firewall-cmd'] + perm_flag + [f'--add-port={port}/{protocol}']
+                cmd = [command] + perm_flag + zone_flag + [f'--add-port={port}/{protocol}']
 
             elif rule_type == 'block_ip':
                 ip = kwargs.get('ip')
                 if not ip:
                     return {'success': False, 'error': 'IP address required'}
-                cmd = ['firewall-cmd'] + perm_flag + [
+                cmd = [command] + perm_flag + zone_flag + [
                     f'--add-rich-rule=rule family="ipv4" source address="{ip}" reject'
                 ]
 
@@ -501,13 +566,19 @@ class FirewallService:
                 if not ip:
                     return {'success': False, 'error': 'IP address required'}
                 if port:
-                    cmd = ['firewall-cmd'] + perm_flag + [
+                    cmd = [command] + perm_flag + zone_flag + [
                         f'--add-rich-rule=rule family="ipv4" source address="{ip}" port port="{port}" protocol="tcp" accept'
                     ]
                 else:
-                    cmd = ['firewall-cmd'] + perm_flag + [
+                    cmd = [command] + perm_flag + zone_flag + [
                         f'--add-rich-rule=rule family="ipv4" source address="{ip}" accept'
                     ]
+
+            elif rule_type == 'rich':
+                rule = kwargs.get('rule')
+                if not rule:
+                    return {'success': False, 'error': 'Rich rule required'}
+                cmd = [command] + perm_flag + zone_flag + [f'--add-rich-rule={rule}']
 
             else:
                 return {'success': False, 'error': f'Unknown rule type: {rule_type}'}
@@ -516,7 +587,7 @@ class FirewallService:
 
             if result.returncode == 0:
                 # Reload if permanent
-                if permanent:
+                if permanent and not offline:
                     run_privileged(['firewall-cmd', '--reload'])
                 return {'success': True, 'message': 'Rule added successfully'}
 
@@ -785,6 +856,10 @@ class FirewallService:
         if firewall not in ('firewalld', 'ufw'):
             return {'success': False, 'error': 'No firewall detected'}
 
+        error = cls._validate_rule_request(rule_type, kwargs, removing=True)
+        if error:
+            return {'success': False, 'error': error}
+
         if not force:
             preflight = cls.check_ssh_rule_removal(rule_type, **kwargs)
             if not preflight['safe']:
@@ -797,7 +872,9 @@ class FirewallService:
                     'override': 'Send force=true to remove it anyway.',
                 }
 
+        cls._checkpoint('remove_rule', cls._rule_label(rule_type, kwargs))
         if firewall == 'firewalld':
+            kwargs['_offline'] = status.get('firewalld', {}).get('running') is False
             return cls._remove_firewalld_rule(rule_type, **kwargs)
         return cls._remove_ufw_rule(rule_type, **kwargs)
 
@@ -806,26 +883,29 @@ class FirewallService:
         """Remove a firewalld rule."""
         try:
             permanent = kwargs.get('permanent', True)
-            perm_flag = ['--permanent'] if permanent else []
+            offline = bool(kwargs.get('_offline'))
+            command = 'firewall-offline-cmd' if offline else 'firewall-cmd'
+            perm_flag = ['--permanent'] if permanent and not offline else []
+            zone_flag = [f'--zone={kwargs["zone"]}'] if kwargs.get('zone') else []
 
             if rule_type == 'service':
                 service = kwargs.get('service')
-                cmd = ['firewall-cmd'] + perm_flag + [f'--remove-service={service}']
+                cmd = [command] + perm_flag + zone_flag + [f'--remove-service={service}']
 
             elif rule_type == 'port':
                 port = kwargs.get('port')
                 protocol = kwargs.get('protocol', 'tcp')
-                cmd = ['firewall-cmd'] + perm_flag + [f'--remove-port={port}/{protocol}']
+                cmd = [command] + perm_flag + zone_flag + [f'--remove-port={port}/{protocol}']
 
             elif rule_type == 'block_ip':
                 ip = kwargs.get('ip')
-                cmd = ['firewall-cmd'] + perm_flag + [
+                cmd = [command] + perm_flag + zone_flag + [
                     f'--remove-rich-rule=rule family="ipv4" source address="{ip}" reject'
                 ]
 
             elif rule_type == 'rich':
                 rule = kwargs.get('rule')
-                cmd = ['firewall-cmd'] + perm_flag + [f'--remove-rich-rule={rule}']
+                cmd = [command] + perm_flag + zone_flag + [f'--remove-rich-rule={rule}']
 
             else:
                 return {'success': False, 'error': f'Unknown rule type: {rule_type}'}
@@ -833,7 +913,7 @@ class FirewallService:
             result = run_privileged(cmd)
 
             if result.returncode == 0:
-                if permanent:
+                if permanent and not offline:
                     run_privileged(['firewall-cmd', '--reload'])
                 return {'success': True, 'message': 'Rule removed successfully'}
 
@@ -858,6 +938,17 @@ class FirewallService:
                 elif rule_type == 'block_ip':
                     ip = kwargs.get('ip')
                     result = run_privileged(['ufw', 'delete', 'deny', 'from', ip])
+                elif rule_type == 'service':
+                    service = kwargs.get('service')
+                    action = kwargs.get('action', 'allow')
+                    result = run_privileged(['ufw', 'delete', action, service])
+                elif rule_type == 'allow_ip':
+                    ip = kwargs.get('ip')
+                    port = kwargs.get('port')
+                    cmd = ['ufw', 'delete', 'allow', 'from', ip]
+                    if port:
+                        cmd.extend(['to', 'any', 'port', str(port)])
+                    result = run_privileged(cmd)
                 else:
                     return {'success': False, 'error': 'Rule number or specification required'}
 
@@ -1140,10 +1231,31 @@ class FirewallService:
                 }
 
         try:
-            result = run_privileged(['firewall-cmd', f'--set-default-zone={zone}'])
+            status = cls.get_status()
+            offline = status.get('firewalld', {}).get('running') is False
+            command = 'firewall-offline-cmd' if offline else 'firewall-cmd'
+            cls._checkpoint('set_default_zone', zone)
+            result = run_privileged([command, f'--set-default-zone={zone}'])
             if result.returncode == 0:
                 return {'success': True, 'message': f'Default zone set to {zone}'}
             return {'success': False, 'error': result.stderr or 'Failed to set default zone'}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def set_default_incoming(cls, allow: bool) -> Dict:
+        """Converge UFW's persisted default incoming policy."""
+        cls._checkpoint('set_default_incoming', 'allow' if allow else 'deny')
+        try:
+            result = run_privileged([
+                'ufw', 'default', 'allow' if allow else 'deny', 'incoming',
+            ])
+            if result.returncode == 0:
+                return {'success': True, 'allow': bool(allow)}
+            return {
+                'success': False,
+                'error': result.stderr or 'Failed to set UFW incoming policy',
+            }
         except Exception as e:
             return {'success': False, 'error': str(e)}
 

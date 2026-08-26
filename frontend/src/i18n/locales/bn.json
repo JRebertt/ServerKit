@@ -808,7 +808,6 @@
             "imageTag": "ছবি/ট্যাগ",
             "inPlainLanguage": "সরল ভাষায়",
             "loadingDiff": "পার্থক্য লোড হচ্ছে...",
-            "noChange": "কোন পরিবর্তন নেই (",
             "noChanges": "কোনো পরিবর্তন নেই",
             "restoreFailed": "পুনরুদ্ধার ব্যর্থ হয়েছে",
             "restoreThisConfig": "এই কনফিগারেশন পুনরুদ্ধার করুন",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "কনফিগ পরিবর্তন করা হয়েছে",
-            "envVar": "env var",
             "loadingDeploymentTimeline": "স্থাপনার সময়রেখা লোড হচ্ছে...",
             "noConfigCheckpointsYetOneIs": "এখনও কোন কনফিগার চেকপয়েন্ট. প্রতিটি স্থাপনার আগে একজনকে ধরা হয়।",
             "viewDiff": "পার্থক্য দেখুন"

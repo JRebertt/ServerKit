@@ -808,7 +808,6 @@
             "imageTag": "Obraz / tag",
             "inPlainLanguage": "Prostym językiem",
             "loadingDiff": "Ładowanie różnicy…",
-            "noChange": "Bez zmian (",
             "noChanges": "Żadnych zmian",
             "restoreFailed": "Przywracanie nie powiodło się",
             "restoreThisConfig": "Przywróć tę konfigurację",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "Konfiguracja zmieniona",
-            "envVar": "środowisko var",
             "loadingDeploymentTimeline": "Ładowanie harmonogramu wdrożenia…",
             "noConfigCheckpointsYetOneIs": "Nie ma jeszcze punktów kontrolnych konfiguracji. Jeden jest przechwytywany przed każdym wdrożeniem.",
             "viewDiff": "Zobacz różnicę"

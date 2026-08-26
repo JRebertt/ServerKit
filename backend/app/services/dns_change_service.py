@@ -6,6 +6,7 @@ Recording happens at the single write choke point
 connection is a complete, honest account of what the panel changed in the user's
 zone — successes, foreign-record refusals, and failures alike.
 """
+import json
 import logging
 
 from app import db
@@ -19,7 +20,7 @@ class DnsChangeService:
     @staticmethod
     def record(*, provider, provider_zone_id, action, record_type=None, name=None,
                content=None, provider_record_id=None, source=None, result='ok',
-               error=None, config_id=None):
+               error=None, config_id=None, before=None):
         """Append a change to the log. On a real failure (``result == 'error'``) also
         surface an admin-facing notice. Never raises — logging a change must not break
         the write it describes."""
@@ -27,6 +28,8 @@ class DnsChangeService:
             row = DnsChange(
                 provider=provider, provider_zone_id=provider_zone_id, action=action,
                 record_type=record_type, name=name, content=content,
+                before_json=(json.dumps(before, sort_keys=True, separators=(',', ':'))
+                             if isinstance(before, (dict, list)) else before),
                 provider_record_id=provider_record_id, source=source,
                 result=result, error=error, dns_provider_config_id=config_id)
             db.session.add(row)

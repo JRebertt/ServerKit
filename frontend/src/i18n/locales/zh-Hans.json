@@ -808,7 +808,6 @@
             "imageTag": "图片/标签",
             "inPlainLanguage": "用通俗易懂的语言",
             "loadingDiff": "加载差异...",
-            "noChange": "没有变化（",
             "noChanges": "没有变化",
             "restoreFailed": "恢复失败",
             "restoreThisConfig": "恢复此配置",
@@ -1558,7 +1557,6 @@
         },
         "deploymentTimeline": {
             "configChanged": "配置已更改",
-            "envVar": "环境变量",
             "loadingDeploymentTimeline": "正在加载部署时间表...",
             "noConfigCheckpointsYetOneIs": "还没有配置检查点。每次部署前都会捕获一个。",
             "viewDiff": "查看差异"

@@ -162,6 +162,19 @@ def test_delete_missing_is_success(monkeypatch):
     assert res['success'] is True and 'already deleted' in res['message']
 
 
+def test_delete_stale_record_id_is_idempotent(monkeypatch):
+    from app.services.dns import cloudflare as cf
+    monkeypatch.setattr(
+        cf.requests, 'delete',
+        lambda *a, **k: _Resp({
+            'success': False,
+            'errors': [{'code': 81044, 'message': 'DNS record does not exist'}],
+        }),
+    )
+    res = _client().delete('z', record_id='stale')
+    assert res['success'] is True
+
+
 # ── zone layer regression: capture provider_record_id on create ──────────────
 
 def test_zone_create_record_persists_provider_record_id(app, monkeypatch):

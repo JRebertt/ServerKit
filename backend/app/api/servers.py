@@ -24,6 +24,7 @@ from app.services.agent_fleet_service import fleet_service
 from app.services.discovery_service import discovery_service
 from app.services import connection_string as connection_string_codec
 from app.middleware.rbac import admin_required, developer_required, get_current_user
+from app.exceptions import ValidationError
 
 
 # Default token lifetime when the caller doesn't specify one. 7 days is
@@ -530,6 +531,39 @@ def get_server(server_id):
         result['capabilities_at'] = server.capabilities_at.isoformat() + 'Z' if server.capabilities_at else None
 
     return jsonify(result)
+
+
+@servers_bp.route('/<server_id>/timeline', methods=['GET'])
+@developer_required
+def get_server_timeline(server_id):
+    """Merge the server's accessible audit and checkpoint history."""
+    allowed = {'types', 'before', 'limit'}
+    unknown = set(request.args) - allowed
+    if unknown:
+        raise ValidationError(
+            'Unknown query parameters',
+            details={'fields': sorted(unknown)},
+        )
+    for key in allowed:
+        if len(request.args.getlist(key)) > 1:
+            raise ValidationError(
+                f'{key} must be provided at most once',
+                details={'field': key},
+            )
+
+    from app.services.server_timeline_service import ServerTimelineService
+
+    page = ServerTimelineService.get_timeline(
+        get_current_user(),
+        server_id,
+        types=request.args.get('types'),
+        before=request.args.get('before'),
+        limit=request.args.get('limit'),
+    )
+    return jsonify({
+        'events': page.events,
+        'next_cursor': page.next_cursor,
+    }), 200
 
 
 @servers_bp.route('/<server_id>', methods=['PUT'])
