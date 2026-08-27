@@ -27,23 +27,6 @@ export async function markAllNotificationsRead(category = null) {
     return this.request(`/notifications/inbox/read-all${suffix}`, { method: 'POST' });
 }
 
-// --- Event catalog + org defaults (preference depth) ---
-
-export async function getNotificationCatalog() {
-    return this.request('/notifications/catalog');
-}
-
-export async function getOrgNotificationDefaults() {
-    return this.request('/notifications/admin/defaults');
-}
-
-export async function updateOrgNotificationDefaults(defaults) {
-    return this.request('/notifications/admin/defaults', {
-        method: 'PUT',
-        body: JSON.stringify({ defaults }),
-    });
-}
-
 // --- Org chat/webhook connections (admin) ---
 
 export async function getChatConnections() {
