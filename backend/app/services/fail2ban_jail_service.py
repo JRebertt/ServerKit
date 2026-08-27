@@ -293,8 +293,72 @@ bantime = {bantime}
     @classmethod
     def disable_jail(cls, app):
         """Remove a site's ServerKit jail file and reload fail2ban. Thin wrapper
-        over remove_jail keyed by the application name."""
+        over remove_jail keyed by the application name.
+
+        Rename caveat: the jail filename derives from the name at ENABLE time,
+        so a site renamed since then no longer derives its old jail's path —
+        this then returns ``removed: False`` and the stale jail keeps running.
+        Callers should treat ``removed: False`` as "maybe orphaned" and sweep
+        with cleanup_orphans(active_keys)."""
         return cls.remove_jail(getattr(app, 'name', None))
+
+    _SITE_RE = re.compile(
+        r'^# ServerKit-managed brute-force jail for site "(.*)"')
+
+    @classmethod
+    def list_jails(cls):
+        """Every ServerKit-owned jail on disk: [{jail, path, site, logpath}].
+
+        A directory scan, deliberately NOT derived from live site names: jail
+        filenames are keyed by the sanitized site name at enable time, so a
+        site renamed afterwards orphans its jail — still banning against a
+        log nginx no longer writes, invisible to any name-derived lookup.
+        This scan is the only view that still sees those orphans."""
+        jails = []
+        if not os.path.isdir(cls.JAIL_DIR):
+            return jails
+        for name in sorted(os.listdir(cls.JAIL_DIR)):
+            if not name.startswith(cls.JAIL_PREFIX) or not name.endswith('.conf'):
+                continue
+            path = os.path.join(cls.JAIL_DIR, name)
+            content = cls._read_text(path) or ''
+            site_match = cls._SITE_RE.match(content)
+            log_match = re.search(r'^logpath\s*=\s*(.+)$', content, re.MULTILINE)
+            jails.append({
+                'jail': name[:-len('.conf')],
+                'path': path,
+                'site': site_match.group(1) if site_match else None,
+                'logpath': log_match.group(1).strip() if log_match else None,
+            })
+        return jails
+
+    @classmethod
+    def cleanup_orphans(cls, active_keys):
+        """Remove ServerKit jails no key in *active_keys* derives any more.
+
+        The rename-orphan sweeper: pass every live site name/key; a jail
+        whose filename no longer derives from any of them is deleted, and
+        fail2ban reloads once at the end. Only ``serverkit-*`` files are
+        ever touched (list_jails filters by prefix)."""
+        if not cls.available():
+            return cls._unavailable()
+        keep = {cls.jail_name_for_key(key) for key in active_keys if key}
+        removed, errors = [], []
+        for row in cls.list_jails():
+            if row['jail'] in keep:
+                continue
+            try:
+                proc = run_privileged(['rm', '-f', row['path']])
+                if proc.returncode == 0:
+                    removed.append(row['jail'])
+                else:
+                    errors.append(f"{row['jail']}: "
+                                  f"{(proc.stderr or 'remove failed').strip()}")
+            except Exception as e:
+                errors.append(f"{row['jail']}: {e}")
+        reloaded = cls.reload() if removed else {'success': True}
+        return {'success': not errors, 'removed': removed, 'errors': errors,
+                'reloaded': reloaded.get('success')}
 
     @classmethod
     def reload(cls):
