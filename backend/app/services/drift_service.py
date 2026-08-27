@@ -362,8 +362,30 @@ def _nginx_render_expected(app_id):
     rendered = NginxService.render_site_config(**kwargs)
     if not rendered.get('success'):
         raise RuntimeError(rendered.get('error') or 'vhost render failed')
+    config = rendered['config']
+
+    # Feature blocks live in the vhost but not in the template: an app with
+    # an enforcing WAF policy has its include wired post-render
+    # (WafService.apply). Render the expected file through the SAME injector,
+    # or every WAF'd app reads as permanently drifted and one "repair" click
+    # regenerates the vhost without the include — silently unprotecting the
+    # site while the DB still says enforcing (plan 82 §F.1).
+    config = _with_expected_waf(app.id, config)
+
     path = os.path.join(NginxService.SITES_AVAILABLE, app.name)
-    return {path: rendered['config']}
+    return {path: config}
+
+
+def _with_expected_waf(app_id, config):
+    from app.models.waf_policy import WafPolicy
+    from app.services.waf_service import WafService
+
+    policy = WafPolicy.query.filter_by(application_id=app_id).first()
+    if policy is None or policy.mode not in ('block', 'detect'):
+        return config
+    injected = WafService.inject_include_text(
+        config, WafService.include_path_for(app_id))
+    return injected if injected is not None else config
 
 
 def _nginx_repair(app_id):
@@ -377,6 +399,16 @@ def _nginx_repair(app_id):
     res = SiteDomainService.write_app_vhost(app)
     if res.get('warning') and not (res.get('nginx') or {}).get('success'):
         return {'success': False, 'error': res['warning']}
+
+    # write_app_vhost regenerates from the template, which drops the WAF
+    # include; re-wire it for apps with an enforcing policy so a repair
+    # never strips protection the DB still records (plan 82 §F.1).
+    from app.models.waf_policy import WafPolicy
+    policy = WafPolicy.query.filter_by(application_id=app_id).first()
+    if policy is not None and policy.mode in ('block', 'detect'):
+        from app.services.waf_service import WafService
+        WafService.apply(app_id)
+
     reload_res = NginxService.reload()
     return {
         'success': True,

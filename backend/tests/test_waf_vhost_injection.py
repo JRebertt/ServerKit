@@ -94,6 +94,78 @@ def test_reapply_is_idempotent_and_stays_in_https_block(tmp_path, plain_write):
     assert 'waf' not in redirect_block
 
 
+def test_drift_expected_render_includes_waf_for_enforcing_policy(app, monkeypatch):
+    """An enforcing WAF policy's include must appear in drift's EXPECTED
+    render — byte-comparing the wired vhost against the bare template read
+    every WAF'd app as permanently drifted, and one repair click then
+    regenerated the vhost without the include: silently unprotected while
+    the DB still said enforcing (plan 82 §F.1)."""
+    from app import db
+    from app.services import drift_service
+    from app.services.nginx_service import NginxService
+    from app.services.site_domain_service import SiteDomainService
+    from app.services.waf_service import WafService
+    from factories import make_application
+
+    a = make_application(db, name='waf-drift-app')
+    policy = WafService.get_or_create_policy(a.id)
+    policy.mode = 'block'
+    db.session.commit()
+
+    monkeypatch.setattr(SiteDomainService, 'app_vhost_kwargs',
+                        classmethod(lambda cls, app_, force_type=None:
+                                    ({'name': app_.name}, None)))
+    monkeypatch.setattr(NginxService, 'render_site_config',
+                        classmethod(lambda cls, **kw:
+                                    {'success': True, 'config': PLAIN_VHOST}))
+
+    expected = drift_service._nginx_render_expected(a.id)
+    (content,) = expected.values()
+    assert f'include {WafService.include_path_for(a.id)};' in content
+
+    # Without a policy (or with mode off) the template is expected as-is.
+    policy.mode = 'off'
+    db.session.commit()
+    (content,) = drift_service._nginx_render_expected(a.id).values()
+    assert 'include /etc/nginx' not in content
+
+
+def test_drift_repair_rewires_waf(app, monkeypatch):
+    """Repair regenerates the vhost from the template; for an enforcing
+    policy it must re-run WafService.apply so the include comes back."""
+    from app import db
+    from app.services import drift_service
+    from app.services.nginx_service import NginxService
+    from app.services.site_domain_service import SiteDomainService
+    from app.services.waf_service import WafService
+    from factories import make_application
+
+    a = make_application(db, name='waf-repair-app')
+    policy = WafService.get_or_create_policy(a.id)
+    policy.mode = 'detect'
+    db.session.commit()
+
+    applied = []
+    monkeypatch.setattr(SiteDomainService, 'write_app_vhost',
+                        classmethod(lambda cls, app_, force_type=None:
+                                    {'nginx': {'success': True}, 'warning': None}))
+    monkeypatch.setattr(NginxService, 'reload',
+                        classmethod(lambda cls: {'success': True}))
+    monkeypatch.setattr(WafService, 'apply',
+                        classmethod(lambda cls, app_id: applied.append(app_id)
+                                    or {'success': True}))
+
+    result = drift_service._nginx_repair(a.id)
+    assert result['success']
+    assert applied == [a.id]
+
+    # No policy -> no apply call.
+    applied.clear()
+    b = make_application(db, name='no-waf-app')
+    assert drift_service._nginx_repair(b.id)['success']
+    assert applied == []
+
+
 def test_app_block_with_location_level_redirect_still_selected(tmp_path, plain_write):
     # A serving block that happens to contain a 301 inside a location must
     # not be mistaken for the redirect-only wrapper.
