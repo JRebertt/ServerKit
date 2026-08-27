@@ -36,10 +36,44 @@ pytestmark = [
 ]
 
 
+def _localize(text, tmp_path):
+    """Point the config's absolute system paths at *tmp_path*.
+
+    `nginx -t` opens every access_log/error_log for writing and binds the
+    listen sockets; the test user can neither write /var/log/nginx (nor
+    /var/cache/nginx) nor bind privileged ports. Only path strings and
+    port numbers are swapped — every directive still goes through the
+    real parser.
+    """
+    return (text
+            .replace('/var/log/nginx', f'{tmp_path}/log')
+            .replace('/var/cache/nginx', f'{tmp_path}/cache')
+            .replace('listen 80;', 'listen 18080;')
+            .replace('listen [::]:80;', 'listen [::]:18080;')
+            .replace('listen 443', 'listen 18443')
+            .replace('listen [::]:443', 'listen [::]:18443'))
+
+
 def _nginx_t(tmp_path, vhost_config):
-    """`nginx -t` over a minimal wrapper conf that includes *vhost_config*."""
+    """`nginx -t` over a minimal wrapper conf that includes *vhost_config*.
+
+    The wrapper stands in for the parts of a real deployment the vhost
+    relies on: writable log/cache dirs, the fastcgi_params file that
+    `include fastcgi_params;` resolves against the conf prefix (= tmp_path
+    under `-c`), and the http-level micro-cache zones ServerKit installs
+    as a conf.d snippet.
+    """
+    (tmp_path / 'log').mkdir(exist_ok=True)
+    # nginx -t mkdirs the *_cache_path leaf dirs itself, but not parents.
+    (tmp_path / 'cache' / 'serverkit-microcache').mkdir(
+        parents=True, exist_ok=True)
+    system_params = '/etc/nginx/fastcgi_params'
+    (tmp_path / 'fastcgi_params').write_text(
+        open(system_params).read() if os.path.exists(system_params) else '')
+    zones = tmp_path / 'serverkit-microcache.conf'
+    zones.write_text(_localize(NginxService.MICROCACHE_ZONE_SNIPPET, tmp_path))
     vhost = tmp_path / 'vhost.conf'
-    vhost.write_text(vhost_config)
+    vhost.write_text(_localize(vhost_config, tmp_path))
     wrapper = tmp_path / 'nginx.conf'
     wrapper.write_text(
         f'pid {tmp_path}/nginx.pid;\n'
@@ -52,6 +86,7 @@ def _nginx_t(tmp_path, vhost_config):
         f'    fastcgi_temp_path {tmp_path}/fastcgi;\n'
         f'    uwsgi_temp_path {tmp_path}/uwsgi;\n'
         f'    scgi_temp_path {tmp_path}/scgi;\n'
+        f'    include {zones};\n'
         f'    include {vhost};\n'
         '}\n')
     return subprocess.run([NGINX, '-t', '-c', str(wrapper)],
