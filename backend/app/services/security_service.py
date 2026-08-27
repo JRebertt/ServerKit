@@ -1042,10 +1042,16 @@ class SecurityService:
         try:
             keys = []
             with open(auth_keys_path, 'r') as f:
-                for idx, line in enumerate(f):
+                # The id must index the same sequence remove_ssh_key pops
+                # from: non-blank, non-comment lines in file order. Numbering
+                # over raw file lines shifts every id past a comment banner,
+                # so delete-by-id would remove the wrong key.
+                key_idx = -1
+                for line in f:
                     line = line.strip()
                     if not line or line.startswith('#'):
                         continue
+                    key_idx += 1
 
                     parts = line.split()
                     if len(parts) >= 2:
@@ -1056,7 +1062,7 @@ class SecurityService:
                         fingerprint = cls._get_key_fingerprint(line)
 
                         keys.append({
-                            'id': idx,
+                            'id': key_idx,
                             'type': key_type,
                             'fingerprint': fingerprint,
                             'comment': comment,
@@ -1102,12 +1108,21 @@ class SecurityService:
         try:
             os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
 
+            existing = ''
             if os.path.exists(auth_keys_path):
                 with open(auth_keys_path, 'r') as f:
-                    if key in f.read():
+                    existing = f.read()
+                # Compare the key-data token, not a raw substring: a key whose
+                # text happens to be contained in a longer line is not the
+                # same key.
+                for existing_line in existing.splitlines():
+                    existing_parts = existing_line.split()
+                    if len(existing_parts) >= 2 and existing_parts[1] == parts[1]:
                         return {'success': False, 'error': 'Key already exists'}
 
             with open(auth_keys_path, 'a') as f:
+                if existing and not existing.endswith('\n'):
+                    f.write('\n')
                 f.write(key + '\n')
 
             os.chmod(auth_keys_path, 0o600)
@@ -1132,22 +1147,19 @@ class SecurityService:
             with open(auth_keys_path, 'r') as f:
                 lines = f.readlines()
 
-            key_lines = []
-            other_lines = []
-            for line in lines:
-                stripped = line.strip()
-                if stripped and not stripped.startswith('#'):
-                    key_lines.append(line)
-                else:
-                    other_lines.append(line)
+            # Same id space as get_ssh_keys: the nth non-blank, non-comment
+            # line. Delete it in place so comments/blank lines keep their
+            # position and the remaining ids stay stable.
+            key_indices = [i for i, line in enumerate(lines)
+                           if line.strip() and not line.strip().startswith('#')]
 
-            if key_id < 0 or key_id >= len(key_lines):
+            if key_id < 0 or key_id >= len(key_indices):
                 return {'success': False, 'error': 'Invalid key ID'}
 
-            key_lines.pop(key_id)
+            del lines[key_indices[key_id]]
 
             with open(auth_keys_path, 'w') as f:
-                f.writelines(other_lines + key_lines)
+                f.writelines(lines)
 
             return {'success': True, 'message': 'SSH key removed'}
 
