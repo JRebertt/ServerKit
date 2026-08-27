@@ -94,3 +94,36 @@ jobs:
         # to debug a red shard locally.
         working-directory: backend
         run: python -m pytest tests -v --splits 4 --group ${{ matrix.group }}
+
+  # The @real_binaries leg (plan 82 §E): the same service code the shards run
+  # against fake_subprocess meets the REAL parsers here — the panel's
+  # generated crontab text goes through `crontab -`/`crontab -l`, and every
+  # rendered vhost flavor through `nginx -t`. This is the class of bug the
+  # #117 cron fix taught us write-only assertions cannot see. The tests skip
+  # themselves everywhere unless SERVERKIT_REAL_BINARIES=1, so the shards
+  # above never mutate a runner's crontab by surprise.
+  real-binaries:
+    name: real binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install nginx and cron
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq nginx-core cron
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run real-binaries tests
+        working-directory: backend
+        env:
+          SERVERKIT_REAL_BINARIES: '1'
+        run: python -m pytest tests -m real_binaries -v
