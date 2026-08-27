@@ -366,11 +366,25 @@ class WafService:
             content,
         )
 
-        # Insert right after the first "server {".
-        match = re.search(r'server\s*\{', cleaned)
-        if not match:
+        # Insert into the first server block that actually serves the app.
+        # On an SSL vhost the file opens with the HTTP->HTTPS redirect block
+        # (SSL_REDIRECT_TEMPLATE) — wiring the WAF there would protect only
+        # the redirect and leave the real HTTPS server uncovered, so skip
+        # redirect-only blocks (a 301 return and nothing served).
+        starts = list(re.finditer(r'server\s*\{', cleaned))
+        if not starts:
             return {'success': False, 'error': 'no server block found in vhost'}
-        idx = match.end()
+        idx = None
+        for pos, match in enumerate(starts):
+            end = starts[pos + 1].start() if pos + 1 < len(starts) else len(cleaned)
+            body = cleaned[match.end():end]
+            redirect_only = (re.search(r'return\s+301\b', body)
+                             and not re.search(r'\b(location|proxy_pass|root|try_files)\b', body))
+            if not redirect_only:
+                idx = match.end()
+                break
+        if idx is None:
+            idx = starts[0].end()
         new_content = cleaned[:idx] + '\n' + include_line + cleaned[idx:]
 
         return cls._write_file(vhost_path, new_content)
