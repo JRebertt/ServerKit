@@ -202,14 +202,44 @@ mailbox_size_limit = 0
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    @staticmethod
+    def _mentions_domain(line: str, domain: str) -> bool:
+        """True when any address token on the map line is at exactly *domain*.
+
+        Token-suffix match, not substring: removing example.com must not
+        also delete lines for example.com.br, and sub.example.com entries
+        must survive removing example.com."""
+        suffix = '@' + domain.lower()
+        return any(token.endswith(suffix)
+                   for token in re.split(r'[\s,]+', line.lower()))
+
+    @classmethod
+    def _append_map_entry(cls, path: str, entry: str) -> None:
+        """Append one map entry, guarding against a file whose last line is
+        missing its newline — tee -a would glue the entry onto that line,
+        corrupting both and making them unmatchable on removal."""
+        result = run_privileged(['cat', path])
+        content = result.stdout or ''
+        if content and not content.endswith('\n'):
+            entry = '\n' + entry
+        write_privileged_file(path, entry, append=True)
+
     @classmethod
     def add_domain(cls, domain: str) -> Dict:
         """Add a domain to the virtual domains map."""
         try:
             result = run_privileged(['cat', cls.VIRTUAL_DOMAINS_FILE])
             content = result.stdout or ''
-            if domain not in content:
-                write_privileged_file(cls.VIRTUAL_DOMAINS_FILE, f'{domain} OK\n', append=True)
+            # Dedupe on the line's domain field, not a raw substring — with
+            # sub.example.com already mapped, adding example.com used to
+            # no-op while still reporting success.
+            existing = {line.split()[0].lower()
+                        for line in content.splitlines() if line.split()}
+            if domain.lower() not in existing:
+                entry = f'{domain} OK\n'
+                if content and not content.endswith('\n'):
+                    entry = '\n' + entry
+                write_privileged_file(cls.VIRTUAL_DOMAINS_FILE, entry, append=True)
                 run_privileged(['postmap', cls.VIRTUAL_DOMAINS_FILE])
                 run_privileged(['postfix', 'reload'])
             return {'success': True}
@@ -225,15 +255,18 @@ mailbox_size_limit = 0
             write_privileged_file(cls.VIRTUAL_DOMAINS_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_DOMAINS_FILE])
 
-            # Also remove mailboxes for this domain
+            # Also remove mailboxes for this domain (address-token match, so
+            # user@example.com.br mailboxes survive removing example.com)
             result = run_privileged(['cat', cls.VIRTUAL_MAILBOXES_FILE])
-            lines = [l for l in (result.stdout or '').splitlines() if not l.endswith(f'@{domain}') and f'@{domain} ' not in l]
+            lines = [l for l in (result.stdout or '').splitlines()
+                     if not cls._mentions_domain(l, domain)]
             write_privileged_file(cls.VIRTUAL_MAILBOXES_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_MAILBOXES_FILE])
 
             # Remove aliases for this domain
             result = run_privileged(['cat', cls.VIRTUAL_ALIASES_FILE])
-            lines = [l for l in (result.stdout or '').splitlines() if f'@{domain}' not in l]
+            lines = [l for l in (result.stdout or '').splitlines()
+                     if not cls._mentions_domain(l, domain)]
             write_privileged_file(cls.VIRTUAL_ALIASES_FILE, '\n'.join(lines) + '\n')
             run_privileged(['postmap', cls.VIRTUAL_ALIASES_FILE])
 
@@ -247,7 +280,7 @@ mailbox_size_limit = 0
         """Add a mailbox to the virtual mailbox map."""
         try:
             mailbox_path = f'{domain}/{username}/Maildir/'
-            write_privileged_file(cls.VIRTUAL_MAILBOXES_FILE, f'{email} {mailbox_path}\n', append=True)
+            cls._append_map_entry(cls.VIRTUAL_MAILBOXES_FILE, f'{email} {mailbox_path}\n')
             run_privileged(['postmap', cls.VIRTUAL_MAILBOXES_FILE])
             run_privileged(['postfix', 'reload'])
             return {'success': True}
@@ -271,7 +304,7 @@ mailbox_size_limit = 0
     def add_alias(cls, source: str, destination: str) -> Dict:
         """Add a virtual alias."""
         try:
-            write_privileged_file(cls.VIRTUAL_ALIASES_FILE, f'{source} {destination}\n', append=True)
+            cls._append_map_entry(cls.VIRTUAL_ALIASES_FILE, f'{source} {destination}\n')
             run_privileged(['postmap', cls.VIRTUAL_ALIASES_FILE])
             run_privileged(['postfix', 'reload'])
             return {'success': True}
