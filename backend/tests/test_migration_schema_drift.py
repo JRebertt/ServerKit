@@ -26,6 +26,18 @@ IGNORED_TABLES = {
     'sqlite_sequence',   # sqlite AUTOINCREMENT bookkeeping
 }
 
+# Extension-owned tables (``ext_<slug>_*`` per extension_lifecycle) are
+# created at plugin install and dropped on uninstall --purge — core Alembic
+# migrations never touch them. Any test that imports a plugin's models
+# (test_extension_platform's synthetic testext, the builtin analytics
+# extension) leaves them on the shared db.metadata for the whole process,
+# so the comparison must exclude the namespace, not chase individual names.
+EXTENSION_TABLE_PREFIX = 'ext_'
+
+
+def _ignored(table):
+    return table in IGNORED_TABLES or table.startswith(EXTENSION_TABLE_PREFIX)
+
 
 def _migrated_schema(db_file):
     con = sqlite3.connect(db_file)
@@ -34,7 +46,7 @@ def _migrated_schema(db_file):
         rows = con.execute(
             "SELECT name FROM sqlite_master WHERE type='table'").fetchall()
         for (table,) in rows:
-            if table in IGNORED_TABLES:
+            if _ignored(table):
                 continue
             cols = {row[1] for row in
                     con.execute(f'PRAGMA table_info("{table}")')}
@@ -66,7 +78,7 @@ def test_upgrade_head_matches_models(app, tmp_path):
     models = {
         table.name: {c.name for c in table.columns}
         for table in db.metadata.tables.values()
-        if table.name not in IGNORED_TABLES
+        if not _ignored(table.name)
     }
 
     problems = []
