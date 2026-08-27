@@ -14,6 +14,15 @@ from app.utils.system import (
     run_privileged,
 )
 
+# One parser for `ufw status numbered` rows, shared by the rule listing and
+# the SSH-removal guard. The two used to disagree (the listing omitted
+# LIMIT), so `ufw limit` rules were invisible in the panel's table while the
+# guard still counted them — and delete-by-number then targeted rows the
+# user could not see. Groups: number, to, action, direction, from.
+_UFW_NUMBERED_RE = re.compile(
+    r'^\[\s*(\d+)\]\s+(.+?)\s+(ALLOW|DENY|REJECT|LIMIT)(?:\s+(IN|OUT))?\s*(.*)$'
+)
+
 
 class FirewallService:
     """Service for managing firewall (firewalld or ufw)."""
@@ -467,7 +476,7 @@ class FirewallService:
 
             for line in lines:
                 # Parse rules like: [ 1] 22/tcp ALLOW IN Anywhere
-                match = re.match(r'\[\s*(\d+)\]\s+(.+?)\s+(ALLOW|DENY|REJECT)\s+(IN|OUT)?\s*(.+)?', line)
+                match = _UFW_NUMBERED_RE.match(line.strip())
                 if match:
                     rules.append({
                         'number': int(match.group(1)),
@@ -670,18 +679,15 @@ class FirewallService:
         if result.returncode != 0:
             return rules
 
-        pattern = re.compile(
-            r'^\[\s*(\d+)\]\s+(.+?)\s+(ALLOW|DENY|REJECT|LIMIT)(?:\s+(?:IN|OUT))?\s*(.*)$'
-        )
         for line in (result.stdout or '').splitlines():
-            match = pattern.match(line.strip())
+            match = _UFW_NUMBERED_RE.match(line.strip())
             if not match:
                 continue
             rules.append({
                 'number': int(match.group(1)),
                 'to': match.group(2).strip(),
                 'action': match.group(3).upper(),
-                'from': (match.group(4) or '').strip(),
+                'from': (match.group(5) or '').strip(),
             })
         return rules
 
