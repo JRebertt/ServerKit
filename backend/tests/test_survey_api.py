@@ -7,15 +7,12 @@ gates dispatch.
 Reconstructed for plan 42 Phase 1 from the fragmented ``test_survey_api`` pyc +
 the surviving ``survey_service`` / ``app/api/survey.py``.
 
-HOLLOW-FEATURE FINDINGS (reported to the orchestrator):
-  1. The survey REST blueprint (``survey_bp`` in ``app/api/survey.py``) is defined
-     but NEVER registered in ``app/__init__.py`` — every ``/api/v1/servers/...``
-     survey route 404s. The recovery rebuild dropped the blueprint registration.
-     The business logic (``survey_service``) survived, so the honest-degrade /
-     happy / catalog / diff paths are exercised at the SERVICE layer below.
-  2. The Observed-mode surface (``Server.management_mode`` / ``is_managed`` /
-     ``MANAGEMENT_MODES``) referenced by ``survey.py`` was NOT restored on the
-     ``Server`` model, so the management-mode tests are skipped with a reason.
+Post-loss recovery status: the survey blueprint registration came back via
+core_blueprints, and the Observed-mode surface (``Server.management_mode`` /
+``allow_agent_update_observed`` / ``MANAGEMENT_MODES`` / ``is_managed`` /
+``agent_registry.observed_blocked_count``) was restored by plan 82 §D after
+the migration↔model drift gate exposed it — see the section at the bottom.
+The dispatch-level Observe guard remains hollow (plan 82 §H).
 """
 import pytest
 
@@ -114,27 +111,73 @@ def test_diff_maps_reports_removed_service(app):
     assert 'nginx' in removed
 
 
-# --- HOLLOW: Observed-mode surface lost in the recovery rebuild ------------- #
-
-@pytest.mark.skip(reason="plan 42: hollow — Server.is_managed lost in recovery "
-                         "rebuild (plan 27/31 Observed mode column gone)")
-def test_is_managed_property():
-    pass
-
-
-@pytest.mark.skip(reason="plan 42: hollow — Server.management_mode / MANAGEMENT_MODES "
-                         "lost + survey_bp unregistered (plan 27/31)")
-def test_switch_management_mode():
-    pass
+# --- Observed-mode surface (restored by plan 82 §D) ------------------------- #
+# The migration↔model drift gate (test_migration_schema_drift) surfaced that
+# migrations 065/068 carried servers.management_mode /
+# allow_agent_update_observed while the model fields, MANAGEMENT_MODES,
+# is_managed and the registry counter were lost in the recovery rebuild —
+# leaving these routes raising AttributeError. The model surface is back;
+# NOTE the dispatch-level Observe guard is still hollow (plan 82 §H), so
+# observed_blocked_count only counts explicitly recorded blocks.
 
 
-@pytest.mark.skip(reason="plan 42: hollow — Server.management_mode lost; mode-validation "
-                         "branch unreachable + survey_bp unregistered (plan 27/31)")
-def test_switch_management_mode_rejects_bad_value():
-    pass
+def test_is_managed_property(app):
+    from app import db
+    s = _mk_server(db)
+    assert s.management_mode == 'managed'
+    assert s.is_managed is True
+    s.management_mode = 'observed'
+    assert s.is_managed is False
 
 
-@pytest.mark.skip(reason="plan 42: hollow — Server.to_dict no longer emits management "
-                         "mode (plan 27/31 column gone)")
-def test_server_to_dict_includes_mode():
-    pass
+def test_switch_management_mode(app, client):
+    from app import db
+    from app.models.server import Server
+    from factories import make_user, headers_for
+    with app.app_context():
+        server_id = _mk_server(db).id
+        admin_headers = headers_for(make_user(db, role='admin'))
+
+    res = client.post(f'/api/v1/servers/{server_id}/management-mode',
+                      json={'mode': 'observed',
+                            'allow_agent_update_observed': True},
+                      headers=admin_headers)
+    assert res.status_code == 200, res.get_json()
+    body = res.get_json()
+    assert body['management_mode'] == 'observed'
+    assert body['allow_agent_update_observed'] is True
+    assert body['observed_blocked_count'] == 0
+
+    # The flip must PERSIST — before the columns were restored, the
+    # assignment landed on a transient Python attribute and evaporated.
+    with app.app_context():
+        db.session.expire_all()
+        stored = Server.query.get(server_id)
+        assert stored.management_mode == 'observed'
+        assert stored.allow_agent_update_observed is True
+
+    res = client.get(f'/api/v1/servers/{server_id}/observed-status',
+                     headers=admin_headers)
+    assert res.status_code == 200
+    assert res.get_json()['management_mode'] == 'observed'
+
+
+def test_switch_management_mode_rejects_bad_value(app, client):
+    from app import db
+    from factories import make_user, headers_for
+    with app.app_context():
+        server_id = _mk_server(db).id
+        admin_headers = headers_for(make_user(db, role='admin'))
+
+    res = client.post(f'/api/v1/servers/{server_id}/management-mode',
+                      json={'mode': 'yolo'}, headers=admin_headers)
+    assert res.status_code == 400
+    assert 'mode must be one of' in res.get_json()['error']
+
+
+def test_server_to_dict_includes_mode(app):
+    from app import db
+    s = _mk_server(db)
+    d = s.to_dict()
+    assert d['management_mode'] == 'managed'
+    assert d['allow_agent_update_observed'] is False

@@ -151,6 +151,12 @@ class AgentRegistry:
 
         # Connected agents by server_id
         self._agents: Dict[str, ConnectedAgent] = {}
+        # Commands refused by the Observe guard per server (plan 31 #11's
+        # "blocked N commands" counter). In-memory like all registry state —
+        # single-worker by architecture. The dispatch-level guard itself is
+        # still hollow post-loss (plan 82 §H); until it is restored the
+        # counter only grows where callers record blocks explicitly.
+        self._observed_blocks: Dict[str, int] = {}
         # Socket ID to server ID mapping
         self._socket_to_server: Dict[str, str] = {}
         # Lock for thread safety
@@ -475,6 +481,17 @@ class AgentRegistry:
         """Get list of connected server IDs"""
         with self._lock:
             return list(self._agents.keys())
+
+    def record_observed_block(self, server_id: str) -> None:
+        """Count one command refused because the server is observed."""
+        with self._lock:
+            self._observed_blocks[server_id] = (
+                self._observed_blocks.get(server_id, 0) + 1)
+
+    def observed_blocked_count(self, server_id: str) -> int:
+        """Commands the Observe guard refused for this server (plan 31 #11)."""
+        with self._lock:
+            return self._observed_blocks.get(server_id, 0)
 
     # ==================== Heartbeat ====================
 
