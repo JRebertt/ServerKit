@@ -110,6 +110,8 @@ def create_app(config_name=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    # Storage backend comes from app.config's RATELIMIT_STORAGE_URI when set
+    # (see config.py); unset = in-memory, correct for the single-worker design.
     limiter.init_app(app)
 
     # SQLite concurrency tuning: the queue-bus consumers, job system and
