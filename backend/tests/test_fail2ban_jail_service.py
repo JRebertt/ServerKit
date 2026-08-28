@@ -247,3 +247,87 @@ def test_wp_security_brute_force_handles_missing_application(wp_extension_packag
     site = types.SimpleNamespace(application=None)
     assert WpSecurityService.set_brute_force(site, True)['success'] is False
     assert WpSecurityService.get_brute_force(site)['no_application'] is True
+
+
+# ---------- rename orphans: list_jails + cleanup_orphans (plan 82 §F.2) ----- #
+# The jail filename derives from the site name at ENABLE time. Rename the
+# site and disable_jail() derives a path that no longer exists — it honestly
+# reports removed: False, but the stale jail keeps banning against a log
+# nginx no longer writes. list_jails() (directory scan) + cleanup_orphans()
+# are the recovery path these tests pin.
+
+def _write_jail(jail_dir, key, site=None):
+    jail = F2B.jail_name_for_key(key)
+    content = F2B._render_jail_config(
+        jail=jail, site=site or key, filter_name=F2B._sanitize(F2B.WP_FILTER),
+        logpath=f'/var/log/nginx/{key}.access.log',
+        maxretry=None, findtime=None, bantime=None)
+    (jail_dir / f'{jail}.conf').write_text(content)
+    return jail
+
+
+def test_rename_orphans_jail_and_disable_reports_not_removed(tmp_path, monkeypatch):
+    monkeypatch.setattr(F2B, 'JAIL_DIR', str(tmp_path))
+    _write_jail(tmp_path, 'myshop')
+
+    with patch.object(F2B, 'available', return_value=True):
+        res = F2B.disable_jail(_app('shop'))  # renamed since enable
+
+    assert res['success'] is True and res['removed'] is False
+    # ...and the stale jail is still on disk, visible only to the scan:
+    assert [j['jail'] for j in F2B.list_jails()] == ['serverkit-myshop']
+
+
+def test_list_jails_parses_site_and_logpath(tmp_path, monkeypatch):
+    monkeypatch.setattr(F2B, 'JAIL_DIR', str(tmp_path))
+    _write_jail(tmp_path, 'myshop', site='My Shop')
+    (tmp_path / 'operator-own.conf').write_text('[sshd]\n')  # not ours: ignored
+
+    jails = F2B.list_jails()
+    assert len(jails) == 1
+    assert jails[0]['site'] == 'My Shop'
+    assert jails[0]['logpath'] == '/var/log/nginx/myshop.access.log'
+
+
+def test_cleanup_orphans_removes_only_derelict_serverkit_jails(tmp_path, monkeypatch):
+    monkeypatch.setattr(F2B, 'JAIL_DIR', str(tmp_path))
+    _write_jail(tmp_path, 'live-site')
+    _write_jail(tmp_path, 'renamed-away')
+    (tmp_path / 'operator-own.conf').write_text('[sshd]\n')
+
+    def fake_rm(cmd, **kwargs):
+        assert cmd[:2] == ['rm', '-f']
+        os.remove(cmd[2])
+        return _ok()
+
+    with patch.object(F2B, 'available', return_value=True), \
+            patch.object(F2B, 'reload', return_value={'success': True}), \
+            patch('app.services.fail2ban_jail_service.run_privileged', side_effect=fake_rm):
+        res = F2B.cleanup_orphans(['live-site', 'other-live'])
+
+    assert res['success'] is True
+    assert res['removed'] == ['serverkit-renamed-away']
+    assert (tmp_path / 'serverkit-live-site.conf').exists()
+    assert (tmp_path / 'operator-own.conf').exists()  # never touched
+
+
+def test_cleanup_orphans_no_orphans_no_reload(tmp_path, monkeypatch):
+    monkeypatch.setattr(F2B, 'JAIL_DIR', str(tmp_path))
+    _write_jail(tmp_path, 'live-site')
+
+    with patch.object(F2B, 'available', return_value=True), \
+            patch.object(F2B, 'reload') as rel:
+        res = F2B.cleanup_orphans(['live-site'])
+
+    assert res['success'] is True and res['removed'] == []
+    rel.assert_not_called()
+
+
+def test_sanitize_collision_is_a_shared_jail_documented(tmp_path, monkeypatch):
+    """'my.site' and 'my site' collapse to the same key, so two such sites
+    SHARE one jail file — last enable wins its thresholds/logpath, and
+    disabling either removes the other's protection. Pinned here as known
+    behavior: changing the derivation would orphan every existing install's
+    jail files, so the cure is worse than the disease. Renames/collisions
+    are handled operationally via list_jails + cleanup_orphans."""
+    assert F2B.jail_name_for_key('my.site') == F2B.jail_name_for_key('my site')

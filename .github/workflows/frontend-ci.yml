@@ -9,9 +9,12 @@ name: Frontend CI
 #   check-theme-tokens    the theme-token whitelist stays in 3-way sync
 #   check-html-sinks      every raw-HTML sink is sanitized or annotated (XSS)
 #
-# Only `npm run lint` runs here. The frontend is already COMPILED in CI by
-# Release Build Smoke Test, whose scripts/build-release.sh does `npm ci &&
-# npm run build` — adding a build job here would just duplicate that.
+# `npm run lint` and `npm test` run here. The test suite (`node --test`,
+# 141 assertions over pure-logic modules) sat invocable-but-uninvoked the
+# same way lint once did — written insurance no workflow cashed in. The
+# frontend is already COMPILED in CI by Release Build Smoke Test, whose
+# scripts/build-release.sh does `npm ci && npm run build` — adding a build
+# job here would just duplicate that.
 #
 # backend/app/** is in the paths because check-html-sinks scans it too (for
 # `|safe`, `Markup(`, `render_template_string`), so a backend-only commit can
@@ -56,3 +59,7 @@ jobs:
         # add --max-warnings=<N> here rather than mass-fixing in one commit.
         working-directory: frontend
         run: npm run lint
+      - name: Unit tests
+        # node --test over src/**/__tests__ — pure-logic modules, no jsdom.
+        working-directory: frontend
+        run: npm test

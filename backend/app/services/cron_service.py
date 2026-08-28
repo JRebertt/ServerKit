@@ -30,6 +30,11 @@ SHIM_PATH = os.path.join(
 
 _UNSET = object()
 
+# Marker comment written above every ServerKit-managed crontab line. The first
+# token after the colon is the job's metadata id — the id, not the display
+# name, is what lets list/edit/delete find the line again (#117).
+_MARKER_RE = re.compile(r'^#\s*ServerKit Job:\s*(\S+)')
+
 
 def _auto_capture_cron(action):
     """Best-effort local CRON checkpoint without burdening utility callers.
@@ -179,23 +184,52 @@ class CronService:
             try:
                 # Get current user's crontab
                 current = cls._read_crontab()
+                meta_jobs = metadata.get('jobs', {})
+                matched_ids = set()
 
                 if current is not None:
                     lines = current.strip().split('\n')
+                    # Id carried over from a "# ServerKit Job: <id>" marker
+                    # comment to the job line right below it (#117).
+                    pending_id = None
                     for i, line in enumerate(lines):
                         line = line.strip()
-                        # Skip empty lines and comments
-                        if not line or line.startswith('#'):
+                        if not line:
+                            pending_id = None
+                            continue
+                        if line.startswith('#'):
+                            marker = _MARKER_RE.match(line)
+                            pending_id = marker.group(1) if marker else None
                             continue
 
                         # Parse cron line
                         job = cls._parse_cron_line(line, i)
                         if job:
-                            # Add metadata if available
-                            job_id = job.get('id', str(i))
-                            if job_id in metadata.get('jobs', {}):
-                                job.update(metadata['jobs'][job_id])
+                            # Join the crontab line back to its metadata: by the
+                            # marker comment's id, or — for lines written before
+                            # the marker carried the id (#117) — by matching
+                            # schedule + command against the metadata store.
+                            job_id = pending_id if pending_id in meta_jobs else None
+                            if job_id is None:
+                                job_id = cls._find_metadata_match(
+                                    meta_jobs, job['schedule'], job['command'],
+                                    exclude=matched_ids)
+                            if job_id is not None:
+                                job.update(meta_jobs[job_id])
+                                job['id'] = job_id
+                                job['source'] = 'serverkit'
+                                matched_ids.add(job_id)
                             jobs.append(job)
+                        pending_id = None
+
+                # Metadata-only jobs: disabled ones (their crontab line is
+                # commented out, so the scan above never sees them) and jobs
+                # whose line was removed by hand. Listing them keeps them
+                # editable/deletable from the panel.
+                for job_id, job_data in meta_jobs.items():
+                    if job_id not in matched_ids:
+                        jobs.append({'id': job_id, **job_data,
+                                     'source': 'serverkit'})
 
             except subprocess.SubprocessError as e:
                 return {'success': False, 'error': str(e), 'jobs': []}
@@ -251,6 +285,46 @@ class CronService:
             'enabled': True,
             'description': cls._describe_schedule(schedule),
             'source': 'crontab'
+        }
+
+    @classmethod
+    def _find_metadata_match(cls, meta_jobs: Dict, schedule: str,
+                             command: str, exclude=()) -> Optional[str]:
+        """Metadata id for a crontab line, matched by schedule + command.
+
+        Fallback join for lines whose marker comment predates carrying the id
+        (#117). Matches the bare command or its serverkit-cron-run wrapped
+        form. `exclude` holds ids already claimed by earlier lines so two
+        identical entries can't collapse onto one."""
+        for job_id, data in meta_jobs.items():
+            if job_id in exclude or data.get('schedule') != schedule:
+                continue
+            bare = data.get('command', '')
+            if not bare:
+                continue
+            if command == bare or command.endswith(f"{SHIM_PATH} {job_id} -- {bare}"):
+                return job_id
+        return None
+
+    @classmethod
+    def _line_is_job(cls, line: str, schedule: str, command: str,
+                     job_id: str) -> bool:
+        """Is this crontab line the given job's entry (bare or shim-wrapped,
+        active or commented out)?"""
+        if not (schedule and command and job_id):
+            return False
+
+        cleaned = line.strip()
+        if cleaned.startswith('#'):
+            cleaned = cleaned[1:].lstrip()
+        parsed = cls._parse_cron_line(cleaned, 0)
+        if not parsed or parsed['schedule'] != schedule:
+            return False
+
+        return parsed['command'] in {
+            command,
+            f"{SHIM_PATH} {job_id} -- {command}",
+            cls._crontab_command(command, True, job_id),
         }
 
     @classmethod
@@ -357,8 +431,16 @@ class CronService:
         if cls.is_linux():
             current_crontab = cls._read_crontab() or ''
 
-            # Add comment and new job
-            comment = f"# ServerKit Job: {name or job_id}"
+            # Marker comment + new job. The comment must carry the job_id —
+            # it is the join key list/edit/delete use to find this line again;
+            # writing the display name instead orphaned the job (#117). The
+            # name rides along for `crontab -e` readability, newline-stripped
+            # so user input can't inject crontab lines.
+            comment = f"# ServerKit Job: {job_id}"
+            if name:
+                clean_name = re.sub(r'\s+', ' ', str(name)).strip()
+                if clean_name:
+                    comment += f" ({clean_name})"
             new_line = f"{schedule} {command}"
             new_crontab = f"{current_crontab.rstrip()}\n{comment}\n{new_line}\n"
 
@@ -407,7 +489,11 @@ class CronService:
                 command = job_data.get('command', '')
                 schedule = job_data.get('schedule', '')
 
-                # Filter out the job and its comment
+                # Filter out the job and its marker comment. The line is
+                # matched bare or shim-wrapped (tracked jobs, #117); when a
+                # legacy marker comment carries the name instead of the id,
+                # dropping the comment sitting right above the removed line
+                # keeps it from being orphaned.
                 new_lines = []
                 skip_next = False
                 for line in lines:
@@ -417,7 +503,9 @@ class CronService:
                     if f"# ServerKit Job:" in line and job_id in line:
                         skip_next = True
                         continue
-                    if command and schedule and f"{schedule} {command}" in line:
+                    if cls._line_is_job(line, schedule, command, job_id):
+                        if new_lines and _MARKER_RE.match(new_lines[-1].strip()):
+                            new_lines.pop()
                         continue
                     new_lines.append(line)
 
@@ -449,11 +537,10 @@ class CronService:
                 lines = current.split('\n')
                 command = job_data.get('command', '')
                 schedule = job_data.get('schedule', '')
-                job_line = f"{schedule} {command}"
 
                 new_lines = []
                 for line in lines:
-                    if job_line in line:
+                    if cls._line_is_job(line, schedule, command, job_id):
                         if enabled:
                             # Remove leading # if present
                             new_lines.append(line.lstrip('# '))

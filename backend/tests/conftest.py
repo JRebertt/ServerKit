@@ -109,6 +109,17 @@ def pytest_configure(config):
         'STRUCTURE — Flask cannot unregister a blueprint or a url rule, so such '
         'a mutation would leak into every later test on a shared app.',
     )
+    config.addinivalue_line(
+        'markers',
+        'real_binaries: run service code against the REAL system binaries '
+        '(crontab, nginx -t, ...) instead of the fake_subprocess stub — the '
+        'leg that catches what write-only assertions cannot (plan 82 §E). '
+        'These tests mutate real system state (e.g. the invoking user\'s '
+        'crontab, with backup/restore), so they additionally skip unless '
+        'SERVERKIT_REAL_BINARIES=1: select with '
+        '`SERVERKIT_REAL_BINARIES=1 pytest tests -m real_binaries` on Linux '
+        '(WSL works) or in CI\'s real-binaries job.',
+    )
 
 
 @pytest.fixture(autouse=True)

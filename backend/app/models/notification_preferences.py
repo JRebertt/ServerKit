@@ -48,6 +48,14 @@ class NotificationPreferences(TimestampMixin, JsonColumnMixin, db.Model):
     digest_cadence = db.Column(db.String(12), default='off')
     digest_last_sent_at = db.Column(db.DateTime, nullable=True)
 
+    # Per-event channel overrides (plan 24 Phase 2):
+    # {"<event_key>": {"<channel>": bool}}. The resolution/catalog surface was
+    # lost in the 2026-07 data loss; the column stays mapped so migration
+    # 059's data survives and the schema matches the migrations
+    # (test_migration_schema_drift) until the feature is rebuilt.
+    events_json = db.Column(db.Text, nullable=True, default='{}',
+                            server_default='{}')
+
     # Quiet hours (don't send non-critical notifications during these hours)
     quiet_hours_enabled = db.Column(db.Boolean, default=False)
     quiet_hours_start = db.Column(db.String(5), default='22:00')  # HH:MM format

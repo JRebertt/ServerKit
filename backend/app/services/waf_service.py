@@ -344,19 +344,19 @@ class WafService:
         return None
 
     @classmethod
-    def _inject_include(cls, vhost_path: str, include_path: str) -> Dict:
-        """Idempotently add ``include <include_path>;`` into the first server block.
+    def include_path_for(cls, application_id: int) -> str:
+        """The nginx include file wired into this app's vhost."""
+        return os.path.join(WAF_RULES_DIR, f'app-{application_id}.include.conf')
 
-        Guarded by ``_INCLUDE_MARKER`` so repeated applies don't duplicate the
-        line, and we replace any prior serverkit-waf include for this app rather
-        than stacking. Never touches anything outside the inserted line.
+    @classmethod
+    def inject_include_text(cls, content: str, include_path: str) -> Optional[str]:
+        """``content`` with ``include <include_path>;`` idempotently wired into
+        the serving server block, or None when no server block exists.
+
+        Text-level so the live wiring (_inject_include) and drift's expected
+        render (drift_service._nginx_render_expected) share one injector — two
+        copies is how the expected file and the real file learn to disagree.
         """
-        try:
-            with open(vhost_path, 'r') as fh:
-                content = fh.read()
-        except OSError as e:
-            return {'success': False, 'error': f'cannot read vhost: {e}'}
-
         include_line = f'    {_INCLUDE_MARKER}\n    include {include_path};'
 
         # Drop any existing serverkit-waf include line(s) first (idempotent).
@@ -366,12 +366,40 @@ class WafService:
             content,
         )
 
-        # Insert right after the first "server {".
-        match = re.search(r'server\s*\{', cleaned)
-        if not match:
+        # Insert into the first server block that actually serves the app.
+        # On an SSL vhost the file opens with the HTTP->HTTPS redirect block
+        # (SSL_REDIRECT_TEMPLATE) — wiring the WAF there would protect only
+        # the redirect and leave the real HTTPS server uncovered, so skip
+        # redirect-only blocks (a 301 return and nothing served).
+        starts = list(re.finditer(r'server\s*\{', cleaned))
+        if not starts:
+            return None
+        idx = None
+        for pos, match in enumerate(starts):
+            end = starts[pos + 1].start() if pos + 1 < len(starts) else len(cleaned)
+            body = cleaned[match.end():end]
+            redirect_only = (re.search(r'return\s+301\b', body)
+                             and not re.search(r'\b(location|proxy_pass|root|try_files)\b', body))
+            if not redirect_only:
+                idx = match.end()
+                break
+        if idx is None:
+            idx = starts[0].end()
+        return cleaned[:idx] + '\n' + include_line + cleaned[idx:]
+
+    @classmethod
+    def _inject_include(cls, vhost_path: str, include_path: str) -> Dict:
+        """Idempotently add ``include <include_path>;`` into the serving
+        server block of the vhost file at ``vhost_path``."""
+        try:
+            with open(vhost_path, 'r') as fh:
+                content = fh.read()
+        except OSError as e:
+            return {'success': False, 'error': f'cannot read vhost: {e}'}
+
+        new_content = cls.inject_include_text(content, include_path)
+        if new_content is None:
             return {'success': False, 'error': 'no server block found in vhost'}
-        idx = match.end()
-        new_content = cleaned[:idx] + '\n' + include_line + cleaned[idx:]
 
         return cls._write_file(vhost_path, new_content)
 
@@ -397,7 +425,7 @@ class WafService:
             policy = cls.get_or_create_policy(application_id)
 
         rules_path = os.path.join(WAF_RULES_DIR, f'app-{application_id}.conf')
-        include_path = os.path.join(WAF_RULES_DIR, f'app-{application_id}.include.conf')
+        include_path = cls.include_path_for(application_id)
 
         rules = cls.render_rules(policy)
         snippet = cls.nginx_snippet(policy, rules_path)

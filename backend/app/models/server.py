@@ -111,6 +111,24 @@ class Server(TimestampMixin, JsonColumnMixin, db.Model):
     auto_upgrade = db.Column(db.Boolean, default=False)
     upgrade_channel = db.Column(db.String(20), default='stable')  # stable, beta
 
+    # Managed vs observed (plan 27 D1, plan 31 #10). Migrations 065/068 have
+    # always carried these columns; the model fields and MANAGEMENT_MODES were
+    # lost in the 2026-07 data loss, which left the survey management-mode
+    # routes raising AttributeError (restored via plan 82's migration↔model
+    # drift gate). Observed boxes refuse mutating agent commands;
+    # allow_agent_update_observed is the explicit break-glass that still
+    # permits agent:update on an observed box.
+    MANAGEMENT_MODES = ('managed', 'observed')
+    management_mode = db.Column(db.String(16), nullable=False,
+                                default='managed', server_default='managed')
+    allow_agent_update_observed = db.Column(db.Boolean, nullable=False,
+                                            default=False, server_default='0')
+
+    @property
+    def is_managed(self):
+        """False only for observed boxes (plan 27 D1)."""
+        return (self.management_mode or 'managed') != 'observed'
+
     # System Info (reported by agent)
     os_type = db.Column(db.String(20))  # linux, windows, darwin
     os_version = db.Column(db.String(100))
@@ -440,6 +458,8 @@ class Server(TimestampMixin, JsonColumnMixin, db.Model):
             'status': self.status,
             'last_seen': self.last_seen.isoformat() if self.last_seen else None,
             'last_error': self.last_error,
+            'management_mode': self.management_mode or 'managed',
+            'allow_agent_update_observed': bool(self.allow_agent_update_observed),
             'onboarding_state': self.onboarding_state,
             'onboarding_updated_at': self.onboarding_updated_at.isoformat() if self.onboarding_updated_at else None,
             'agent_version': self.agent_version,

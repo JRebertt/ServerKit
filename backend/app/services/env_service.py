@@ -448,6 +448,16 @@ class EnvService:
         return count, errors
 
     @staticmethod
+    def _unescape_double_quoted(value):
+        """Reverse the escaping export_to_env_format applies inside double
+        quotes: \\\\ -> \\, \\" -> ", \\n -> newline. Unknown sequences stay
+        as written so hand-authored values like C:\\path are not mangled."""
+        return re.sub(
+            r'\\([\\"n])',
+            lambda m: '\n' if m.group(1) == 'n' else m.group(1),
+            value)
+
+    @staticmethod
     def parse_env_file(content):
         """
         Parse .env file content into a dictionary.
@@ -491,8 +501,11 @@ class EnvService:
                     current_key = key
                     current_value = value[1:]  # Remove opening quote
                 elif value.startswith('"') and value.endswith('"') and len(value) > 1:
-                    # Quoted value (single line)
-                    env_vars[key] = value[1:-1]
+                    # Quoted value (single line). Decode the escapes
+                    # export_to_env_format writes (\\, \", \n) so an
+                    # export → import cycle is lossless; any other
+                    # backslash sequence is left untouched.
+                    env_vars[key] = EnvService._unescape_double_quoted(value[1:-1])
                 elif value.startswith("'") and value.endswith("'") and len(value) > 1:
                     # Single-quoted value
                     env_vars[key] = value[1:-1]
@@ -535,18 +548,26 @@ class EnvService:
             if ev.is_secret and not include_secrets:
                 lines.append(f"# {ev.key}=<secret>")
             else:
-                value = ev.value
+                value = ev.value or ''
                 # Quote values that contain special characters
                 if any(c in value for c in [' ', '"', "'", '\n', '#', '$']):
-                    # Escape existing quotes and wrap in quotes
-                    value = value.replace('\\', '\\\\').replace('"', '\\"')
+                    # Escape quotes/backslashes and encode newlines so the
+                    # value stays on one line — parse_env_file reverses
+                    # exactly these three escapes on import.
+                    value = (value.replace('\\', '\\\\')
+                                  .replace('"', '\\"')
+                                  .replace('\n', '\\n'))
                     lines.append(f'{ev.key}="{value}"')
                 else:
                     lines.append(f"{ev.key}={value}")
 
-            # Add description as comment if present
+            # Add description as comment if present. Whitespace-collapsed so
+            # user text cannot break out of the comment and inject KEY=value
+            # lines into the re-import (same hardening as the cron marker).
             if ev.description:
-                lines[-1] = f"# {ev.description}\n" + lines[-1]
+                clean_desc = re.sub(r'\s+', ' ', str(ev.description)).strip()
+                if clean_desc:
+                    lines[-1] = f"# {clean_desc}\n" + lines[-1]
 
         return '\n'.join(lines)
 

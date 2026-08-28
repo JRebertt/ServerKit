@@ -10,6 +10,7 @@ Handles security scanning and monitoring:
 
 import os
 import json
+import shlex
 import subprocess
 import hashlib
 import threading
@@ -1027,6 +1028,37 @@ class SecurityService:
     # ==========================================
     SSH_DIR = '/root/.ssh'
     AUTHORIZED_KEYS = '/root/.ssh/authorized_keys'
+    SSH_KEY_TYPES = frozenset({
+        'ssh-rsa',
+        'ssh-ed25519',
+        'ecdsa-sha2-nistp256',
+        'ecdsa-sha2-nistp384',
+        'ecdsa-sha2-nistp521',
+    })
+
+    @classmethod
+    def _parse_ssh_public_key(cls, key_line: str) -> Optional[Dict[str, str]]:
+        """Return key fields from an authorized_keys line.
+
+        Existing entries may begin with restrictions such as ``from=`` or
+        ``command=``.  Splitting those lines at fixed indexes mistakes an
+        option for the key type and can miss duplicate key data, especially
+        when a quoted option contains spaces.
+        """
+        try:
+            parts = shlex.split(key_line, comments=False, posix=True)
+        except ValueError:
+            return None
+
+        for index, part in enumerate(parts[:-1]):
+            if part not in cls.SSH_KEY_TYPES:
+                continue
+            return {
+                'type': part,
+                'data': parts[index + 1],
+                'comment': ' '.join(parts[index + 2:]),
+            }
+        return None
 
     @classmethod
     def get_ssh_keys(cls, user: str = 'root') -> Dict:
@@ -1042,21 +1074,27 @@ class SecurityService:
         try:
             keys = []
             with open(auth_keys_path, 'r') as f:
-                for idx, line in enumerate(f):
+                # The id must index the same sequence remove_ssh_key pops
+                # from: non-blank, non-comment lines in file order. Numbering
+                # over raw file lines shifts every id past a comment banner,
+                # so delete-by-id would remove the wrong key.
+                key_idx = -1
+                for line in f:
                     line = line.strip()
                     if not line or line.startswith('#'):
                         continue
+                    key_idx += 1
 
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        key_type = parts[0]
-                        key_data = parts[1]
-                        comment = ' '.join(parts[2:]) if len(parts) > 2 else ''
+                    parsed = cls._parse_ssh_public_key(line)
+                    if parsed:
+                        key_type = parsed['type']
+                        key_data = parsed['data']
+                        comment = parsed['comment']
 
                         fingerprint = cls._get_key_fingerprint(line)
 
                         keys.append({
-                            'id': idx,
+                            'id': key_idx,
                             'type': key_type,
                             'fingerprint': fingerprint,
                             'comment': comment,
@@ -1089,7 +1127,7 @@ class SecurityService:
             return {'success': False, 'error': 'Key cannot be empty'}
 
         parts = key.split()
-        if len(parts) < 2 or parts[0] not in ['ssh-rsa', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521']:
+        if len(parts) < 2 or parts[0] not in cls.SSH_KEY_TYPES:
             return {'success': False, 'error': 'Invalid SSH key format'}
 
         if user == 'root':
@@ -1102,12 +1140,21 @@ class SecurityService:
         try:
             os.makedirs(ssh_dir, mode=0o700, exist_ok=True)
 
+            existing = ''
             if os.path.exists(auth_keys_path):
                 with open(auth_keys_path, 'r') as f:
-                    if key in f.read():
+                    existing = f.read()
+                # Compare the key-data token, not a raw substring: a key whose
+                # text happens to be contained in a longer line is not the
+                # same key.
+                for existing_line in existing.splitlines():
+                    parsed = cls._parse_ssh_public_key(existing_line)
+                    if parsed and parsed['data'] == parts[1]:
                         return {'success': False, 'error': 'Key already exists'}
 
             with open(auth_keys_path, 'a') as f:
+                if existing and not existing.endswith('\n'):
+                    f.write('\n')
                 f.write(key + '\n')
 
             os.chmod(auth_keys_path, 0o600)
@@ -1132,22 +1179,19 @@ class SecurityService:
             with open(auth_keys_path, 'r') as f:
                 lines = f.readlines()
 
-            key_lines = []
-            other_lines = []
-            for line in lines:
-                stripped = line.strip()
-                if stripped and not stripped.startswith('#'):
-                    key_lines.append(line)
-                else:
-                    other_lines.append(line)
+            # Same id space as get_ssh_keys: the nth non-blank, non-comment
+            # line. Delete it in place so comments/blank lines keep their
+            # position and the remaining ids stay stable.
+            key_indices = [i for i, line in enumerate(lines)
+                           if line.strip() and not line.strip().startswith('#')]
 
-            if key_id < 0 or key_id >= len(key_lines):
+            if key_id < 0 or key_id >= len(key_indices):
                 return {'success': False, 'error': 'Invalid key ID'}
 
-            key_lines.pop(key_id)
+            del lines[key_indices[key_id]]
 
             with open(auth_keys_path, 'w') as f:
-                f.writelines(other_lines + key_lines)
+                f.writelines(lines)
 
             return {'success': True, 'message': 'SSH key removed'}
 

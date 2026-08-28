@@ -198,6 +198,20 @@ jobs:
             bash scripts/test/test_release_workflow.sh
           '
 
+  # The probe-honesty integration legs (plan 75 §D) — real ufw/nginx/firewalld
+  # in 4 Docker shapes (sbinless PATH, non-root+sudo, rocky/firewalld,
+  # cap-dropped LXC shape). The harness existed since plan 75 but was wired
+  # into NO workflow, so the one pytest suite that runs firewall probes
+  # against real binaries never ran in CI (plan 82 §E).
+  probe-matrix:
+    name: probe matrix (real firewall probes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run probe matrix
+        run: bash scripts/test/probe-matrix.sh
+
   python-provisioning:
     name: python provisioning (${{ matrix.image }})
     runs-on: ubuntu-latest

@@ -229,7 +229,9 @@ env[TEMP] = /tmp
     def get_pools(cls, version: str) -> List[Dict]:
         """Get FPM pools for a PHP version."""
         pools = []
-        pool_dir = cls.PHP_FPM_CONF_DIR.format(version=version)
+        pool_dir, error = cls._pool_dir(version)
+        if error:
+            return pools
 
         if not os.path.exists(pool_dir):
             return pools
@@ -240,6 +242,14 @@ env[TEMP] = /tmp
                     pool_name = filename[:-5]  # Remove .conf
                     filepath = os.path.join(pool_dir, filename)
                     config = cls._parse_pool_config(filepath)
+                    if config is None:
+                        # Unreadable file: report the honest unknown, not
+                        # fabricated www-data/dynamic defaults.
+                        pools.append({'name': pool_name, 'file': filepath,
+                                      'user': None, 'listen': None,
+                                      'pm': None, 'max_children': None,
+                                      'unreadable': True})
+                        continue
                     pools.append({
                         'name': pool_name,
                         'file': filepath,
@@ -253,9 +263,31 @@ env[TEMP] = /tmp
 
         return pools
 
+    # Version/pool-name guards: both land in a filesystem path handed to
+    # privileged write/rm, so they must never carry separators or dot-dot.
+    _VERSION_RE = re.compile(r'^\d+\.\d+$')
+    _POOL_NAME_RE = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.-]*$')
+
     @classmethod
-    def _parse_pool_config(cls, filepath: str) -> Dict:
-        """Parse a pool configuration file."""
+    def _pool_dir(cls, version):
+        """(pool_dir, None) for a well-formed version, else (None, error)."""
+        if not cls._VERSION_RE.match(str(version or '')):
+            return None, f'invalid PHP version: {version!r}'
+        return cls.PHP_FPM_CONF_DIR.format(version=version), None
+
+    @classmethod
+    def _pool_file(cls, version, pool_name):
+        """(pool_file, None) for well-formed inputs, else (None, error)."""
+        pool_dir, error = cls._pool_dir(version)
+        if error:
+            return None, error
+        if not cls._POOL_NAME_RE.match(str(pool_name or '')):
+            return None, f'invalid pool name: {pool_name!r}'
+        return os.path.join(pool_dir, f'{pool_name}.conf'), None
+
+    @classmethod
+    def _parse_pool_config(cls, filepath: str) -> Optional[Dict]:
+        """Parse a pool configuration file; None when it cannot be read."""
         config = {}
         try:
             with open(filepath, 'r') as f:
@@ -265,14 +297,15 @@ env[TEMP] = /tmp
                         key, value = line.split('=', 1)
                         config[key.strip()] = value.strip()
         except Exception:
-            pass
+            return None
         return config
 
     @classmethod
     def create_pool(cls, version: str, pool_name: str, config: Dict = None) -> Dict:
         """Create a new FPM pool."""
-        pool_dir = cls.PHP_FPM_CONF_DIR.format(version=version)
-        pool_file = os.path.join(pool_dir, f'{pool_name}.conf')
+        pool_file, error = cls._pool_file(version, pool_name)
+        if error:
+            return {'success': False, 'error': error}
 
         if os.path.exists(pool_file):
             return {'success': False, 'error': f'Pool {pool_name} already exists'}
@@ -321,8 +354,9 @@ env[TEMP] = /tmp
     @classmethod
     def delete_pool(cls, version: str, pool_name: str) -> Dict:
         """Delete an FPM pool."""
-        pool_dir = cls.PHP_FPM_CONF_DIR.format(version=version)
-        pool_file = os.path.join(pool_dir, f'{pool_name}.conf')
+        pool_file, error = cls._pool_file(version, pool_name)
+        if error:
+            return {'success': False, 'error': error}
 
         if not os.path.exists(pool_file):
             return {'success': False, 'error': f'Pool {pool_name} not found'}
