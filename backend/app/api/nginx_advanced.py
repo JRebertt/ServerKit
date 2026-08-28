@@ -27,6 +27,8 @@ def create_proxy():
         return jsonify({'error': 'domain required'}), 400
 
     result = NginxAdvancedService.create_reverse_proxy(data)
+    if 'error' in result:
+        return jsonify(result), 400
     return jsonify(result), 201
 
 

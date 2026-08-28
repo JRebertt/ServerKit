@@ -1,8 +1,10 @@
 import json
 import logging
 import subprocess
+import tempfile
 from datetime import datetime
-from app.utils.system import run_unprivileged
+from app.utils.system import run_privileged, run_unprivileged
+from app.services.nginx_service import _validate_domain
 from app.services.ssl_service import resolve_certbot_bin
 
 
@@ -52,6 +54,13 @@ class AdvancedSSLService:
         import os
         from app.utils.system import PackageManager
 
+        if dns_provider not in ('cloudflare', 'route53'):
+            return {'success': False, 'error': f'Unsupported DNS provider: {dns_provider}'}
+        # The domain becomes certbot argv below — reject anything that is not a
+        # plain domain so a crafted value cannot be parsed as certbot flags.
+        if not _validate_domain(domain):
+            return {'success': False, 'error': f'Invalid domain: {domain}'}
+
         wildcard = f'*.{domain}'
         cmd = [_certbot_bin(), 'certonly', '--non-interactive', '--agree-tos',
                '--dns-' + dns_provider, '-d', domain, '-d', wildcard]
@@ -64,30 +73,49 @@ class AdvancedSSLService:
             except Exception:
                 pass  # certbot reports a clear error below if the plugin is truly missing
 
-        run_kwargs = {}
+        # certbot writes /etc/letsencrypt as root, so it runs through
+        # run_privileged — and the credentials must survive sudo. cloudflare
+        # gets an unpredictable root-readable file that is always deleted
+        # afterwards; route53 goes through `sudo env A=B …` because sudo's
+        # env_reset would silently strip a plain env= kwarg.
+        cred_file = None
         if dns_provider == 'cloudflare':
-            cred_file = f'/tmp/certbot-{dns_provider}.ini'
-            with open(cred_file, 'w') as f:
+            fd, cred_file = tempfile.mkstemp(prefix='certbot-cloudflare-', suffix='.ini')
+            with os.fdopen(fd, 'w') as f:
                 f.write(f"dns_cloudflare_api_token = {credentials.get('api_token', '')}\n")
-            os.chmod(cred_file, 0o600)
+            if os.name != 'nt':
+                os.chmod(cred_file, 0o600)
             cmd.extend(['--dns-cloudflare-credentials', cred_file])
         elif dns_provider == 'route53':
-            run_kwargs['env'] = {
-                **os.environ,
-                'AWS_ACCESS_KEY_ID': credentials.get('api_key', ''),
-                'AWS_SECRET_ACCESS_KEY': credentials.get('api_secret', ''),
-            }
+            cmd = ['env',
+                   f"AWS_ACCESS_KEY_ID={credentials.get('api_key', '')}",
+                   f"AWS_SECRET_ACCESS_KEY={credentials.get('api_secret', '')}",
+                   ] + cmd
 
         try:
-            result = run_unprivileged(cmd, **run_kwargs)
+            result = run_privileged(cmd, timeout=600)
+            if result.returncode != 0:
+                # A failed certbot run is a failure, full stop — never report
+                # the not-issued cert paths as if issuance had succeeded.
+                return {'success': False,
+                        'error': (result.stderr or result.stdout
+                                  or 'certbot failed').strip()}
             return {
                 'success': True, 'domain': domain, 'type': 'wildcard',
                 'certificate_path': f'/etc/letsencrypt/live/{domain}/fullchain.pem',
                 'private_key_path': f'/etc/letsencrypt/live/{domain}/privkey.pem',
-                'output': result.get('stdout', ''),
+                'output': result.stdout or '',
             }
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Certificate request timed out'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
+        finally:
+            if cred_file:
+                try:
+                    os.remove(cred_file)
+                except OSError:
+                    pass
 
     @staticmethod
     def issue_san_cert(domains):
@@ -95,14 +123,27 @@ class AdvancedSSLService:
         if not domains or len(domains) < 1:
             raise ValueError('At least one domain required')
 
+        invalid = [d for d in domains if not isinstance(d, str)
+                   or not _validate_domain(d)]
+        if invalid:
+            return {'success': False,
+                    'error': f'Invalid domain(s): {", ".join(map(str, invalid))}'}
+
         cmd = [_certbot_bin(), 'certonly', '--non-interactive', '--agree-tos',
                '--webroot', '-w', '/var/www/html']
         for d in domains:
             cmd.extend(['-d', d])
 
         try:
-            result = run_unprivileged(cmd)
-            return {'success': True, 'domains': domains, 'type': 'san', 'output': result.get('stdout', '')}
+            result = run_privileged(cmd, timeout=600)
+            if result.returncode != 0:
+                return {'success': False,
+                        'error': (result.stderr or result.stdout
+                                  or 'certbot failed').strip()}
+            return {'success': True, 'domains': domains, 'type': 'san',
+                    'output': result.stdout or ''}
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'Certificate request timed out'}
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
@@ -110,6 +151,11 @@ class AdvancedSSLService:
     def upload_custom_cert(domain, cert_pem, key_pem, chain_pem=None):
         """Upload custom certificate files."""
         import os
+        # The domain is joined into the cert directory path below — refuse
+        # anything that is not a plain domain so it cannot traverse out of
+        # /etc/ssl/serverkit.
+        if not _validate_domain(domain):
+            raise ValueError(f'Invalid domain: {domain}')
         cert_dir = f'/etc/ssl/serverkit/{domain}'
         os.makedirs(cert_dir, exist_ok=True)
 

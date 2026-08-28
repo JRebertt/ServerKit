@@ -2,10 +2,95 @@ import os
 import json
 import logging
 import re
-from app.services.nginx_service import NginxService
+from app.services.nginx_service import NginxService, _validate_domain
 from app.utils.system import run_unprivileged
 
 logger = logging.getLogger(__name__)
+
+# Characters that would break out of the nginx directive being generated and
+# inject arbitrary configuration. Everything interpolated into the generated
+# config is checked against these (or a stricter pattern) before the build.
+_CONFIG_BREAKOUT = ('{', '}', ';', '\n', '\r')
+
+_UPSTREAM_ADDR_RE = re.compile(r'^(?:[a-zA-Z0-9._\-]+:\d{1,5}|unix:[a-zA-Z0-9/_.\-]+)$')
+_HEADER_NAME_RE = re.compile(r'^[A-Za-z0-9\-]+$')
+_SIZE_RE = re.compile(r'^\d+[kmgKMG]$')
+_TTL_RE = re.compile(r'^\d+[smhdSMHD]$')
+
+
+def _has_breakout(value):
+    return any(c in value for c in _CONFIG_BREAKOUT)
+
+
+def _validate_proxy_input(data):
+    """Validate reverse-proxy input before it becomes nginx config.
+
+    Every value the builder interpolates is a potential config-injection
+    vector — a ``;`` or ``}`` in a header value, upstream address or location
+    path closes the directive being generated and starts an attacker-chosen
+    one. Returns an error string, or ``None`` when the input is clean.
+    """
+    domain = data.get('domain')
+    if not isinstance(domain, str) or not _validate_domain(domain):
+        return f'invalid domain: {domain}'
+
+    if data.get('lb_method', 'round_robin') not in (
+            'round_robin', 'least_conn', 'ip_hash'):
+        return f"invalid lb_method: {data.get('lb_method')}"
+
+    for u in data.get('upstreams', []):
+        address = u.get('address', '')
+        if not isinstance(address, str) or not _UPSTREAM_ADDR_RE.match(address):
+            return f'invalid upstream address: {address}'
+        weight = u.get('weight')
+        if weight is not None and (not isinstance(weight, int)
+                                   or isinstance(weight, bool)
+                                   or not 1 <= weight <= 100):
+            return f'invalid upstream weight: {weight}'
+
+    rate_limit = data.get('rate_limit', {})
+    if rate_limit.get('enabled'):
+        rps = rate_limit.get('requests_per_second', 10)
+        burst = rate_limit.get('burst', 20)
+        if not isinstance(rps, (int, float)) or isinstance(rps, bool) or rps <= 0:
+            return f'invalid requests_per_second: {rps}'
+        if not isinstance(burst, int) or isinstance(burst, bool) or burst <= 0:
+            return f'invalid burst: {burst}'
+
+    cache = data.get('cache', {})
+    if cache.get('enabled'):
+        if not _SIZE_RE.match(str(cache.get('size', '100m'))):
+            return f"invalid cache size: {cache.get('size')}"
+        if not _TTL_RE.match(str(cache.get('ttl', '60m'))):
+            return f"invalid cache ttl: {cache.get('ttl')}"
+        for bypass in cache.get('bypass_rules', []):
+            if not isinstance(bypass, str) or _has_breakout(bypass):
+                return f'invalid cache bypass rule: {bypass}'
+
+    headers = data.get('headers', {})
+    for name, value in headers.get('add', {}).items():
+        if not _HEADER_NAME_RE.match(str(name)):
+            return f'invalid header name: {name}'
+        # Header values are emitted inside double quotes — a quote or newline
+        # breaks out of them.
+        if any(c in str(value) for c in ('"', '\n', '\r')):
+            return f'invalid value for header {name}'
+    for name in headers.get('remove', []):
+        if not _HEADER_NAME_RE.match(str(name)):
+            return f'invalid header name: {name}'
+
+    for loc in data.get('locations', []):
+        path = loc.get('path', '')
+        if not isinstance(path, str) or not path.strip() or _has_breakout(path):
+            return f'invalid location path: {path}'
+        proxy_pass = loc.get('proxy_pass')
+        if proxy_pass is not None:
+            if (not isinstance(proxy_pass, str)
+                    or not proxy_pass.startswith(('http://', 'https://'))
+                    or any(c in proxy_pass for c in (' ', '\t', '{', '}', ';', '\n', '\r'))):
+                return f'invalid proxy_pass: {proxy_pass}'
+
+    return None
 
 
 class NginxAdvancedService:
@@ -34,6 +119,10 @@ class NginxAdvancedService:
     @staticmethod
     def create_reverse_proxy(data):
         """Create a reverse proxy configuration."""
+        invalid = _validate_proxy_input(data)
+        if invalid:
+            return {'error': invalid}
+
         domain = data['domain']
         upstreams = data.get('upstreams', [])
         lb_method = data.get('lb_method', 'round_robin')

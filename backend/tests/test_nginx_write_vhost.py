@@ -142,6 +142,53 @@ class TestRollback:
         assert not any(c[:2] == ['systemctl', 'reload'] for c in nginx.commands())
 
 
+class TestReloadFailureRollback:
+    """A config that passes `nginx -t` can still fail the reload itself
+    (systemd unit error, raced restart). The write must not be left behind:
+    nginx keeps serving the previous config after a failed reload, so the
+    on-disk file is put back to match it."""
+
+    def test_a_failed_reload_restores_the_previous_vhost(self, nginx):
+        good = 'server { listen 80; server_name a.test; }'
+        assert NginxService.write_vhost('shop', good)['success'] is True
+
+        nginx.script(['systemctl'], returncode=1, stderr='reload exploded')
+        res = NginxService.write_vhost('shop', 'server { listen 81; }')
+
+        assert res['success'] is False
+        available, enabled = _paths()
+        assert open(available).read() == good
+        assert os.path.exists(enabled), 'reload rollback disabled an existing site'
+
+    def test_a_failed_reload_removes_a_new_vhost(self, nginx):
+        nginx.script(['systemctl'], returncode=1, stderr='reload exploded')
+
+        res = NginxService.write_vhost('shop', 'server {}')
+
+        assert res['success'] is False
+        available, enabled = _paths()
+        assert not os.path.exists(available), 'unreloadable vhost left on disk'
+        assert not os.path.exists(enabled), 'unreloadable vhost left enabled'
+
+
+class TestSiteNameValidation:
+    """`name` is joined straight onto SITES_AVAILABLE — a caller-controlled
+    name must not become a path."""
+
+    def test_a_traversing_name_is_refused(self, nginx):
+        res = NginxService.write_vhost('../evil', 'server {}')
+        assert res['success'] is False
+        assert nginx.commands() == [], 'a refused name still ran commands'
+
+    def test_an_absolute_name_is_refused(self, nginx):
+        res = NginxService.write_vhost('/tmp/evil', 'server {}')
+        assert res['success'] is False
+        assert nginx.commands() == []
+
+    def test_dotdot_itself_is_refused(self, nginx):
+        assert NginxService.write_vhost('..', 'server {}')['success'] is False
+
+
 class TestConsolidatedCallers:
     """The high-traffic renderers must inherit the lifecycle door's rollback."""
 

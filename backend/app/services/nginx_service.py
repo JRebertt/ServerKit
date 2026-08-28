@@ -896,6 +896,13 @@ location /p/ {{
 
         Returns ``{'success', 'path'}`` or ``{'success': False, 'error'}``.
         """
+        # `name` becomes a filesystem path below — refuse anything that is not
+        # a plain filename so a caller-controlled name cannot traverse out of
+        # sites-available (preview_diff applies the same rule for reads).
+        if (not name or os.path.basename(name) != name
+                or name in ('.', '..') or '\x00' in name):
+            return {'success': False, 'error': f'Invalid site name: {name!r}'}
+
         available_path = os.path.join(cls.SITES_AVAILABLE, name)
         enabled_path = os.path.join(cls.SITES_ENABLED, name)
         previous = cls.read_vhost(name)
@@ -921,6 +928,10 @@ location /p/ {{
 
         reloaded = cls.reload()
         if not reloaded['success']:
+            # A failed reload means nginx is still serving the previous config
+            # (reload fails safe) — restore the file so on-disk state matches
+            # what nginx actually runs, exactly like the config-test rollback.
+            cls._restore_vhost(name, previous, was_enabled)
             return reloaded
         return {'success': True, 'path': available_path}
 
