@@ -71,7 +71,10 @@ def _nginx_t(tmp_path, vhost_config):
     (tmp_path / 'fastcgi_params').write_text(
         open(system_params).read() if os.path.exists(system_params) else '')
     zones = tmp_path / 'serverkit-microcache.conf'
-    zones.write_text(_localize(NginxService.MICROCACHE_ZONE_SNIPPET, tmp_path))
+    zones.write_text(
+        _localize(NginxService.MICROCACHE_ZONE_SNIPPET, tmp_path)
+        + NginxService.WORDPRESS_RATE_LIMIT_ZONE_SNIPPET
+    )
     vhost = tmp_path / 'vhost.conf'
     vhost.write_text(_localize(vhost_config, tmp_path))
     wrapper = tmp_path / 'nginx.conf'
@@ -109,6 +112,9 @@ def _render(**kwargs):
     ('docker-micro-cache', dict(name='fast', app_type='docker',
                                 domains=['fast.example.com'], port=8004,
                                 micro_cache=True)),
+    ('wordpress-proxy', dict(name='wp', app_type='docker',
+                             domains=['wp.example.com'], port=8005,
+                             wordpress_protection=True)),
 ])
 def test_generated_vhost_parses_with_real_nginx(tmp_path, flavor, kwargs):
     proc = _nginx_t(tmp_path, _render(**kwargs))

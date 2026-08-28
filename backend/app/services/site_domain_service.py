@@ -497,7 +497,14 @@ class SiteDomainService:
         if t in ('docker', 'wordpress'):
             if not app.port:
                 return None, f'{t} app has no published port to route to.'
-            return dict(base, app_type='docker', port=app.port), None
+            docker_image = (getattr(app, 'docker_image', None) or '').strip().lower()
+            wordpress_protection = t == 'wordpress' or docker_image == 'wordpress'
+            return dict(
+                base,
+                app_type='docker',
+                port=app.port,
+                wordpress_protection=wordpress_protection,
+            ), None
         if t in ('flask', 'django', 'python'):
             if not app.port:
                 return None, f'{t} app has no published port to route to.'

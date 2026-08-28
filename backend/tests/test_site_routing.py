@@ -21,7 +21,8 @@ def _mk_user(db, username='owner'):
 def _mk_app(db, user_id, name='blog', port=8300):
     from app.models import Application
     a = Application(name=name, app_type='docker', user_id=user_id,
-                    root_path=f'/srv/{name}', port=port)
+                    root_path=f'/srv/{name}', port=port,
+                    docker_image='WordPress')
     db.session.add(a)
     db.session.commit()
     return a
@@ -87,6 +88,7 @@ def test_provision_routing_creates_primary_domain_and_docker_vhost(app, monkeypa
     # Reverse-proxy vhost, not php-fpm: docker app_type + the container's port.
     assert captured['app_type'] == 'docker'
     assert captured['port'] == 8300
+    assert captured['wordpress_protection'] is True
     assert 'blog.lvh.me' in captured['domains']
 
 
