@@ -107,3 +107,19 @@ def test_add_duplicate_matches_key_data_not_substring(auth_keys):
     # A different key must not be rejected just because its text shares a
     # prefix with an existing line.
     assert SecurityService.add_ssh_key(KEY_B)['success']
+
+
+def test_add_duplicate_finds_key_data_after_authorized_key_options(auth_keys):
+    restricted = (
+        'from="10.0.0.0/8",command="echo backup only" '
+        f'{KEY_A}'
+    )
+    _write(auth_keys, restricted)
+
+    listed = SecurityService.get_ssh_keys()['keys']
+    assert listed[0]['type'] == 'ssh-ed25519'
+    assert listed[0]['comment'] == 'alice@laptop'
+
+    duplicate = SecurityService.add_ssh_key(KEY_A + ' renamed@host')
+    assert not duplicate['success']
+    assert duplicate['error'] == 'Key already exists'

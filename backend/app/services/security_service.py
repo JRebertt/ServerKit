@@ -10,6 +10,7 @@ Handles security scanning and monitoring:
 
 import os
 import json
+import shlex
 import subprocess
 import hashlib
 import threading
@@ -1027,6 +1028,37 @@ class SecurityService:
     # ==========================================
     SSH_DIR = '/root/.ssh'
     AUTHORIZED_KEYS = '/root/.ssh/authorized_keys'
+    SSH_KEY_TYPES = frozenset({
+        'ssh-rsa',
+        'ssh-ed25519',
+        'ecdsa-sha2-nistp256',
+        'ecdsa-sha2-nistp384',
+        'ecdsa-sha2-nistp521',
+    })
+
+    @classmethod
+    def _parse_ssh_public_key(cls, key_line: str) -> Optional[Dict[str, str]]:
+        """Return key fields from an authorized_keys line.
+
+        Existing entries may begin with restrictions such as ``from=`` or
+        ``command=``.  Splitting those lines at fixed indexes mistakes an
+        option for the key type and can miss duplicate key data, especially
+        when a quoted option contains spaces.
+        """
+        try:
+            parts = shlex.split(key_line, comments=False, posix=True)
+        except ValueError:
+            return None
+
+        for index, part in enumerate(parts[:-1]):
+            if part not in cls.SSH_KEY_TYPES:
+                continue
+            return {
+                'type': part,
+                'data': parts[index + 1],
+                'comment': ' '.join(parts[index + 2:]),
+            }
+        return None
 
     @classmethod
     def get_ssh_keys(cls, user: str = 'root') -> Dict:
@@ -1053,11 +1085,11 @@ class SecurityService:
                         continue
                     key_idx += 1
 
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        key_type = parts[0]
-                        key_data = parts[1]
-                        comment = ' '.join(parts[2:]) if len(parts) > 2 else ''
+                    parsed = cls._parse_ssh_public_key(line)
+                    if parsed:
+                        key_type = parsed['type']
+                        key_data = parsed['data']
+                        comment = parsed['comment']
 
                         fingerprint = cls._get_key_fingerprint(line)
 
@@ -1095,7 +1127,7 @@ class SecurityService:
             return {'success': False, 'error': 'Key cannot be empty'}
 
         parts = key.split()
-        if len(parts) < 2 or parts[0] not in ['ssh-rsa', 'ssh-ed25519', 'ecdsa-sha2-nistp256', 'ecdsa-sha2-nistp384', 'ecdsa-sha2-nistp521']:
+        if len(parts) < 2 or parts[0] not in cls.SSH_KEY_TYPES:
             return {'success': False, 'error': 'Invalid SSH key format'}
 
         if user == 'root':
@@ -1116,8 +1148,8 @@ class SecurityService:
                 # text happens to be contained in a longer line is not the
                 # same key.
                 for existing_line in existing.splitlines():
-                    existing_parts = existing_line.split()
-                    if len(existing_parts) >= 2 and existing_parts[1] == parts[1]:
+                    parsed = cls._parse_ssh_public_key(existing_line)
+                    if parsed and parsed['data'] == parts[1]:
                         return {'success': False, 'error': 'Key already exists'}
 
             with open(auth_keys_path, 'a') as f:
