@@ -812,11 +812,11 @@ verification stays visible after install. The sha256 runtime-frontend hash
 check is unaffected — signatures cover the zip, `_frontend_hashes` still pins
 the served `.mjs` bundle bytes.
 
-Honesty note (D2): a signature verifies *when present*. An unsigned
-first-party registry entry installs only behind the explicit 409 consent step
-(acknowledge-risk), and the same gate covers the update path — but the
-acknowledgment itself still rests on the index's integrity (TLS + the
-registry repo's PR review) until every first-party release is signed.
+All current downloadable first-party releases publish a detached `.minisig`
+asset and carry the same signature in the registry index. Registry CI downloads
+the exact release bytes and verifies both SHA-256 and Ed25519 before accepting
+the catalog. The unsigned 409 path remains only for older cached indexes and
+third-party compatibility; it is not the normal first-party delivery path.
 
 ### Docker note
 

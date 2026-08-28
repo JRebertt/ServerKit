@@ -116,7 +116,10 @@ current = json.loads(before)
 
 def pinned(index):
     return {
-        e['slug']: (e.get('version'), e.get('source'), e.get('sha256'))
+        e['slug']: (
+            e.get('version'), e.get('source'), e.get('sha256'),
+            e.get('signature'), e.get('publisher_key_id'),
+        )
         for e in index['extensions']
     }
 

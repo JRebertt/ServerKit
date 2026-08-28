@@ -14,6 +14,7 @@ compares the pinned tuples. It skips when the network is unavailable so a plane
 or a firewalled runner does not fail the suite, but it does NOT skip on a
 mismatch.
 """
+import base64
 import json
 import os
 from pathlib import Path
@@ -60,6 +61,27 @@ def test_installable_entries_pin_an_artifact(bundled):
         assert len(digest) == SHA256_HEX and all(
             c in '0123456789abcdef' for c in digest
         ), f'{slug}: sha256 must be 64 lowercase hex chars'
+
+
+def test_downloadable_first_party_entries_are_signed_by_a_pinned_key(bundled):
+    """The offline fallback must never reintroduce unsigned first-party code."""
+    from app.services import signing_service
+
+    trusted = signing_service.load_trusted_keys()
+    for entry in bundled['extensions']:
+        if entry.get('bundled') or not entry.get('first_party'):
+            continue
+        slug = entry['slug']
+        key_id = entry.get('publisher_key_id')
+        assert key_id in trusted, f'{slug}: publisher key {key_id!r} is not pinned'
+        try:
+            envelope = base64.b64decode(entry.get('signature') or '', validate=True)
+        except ValueError as exc:
+            raise AssertionError(f'{slug}: signature is not valid base64') from exc
+        assert len(envelope) == 74 and envelope[:2] == b'ED', (
+            f'{slug}: malformed ServerKit ed25519 signature envelope')
+        assert envelope[2:10] == trusted[key_id]['key_num'], (
+            f'{slug}: signature was made by a different key than {key_id}')
 
 
 def test_source_url_agrees_with_the_declared_version(bundled):
@@ -133,7 +155,10 @@ def test_matches_published_index(bundled):
 
     def pinned(index):
         return {
-            e['slug']: (e.get('version'), e.get('source'), e.get('sha256'))
+            e['slug']: (
+                e.get('version'), e.get('source'), e.get('sha256'),
+                e.get('signature'), e.get('publisher_key_id'),
+            )
             for e in index['extensions']
         }
 
