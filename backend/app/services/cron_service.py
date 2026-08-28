@@ -311,10 +311,21 @@ class CronService:
                      job_id: str) -> bool:
         """Is this crontab line the given job's entry (bare or shim-wrapped,
         active or commented out)?"""
-        if not (schedule and command):
+        if not (schedule and command and job_id):
             return False
-        return (f"{schedule} {command}" in line
-                or f"{SHIM_PATH} {job_id} -- {command}" in line)
+
+        cleaned = line.strip()
+        if cleaned.startswith('#'):
+            cleaned = cleaned[1:].lstrip()
+        parsed = cls._parse_cron_line(cleaned, 0)
+        if not parsed or parsed['schedule'] != schedule:
+            return False
+
+        return parsed['command'] in {
+            command,
+            f"{SHIM_PATH} {job_id} -- {command}",
+            cls._crontab_command(command, True, job_id),
+        }
 
     @classmethod
     def _describe_schedule(cls, schedule: str) -> str:

@@ -142,6 +142,32 @@ def test_tracked_shim_line_matches_toggle_and_remove(linux_cron):
     assert CMD not in linux_cron['crontab']
 
 
+def test_toggle_matches_exact_command_not_command_prefix(linux_cron):
+    job_id = _add()
+    extended_command = f'{CMD} --different-job'
+    linux_cron['crontab'] += f'{SCHEDULE} {extended_command}\n'
+
+    assert CronService.toggle_job(job_id, False)['success']
+
+    lines = linux_cron['crontab'].splitlines()
+    assert f'# {SCHEDULE} {CMD}' in lines
+    assert f'{SCHEDULE} {extended_command}' in lines
+
+
+def test_tracked_toggle_matches_exact_wrapped_command(linux_cron):
+    job_id = _add()
+    assert CronService.set_tracking(job_id, True)['success']
+    wrapped = CronService._crontab_command(CMD, True, job_id)
+    extended_command = f'{wrapped} --different-job'
+    linux_cron['crontab'] += f'{SCHEDULE} {extended_command}\n'
+
+    assert CronService.toggle_job(job_id, False)['success']
+
+    lines = linux_cron['crontab'].splitlines()
+    assert f'# {SCHEDULE} {wrapped}' in lines
+    assert f'{SCHEDULE} {extended_command}' in lines
+
+
 def test_foreign_crontab_lines_left_untouched(linux_cron):
     linux_cron['crontab'] = "MAILTO=root\n15 2 * * * /opt/other/task.sh\n"
     job_id = _add()
