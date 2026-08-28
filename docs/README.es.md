@@ -20,9 +20,13 @@ ni el coste de las plataformas gestionadas.
 [![Ver la demo](https://img.shields.io/badge/Ver_la_Demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=nL9r3c9-5Kc)
 
 <a href="https://trendshift.io/repositories/21908?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-21908" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/21908/daily?language=JavaScript" alt="jhd3197/ServerKit | Trendshift" width="250" height="55"/></a>
+<a href="https://www.uneed.best/tool/serverkit" target="_blank" rel="noopener noreferrer">
+  <img src="https://www.uneed.best/POTD3.png" style="width: 250px;" alt="Uneed POTD3 Badge" />
+</a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/jhd3197/ServerKit?style=flat-square&color=f5c542)](https://github.com/jhd3197/ServerKit/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/jhd3197/ServerKit/total?style=flat-square)](https://github.com/jhd3197/ServerKit/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/jhd3197/serverkit?style=flat-square&logo=docker&logoColor=white&label=docker%20pulls)](https://hub.docker.com/r/jhd3197/serverkit)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square)](../LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11+-3776AB.svg?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![React](https://img.shields.io/badge/react-18-61DAFB.svg?style=flat-square&logo=react&logoColor=black)](https://reactjs.org)
