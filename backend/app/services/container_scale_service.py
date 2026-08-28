@@ -31,16 +31,33 @@ class ContainerScaleService:
     @classmethod
     def set_policy(cls, application_id, **fields):
         policy = cls.get_or_create_policy(application_id)
+
         if fields.get('enabled') is not None:
-            policy.enabled = bool(fields['enabled'])
+            enabled = fields['enabled']
+            if not isinstance(enabled, bool):
+                raise ValueError('enabled must be a boolean')
+            policy.enabled = enabled
         if fields.get('service_name') is not None:
-            policy.service_name = (fields['service_name'] or '').strip() or None
+            service_name = fields['service_name']
+            if service_name is not None and not isinstance(service_name, str):
+                raise ValueError('service_name must be a string')
+            policy.service_name = (service_name or '').strip() or None
         for key in ('min_replicas', 'max_replicas', 'cpu_high_percent',
                     'cpu_low_percent', 'cooldown_seconds'):
             if fields.get(key) is not None:
-                setattr(policy, key, max(0, int(fields[key])))
+                try:
+                    value = int(fields[key])
+                except (TypeError, ValueError) as exc:
+                    raise ValueError(f'{key} must be an integer') from exc
+                setattr(policy, key, max(0, value))
         policy.min_replicas = max(1, policy.min_replicas)
         policy.max_replicas = max(policy.min_replicas, policy.max_replicas)
+        policy.cpu_high_percent = min(100, policy.cpu_high_percent)
+        policy.cpu_low_percent = min(100, policy.cpu_low_percent)
+        if policy.cpu_low_percent >= policy.cpu_high_percent:
+            raise ValueError('cpu_low_percent must be less than cpu_high_percent')
+        if policy.enabled and not policy.service_name:
+            raise ValueError('service_name is required when auto-scale is enabled')
         db.session.commit()
         return policy
 
@@ -92,7 +109,10 @@ class ContainerScaleService:
         if not app:
             return {'success': False, 'error': 'Application not found'}
         policy = cls.get_or_create_policy(application_id)
-        replicas = max(1, int(replicas))
+        try:
+            replicas = max(1, int(replicas))
+        except (TypeError, ValueError):
+            return {'success': False, 'error': 'replicas must be an integer'}
         result = cls._apply_scale(app, policy, replicas)
         if not result.get('success'):
             return result
@@ -109,21 +129,32 @@ class ContainerScaleService:
         policy = cls.get_or_create_policy(application_id)
         if not policy.enabled:
             return {'success': True, 'action': 'disabled', 'replicas': policy.current_replicas}
+        if not policy.service_name:
+            return {
+                'success': False,
+                'error': 'service_name is required when auto-scale is enabled',
+                'replicas': policy.current_replicas,
+            }
 
         now = datetime.utcnow()
         if policy.last_scaled_at and (now - policy.last_scaled_at) < timedelta(seconds=policy.cooldown_seconds):
             return {'success': True, 'action': 'cooldown', 'replicas': policy.current_replicas}
 
-        cpu = cls._service_cpu(app, policy)
-        if cpu is None:
-            return {'success': True, 'action': 'unknown', 'replicas': policy.current_replicas}
-
         current = policy.current_replicas
         target = current
-        if cpu > policy.cpu_high_percent and current < policy.max_replicas:
-            target = current + 1
-        elif cpu < policy.cpu_low_percent and current > policy.min_replicas:
-            target = current - 1
+        cpu = None
+        if current < policy.min_replicas:
+            target = policy.min_replicas
+        elif current > policy.max_replicas:
+            target = policy.max_replicas
+        else:
+            cpu = cls._service_cpu(app, policy)
+            if cpu is None:
+                return {'success': True, 'action': 'unknown', 'replicas': current}
+            if cpu > policy.cpu_high_percent and current < policy.max_replicas:
+                target = current + 1
+            elif cpu < policy.cpu_low_percent and current > policy.min_replicas:
+                target = current - 1
 
         if target == current:
             return {'success': True, 'action': 'hold', 'replicas': current, 'cpu': cpu}
@@ -135,8 +166,11 @@ class ContainerScaleService:
         policy.last_scaled_at = now
         db.session.commit()
         action = 'scaled_up' if target > current else 'scaled_down'
-        logger.info('Auto-scale %s: %s -> %s replicas (cpu=%.1f)', app.name, current, target, cpu)
-        return {'success': True, 'action': action, 'replicas': target, 'cpu': cpu}
+        logger.info('Auto-scale %s: %s -> %s replicas (cpu=%s)', app.name, current, target, cpu)
+        response = {'success': True, 'action': action, 'replicas': target}
+        if cpu is not None:
+            response['cpu'] = cpu
+        return response
 
     @classmethod
     def sweep(cls):

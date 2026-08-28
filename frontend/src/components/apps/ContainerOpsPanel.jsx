@@ -11,6 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useTranslation } from 'react-i18next';
+import {
+    DEFAULT_SCALE_POLICY,
+    normalizeScalePolicy,
+    replicaTarget,
+    resolvedReplicaCount,
+    scalePolicyPayload,
+} from './autoScalePolicy';
 
 // Short SHA helper for image digests (handles "sha256:abcdef..." or bare hashes)
 function shortDigest(digest) {
@@ -378,21 +385,10 @@ const AutoSleepSection = ({ app, onChanged }) => {
 // ============================================================
 // Auto-scale section
 // ============================================================
-const DEFAULT_SCALE = {
-    enabled: false,
-    service_name: '',
-    min_replicas: 1,
-    max_replicas: 3,
-    cpu_high_percent: 80,
-    cpu_low_percent: 20,
-    cooldown_seconds: 300,
-    current_replicas: 1,
-};
-
 const AutoScaleSection = ({ app, onChanged }) => {
     const { t } = useTranslation();
     const toast = useToast();
-    const [form, setForm] = useState(DEFAULT_SCALE);
+    const [form, setForm] = useState(DEFAULT_SCALE_POLICY);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [scaling, setScaling] = useState(false);
@@ -402,7 +398,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
         setLoading(true);
         try {
             const data = await api.getScalePolicy(app.id);
-            const merged = { ...DEFAULT_SCALE, ...(data || {}) };
+            const merged = normalizeScalePolicy(data);
             setForm(merged);
             setManualReplicas(merged.current_replicas ?? merged.min_replicas ?? 1);
         } catch (err) {
@@ -421,15 +417,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
     async function handleSave() {
         setSaving(true);
         try {
-            const payload = {
-                enabled: form.enabled,
-                service_name: form.service_name,
-                min_replicas: parseInt(form.min_replicas, 10) || 1,
-                max_replicas: parseInt(form.max_replicas, 10) || 1,
-                cpu_high_percent: parseInt(form.cpu_high_percent, 10) || 0,
-                cpu_low_percent: parseInt(form.cpu_low_percent, 10) || 0,
-                cooldown_seconds: parseInt(form.cooldown_seconds, 10) || 0,
-            };
+            const payload = scalePolicyPayload(form);
             const data = await api.updateScalePolicy(app.id, payload);
             setForm((prev) => ({ ...prev, ...(data || payload) }));
             toast.success(t('app.containerOpsPanel.autoScalePolicySaved', 'Auto-scale policy saved.'));
@@ -442,11 +430,12 @@ const AutoScaleSection = ({ app, onChanged }) => {
     }
 
     async function handleManualScale() {
-        const replicas = Math.max(0, parseInt(manualReplicas, 10) || 0);
+        const replicas = replicaTarget(manualReplicas);
         setScaling(true);
         try {
-            await api.scaleApp(app.id, replicas);
-            toast.success(t('app.containerOpsPanel.scaledToReplica', 'Scaled to {{replicas}} replica{{value}}.', { replicas: replicas, value: replicas === 1 ? '' : 's' }));
+            const result = await api.scaleApp(app.id, replicas);
+            const appliedReplicas = resolvedReplicaCount(result, replicas);
+            toast.success(t('app.containerOpsPanel.scaledToReplica', 'Scaled to {{replicas}} replica{{value}}.', { replicas: appliedReplicas, value: appliedReplicas === 1 ? '' : 's' }));
             await load();
             onChanged?.();
         } catch (err) {
@@ -517,7 +506,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
                         <Input
                             id={`scale-min-${app.id}`}
                             type="number"
-                            min={0}
+                            min={1}
                             value={form.min_replicas}
                             onChange={(e) => setField('min_replicas', e.target.value)}
                             disabled={loading}
@@ -572,7 +561,7 @@ const AutoScaleSection = ({ app, onChanged }) => {
                         <Input
                             id={`scale-manual-${app.id}`}
                             type="number"
-                            min={0}
+                            min={1}
                             value={manualReplicas}
                             onChange={(e) => setManualReplicas(e.target.value)}
                             disabled={scaling}
