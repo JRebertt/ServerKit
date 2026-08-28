@@ -131,6 +131,29 @@ def test_test_connection_logs_in_and_out(app, registry, fake_subprocess):
     result = ContainerRegistryService.test_connection(registry)
     assert result['success'] is True
     assert _docker_subcommands(fake_subprocess) == ['login', 'logout']
+    assert registry.last_test_ok is True
+    assert registry.last_tested_at is not None
+
+
+def test_rotate_secret_tests_before_persisting(app, registry, fake_subprocess):
+    fake_subprocess.script(['docker'], stdout='ok')
+
+    result = ContainerRegistryService.rotate_secret(registry, 'replacement-token')
+
+    assert result['success'] is True
+    assert fake_subprocess.kwargs_for(['docker', 'login'])['input'] == 'replacement-token'
+    assert ContainerRegistryService._password(registry) == 'replacement-token'
+
+
+def test_failed_rotation_preserves_previous_secret(app, registry, fake_subprocess):
+    fake_subprocess.script(['docker', 'login'], returncode=1, stderr='denied')
+    fake_subprocess.script(['docker', 'logout'])
+
+    result = ContainerRegistryService.rotate_secret(registry, 'bad-token')
+
+    assert result['success'] is False
+    assert ContainerRegistryService._password(registry) == 'ghp_supersecrettoken'
+    assert registry.last_test_ok is False
 
 
 # ── proving test: deploy path authenticates before pull ──────────────────────
@@ -270,4 +293,50 @@ def test_registry_appears_in_unified_connections(client, auth_headers, app):
     reg_entries = [c for c in conns if c['kind'] == 'registry']
     assert len(reg_entries) == 1
     assert reg_entries[0]['encrypted'] is True
+    assert reg_entries[0]['sdk_managed'] is True
+    assert reg_entries[0]['capabilities']['rotate'] is True
+    assert reg_entries[0]['capabilities']['list_resources'] is False
+    assert reg_entries[0]['health']['status'] == 'unknown'
     assert 'secret' not in reg_entries[0]
+
+
+def test_provider_sdk_schema_and_operations(
+        client, auth_headers, app, registry, fake_subprocess):
+    schema = client.get('/api/v1/connections/providers', headers=auth_headers)
+    assert schema.status_code == 200
+    provider = next(p for p in schema.get_json()['providers'] if p['kind'] == 'registry')
+    assert provider['credentials']['properties']['secret']['secret'] is True
+    assert provider['capabilities'] == {
+        'validate': True,
+        'test': True,
+        'list_resources': False,
+        'health': True,
+        'rotate': True,
+        'disconnect': True,
+    }
+
+    invalid = client.post(
+        '/api/v1/connections/providers/registry/validate',
+        headers=auth_headers, json={})
+    assert invalid.status_code == 400
+    assert invalid.get_json()['error_code'] == 'validation_error'
+    assert invalid.get_json()['details']['field_errors']['secret'] == 'secret is required'
+
+    fake_subprocess.script(['docker'], stdout='ok')
+    tested = client.post(
+        f'/api/v1/connections/providers/registry/{registry.id}/test',
+        headers=auth_headers)
+    assert tested.status_code == 200, tested.get_json()
+    assert tested.get_json()['data']['health'] == 'healthy'
+
+    health = client.get(
+        f'/api/v1/connections/providers/registry/{registry.id}/health',
+        headers=auth_headers)
+    assert health.status_code == 200
+    assert health.get_json()['data']['status'] == 'healthy'
+
+    resources = client.get(
+        f'/api/v1/connections/providers/registry/{registry.id}/resources',
+        headers=auth_headers)
+    assert resources.status_code == 405
+    assert resources.get_json()['error_code'] == 'unsupported_operation'

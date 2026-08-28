@@ -1,6 +1,6 @@
 """Unified read facade over every external-account store ServerKit holds.
 
-ServerKit's connections live in five places, each with its own model/service and
+ServerKit's connections live in several places, each with its own model/service and
 write path (kept that way deliberately — they have genuinely different auth and
 cardinality):
 
@@ -10,11 +10,11 @@ cardinality):
   - registrars            (RegistrarConnection)   — GoDaddy / Namecheap
   - object storage        (storage.json)          — S3-compatible / Backblaze B2
 
-This registry doesn't replace any of them; it presents them as ONE normalized,
+This registry presents them as ONE normalized,
 secret-free list (`GET /api/v1/connections`) so any surface can answer "what
 external accounts are connected, and are their secrets encrypted?" in one call.
-All five now encrypt secrets identically via app.utils.crypto, so `encrypted`
-should be True for every real connection.
+New write paths migrate behind ``connection_provider_sdk`` adapters; legacy
+stores stay readable here and report ``sdk_managed: false`` until migrated.
 """
 
 import logging
@@ -22,8 +22,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def _entry(kind, provider, label, *, id=None, scope=None, encrypted=True, created_at=None):
-    return {
+def _entry(kind, provider, label, *, id=None, scope=None, encrypted=True,
+           created_at=None, health=None, capabilities=None, sdk_managed=False):
+    entry = {
         'kind': kind,
         'provider': provider,
         'id': id,
@@ -31,7 +32,13 @@ def _entry(kind, provider, label, *, id=None, scope=None, encrypted=True, create
         'scope': scope,
         'encrypted': bool(encrypted),
         'created_at': created_at.isoformat() if hasattr(created_at, 'isoformat') else created_at,
+        'sdk_managed': bool(sdk_managed),
     }
+    if health is not None:
+        entry['health'] = health
+    if capabilities is not None:
+        entry['capabilities'] = capabilities
+    return entry
 
 
 class ConnectionRegistry:
@@ -118,9 +125,21 @@ class ConnectionRegistry:
     @staticmethod
     def _registries():
         from app.models.container_registry import ContainerRegistry
+        # Importing the built-in adapter registers it with the SDK.
+        from app.services.connection_providers import ContainerRegistryProvider
+
+        capabilities = ContainerRegistryProvider.capabilities()
         return [
             _entry('registry', c.provider, c.name, id=c.id, scope=c.login_host(),
-                   encrypted=bool(c.secret_encrypted), created_at=c.created_at)
+                   encrypted=bool(c.secret_encrypted), created_at=c.created_at,
+                   sdk_managed=True, capabilities=capabilities,
+                   health={
+                       'status': ('healthy' if c.last_test_ok is True else
+                                  'unhealthy' if c.last_test_ok is False else 'unknown'),
+                       'checked_at': (c.last_tested_at.isoformat()
+                                      if c.last_tested_at else None),
+                       'message': c.last_test_error,
+                   })
             for c in ContainerRegistry.query.all()
         ]
 
