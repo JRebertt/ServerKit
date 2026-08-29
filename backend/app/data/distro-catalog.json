@@ -1,0 +1,337 @@
+{
+  "schema_version": 1,
+  "description": "ServerKit's 25 published platform targets and the container probes that can provide honest evidence for them.",
+  "targets": [
+    {
+      "id": "ubuntu",
+      "label": "Ubuntu",
+      "versions": "22.04 LTS, 24.04 LTS",
+      "family": "debian",
+      "published_status": "tested",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probes; Multipass VMs for full-install evidence.",
+      "probes": [
+        {
+          "key": "ubuntu22",
+          "label": "Ubuntu 22.04",
+          "image": "ubuntu:22.04",
+          "fidelity": "exact",
+          "full_image": "geerlingguy/docker-ubuntu2204-ansible:latest"
+        },
+        {
+          "key": "ubuntu24",
+          "label": "Ubuntu 24.04",
+          "image": "ubuntu:24.04",
+          "fidelity": "exact",
+          "full_image": "geerlingguy/docker-ubuntu2404-ansible:latest"
+        }
+      ]
+    },
+    {
+      "id": "debian",
+      "label": "Debian",
+      "versions": "12 Bookworm, 13 Trixie",
+      "family": "debian",
+      "published_status": "tested",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probes; Debian 12 also has a Vagrant full-install path.",
+      "probes": [
+        {
+          "key": "debian12",
+          "label": "Debian 12",
+          "image": "debian:12",
+          "fidelity": "exact",
+          "full_image": "geerlingguy/docker-debian12-ansible:latest"
+        },
+        {
+          "key": "debian13",
+          "label": "Debian 13",
+          "image": "debian:13",
+          "fidelity": "exact",
+          "full_image": null
+        }
+      ]
+    },
+    {
+      "id": "raspberry-pi-os",
+      "label": "Raspberry Pi OS",
+      "versions": "12 (64-bit)",
+      "family": "debian",
+      "published_status": "supported",
+      "architectures": ["arm64"],
+      "windows_strategy": "Debian 12 is only a userland proxy. Native arm64 CI plus a physical Pi is required for exact evidence.",
+      "proxy_probe_keys": ["debian12"],
+      "probes": []
+    },
+    {
+      "id": "linux-mint",
+      "label": "Linux Mint",
+      "versions": "21, 22",
+      "family": "debian",
+      "published_status": "supported",
+      "architectures": ["amd64"],
+      "windows_strategy": "Ubuntu 22.04/24.04 are base proxies; use Hyper-V with official Mint media for exact full installs.",
+      "proxy_probe_keys": ["ubuntu22", "ubuntu24"],
+      "probes": []
+    },
+    {
+      "id": "pop-os",
+      "label": "Pop!_OS",
+      "versions": "22.04",
+      "family": "debian",
+      "published_status": "supported",
+      "architectures": ["amd64"],
+      "windows_strategy": "Ubuntu 22.04 is a base proxy; use a Hyper-V VM for exact evidence.",
+      "proxy_probe_keys": ["ubuntu22"],
+      "probes": []
+    },
+    {
+      "id": "zorin-os",
+      "label": "Zorin OS",
+      "versions": "17",
+      "family": "debian",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Ubuntu 22.04 is a base proxy; use a Hyper-V VM for exact evidence.",
+      "proxy_probe_keys": ["ubuntu22"],
+      "probes": []
+    },
+    {
+      "id": "elementary-os",
+      "label": "elementary OS",
+      "versions": "7, 8",
+      "family": "debian",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Ubuntu LTS probes are base proxies; use Hyper-V VMs for exact evidence.",
+      "proxy_probe_keys": ["ubuntu22", "ubuntu24"],
+      "probes": []
+    },
+    {
+      "id": "proxmox-ve",
+      "label": "Proxmox VE",
+      "versions": "8",
+      "family": "debian",
+      "published_status": "supported",
+      "architectures": ["amd64"],
+      "windows_strategy": "Debian 12 is only a userland proxy. Exact host and nested-container behavior needs a nested Hyper-V Proxmox VM.",
+      "proxy_probe_keys": ["debian12"],
+      "probes": []
+    },
+    {
+      "id": "fedora",
+      "label": "Fedora",
+      "versions": "38, 39, 40, 41",
+      "family": "rhel",
+      "published_status": "tested",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probes; Fedora 40 also has a Vagrant full-install path.",
+      "probes": [
+        {"key": "fedora38", "label": "Fedora 38", "image": "fedora:38", "fidelity": "exact", "full_image": null},
+        {"key": "fedora39", "label": "Fedora 39", "image": "fedora:39", "fidelity": "exact", "full_image": null},
+        {"key": "fedora40", "label": "Fedora 40", "image": "fedora:40", "fidelity": "exact", "full_image": "geerlingguy/docker-fedora40-ansible:latest"},
+        {"key": "fedora41", "label": "Fedora 41", "image": "fedora:41", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "rocky-linux",
+      "label": "Rocky Linux",
+      "versions": "9, 10",
+      "family": "rhel",
+      "published_status": "tested",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probes; Rocky 9 also has a Vagrant/systemd-container full-install path.",
+      "probes": [
+        {"key": "rocky9", "label": "Rocky Linux 9", "image": "rockylinux:9", "fidelity": "exact", "full_image": "geerlingguy/docker-rockylinux9-ansible:latest"},
+        {"key": "rocky10", "label": "Rocky Linux 10", "image": "rockylinux/rockylinux:10", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "almalinux",
+      "label": "AlmaLinux",
+      "versions": "9, 10",
+      "family": "rhel",
+      "published_status": "tested",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probes; AlmaLinux 9 has an opt-in Vagrant full-install path.",
+      "probes": [
+        {"key": "alma9", "label": "AlmaLinux 9", "image": "almalinux:9", "fidelity": "exact", "full_image": null},
+        {"key": "alma10", "label": "AlmaLinux 10", "image": "almalinux:10", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "rhel",
+      "label": "RHEL",
+      "versions": "9, 10",
+      "family": "rhel",
+      "published_status": "supported",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Red Hat UBI probes cover compatible userland only; exact package/subscription behavior needs subscribed RHEL VMs.",
+      "probes": [
+        {"key": "rhel9ubi", "label": "RHEL 9 (UBI proxy)", "image": "redhat/ubi9:latest", "fidelity": "proxy", "full_image": null},
+        {"key": "rhel10ubi", "label": "RHEL 10 (UBI proxy)", "image": "redhat/ubi10:latest", "fidelity": "proxy", "full_image": null}
+      ]
+    },
+    {
+      "id": "centos-stream",
+      "label": "CentOS Stream",
+      "versions": "9, 10",
+      "family": "rhel",
+      "published_status": "supported",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probes.",
+      "probes": [
+        {"key": "centosstream9", "label": "CentOS Stream 9", "image": "quay.io/centos/centos:stream9", "fidelity": "exact", "full_image": null},
+        {"key": "centosstream10", "label": "CentOS Stream 10", "image": "quay.io/centos/centos:stream10", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "oracle-linux",
+      "label": "Oracle Linux",
+      "versions": "9",
+      "family": "rhel",
+      "published_status": "community",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probe; the UEK kernel is not represented by a container.",
+      "probes": [
+        {"key": "oracle9", "label": "Oracle Linux 9", "image": "oraclelinux:9", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "amazon-linux",
+      "label": "Amazon Linux",
+      "versions": "2023",
+      "family": "rhel",
+      "published_status": "community",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Exact Docker userland probe; EC2 metadata, kernel, SELinux, and cloud networking require an EC2 test.",
+      "probes": [
+        {"key": "amazon2023", "label": "Amazon Linux 2023", "image": "amazonlinux:2023", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "opensuse-leap",
+      "label": "openSUSE Leap",
+      "versions": "15.5, 15.6",
+      "family": "suse",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Exact Docker userland probes; Leap 15 has an opt-in Vagrant full-install path.",
+      "probes": [
+        {"key": "opensuse15", "label": "openSUSE Leap 15.5", "image": "opensuse/leap:15.5", "fidelity": "exact", "full_image": null},
+        {"key": "opensuse156", "label": "openSUSE Leap 15.6", "image": "opensuse/leap:15.6", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "opensuse-tumbleweed",
+      "label": "openSUSE Tumbleweed",
+      "versions": "rolling",
+      "family": "suse",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Exact Docker userland probe of the image current at test time.",
+      "probes": [
+        {"key": "opensuse-tumbleweed", "label": "openSUSE Tumbleweed", "image": "opensuse/tumbleweed:latest", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "sles",
+      "label": "SUSE Linux Enterprise",
+      "versions": "15 SP5+",
+      "family": "suse",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "SUSE BCI is a userland proxy; exact repository and registration behavior needs a subscribed SLES VM.",
+      "probes": [
+        {"key": "sles15bci", "label": "SLES 15 (BCI proxy)", "image": "registry.suse.com/bci/bci-base:15.7", "fidelity": "proxy", "full_image": null}
+      ]
+    },
+    {
+      "id": "arch-linux",
+      "label": "Arch Linux",
+      "versions": "rolling",
+      "family": "independent",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Exact Docker userland probe of the image current at test time.",
+      "probes": [
+        {"key": "arch", "label": "Arch Linux", "image": "archlinux:latest", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "manjaro",
+      "label": "Manjaro",
+      "versions": "rolling",
+      "family": "independent",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Exact base-userland Docker probe; a desktop/live VM is needed for full-install evidence.",
+      "probes": [
+        {"key": "manjaro", "label": "Manjaro", "image": "manjarolinux/base:latest", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "gentoo",
+      "label": "Gentoo",
+      "versions": "rolling",
+      "family": "independent",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Exact stage3 Docker userland probe. Expected failures remain visible because emerge is not an installer package-manager path.",
+      "probes": [
+        {"key": "gentoo", "label": "Gentoo stage3", "image": "gentoo/stage3:latest", "fidelity": "exact", "full_image": null}
+      ]
+    },
+    {
+      "id": "docker",
+      "label": "Docker",
+      "versions": "Engine 24.0+, Compose v2",
+      "family": "platform",
+      "published_status": "supported",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "Docker Desktop can run scripts/test/smoke-docker-image.sh; distro userland probes do not validate ServerKit's all-in-one image.",
+      "probes": []
+    },
+    {
+      "id": "lxc-incus",
+      "label": "LXC / Incus container",
+      "versions": "Proxmox 8, Incus 6",
+      "family": "platform",
+      "published_status": "supported",
+      "architectures": ["amd64"],
+      "windows_strategy": "Needs a Linux or nested-Proxmox host with nesting/keyctl controls; Docker Desktop is not an LXC substitute.",
+      "probes": []
+    },
+    {
+      "id": "virtual-machines",
+      "label": "Virtual machines",
+      "versions": "KVM, VMware, Hyper-V, VirtualBox",
+      "family": "platform",
+      "published_status": "supported",
+      "architectures": ["amd64", "arm64"],
+      "windows_strategy": "scripts/test/full-stack-test.ps1 exercises Hyper-V through Multipass and Vagrant; other hypervisors need their own hosts.",
+      "probes": []
+    },
+    {
+      "id": "wsl2",
+      "label": "WSL2",
+      "versions": "Ubuntu 22.04+",
+      "family": "platform",
+      "published_status": "community",
+      "architectures": ["amd64"],
+      "windows_strategy": "Use a disposable wsl --import distribution for install testing. The current developer distro must not be mutated by discovery runs.",
+      "probes": []
+    }
+  ],
+  "legacy_probes": [
+    {
+      "key": "debian11",
+      "target_id": "debian",
+      "label": "Debian 11 (legacy)",
+      "family": "debian",
+      "image": "debian:11",
+      "fidelity": "legacy",
+      "full_image": "geerlingguy/docker-debian11-ansible:latest"
+    }
+  ]
+}

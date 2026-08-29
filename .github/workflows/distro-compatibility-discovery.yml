@@ -1,0 +1,43 @@
+name: Distro Compatibility Discovery
+
+# Broad, non-gating evidence run. Known incompatibilities must stay visible in
+# the uploaded report without preventing the remaining distro probes from
+# running. Promotion gates belong in Scripts CI once a matrix subset is green.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+
+jobs:
+  discover:
+    name: all 25 targets (container evidence)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run exact and proxy image probes
+        run: >-
+          python3 scripts/test/distro-compatibility.py
+          --mode both
+          --jobs 4
+          --remove-images
+
+      - name: Publish report in the run summary
+        if: always()
+        run: |
+          report="$(find scripts/test/output/distro-compatibility -name report.md -type f | sort | tail -1)"
+          if [ -n "$report" ]; then
+            cat "$report" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No compatibility report was produced.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload detailed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: distro-compatibility-report
+          path: scripts/test/output/distro-compatibility/
+          if-no-files-found: error
+          retention-days: 30
