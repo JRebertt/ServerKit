@@ -195,6 +195,7 @@ backend/app/plugins/serverkit-email/
 backend/app/plugins/serverkit-ftp/
 backend/app/plugins/serverkit-gpu/
 backend/app/plugins/serverkit-gui/
+backend/app/plugins/serverkit-localkit/
 backend/app/plugins/serverkit-k8s/
 backend/app/plugins/serverkit-mail/
 backend/app/plugins/serverkit-remote-access/

@@ -173,7 +173,7 @@
       "category": "integration",
       "author": "ServerKit",
       "first_party": true,
-      "bundled": true,
+      "bundled": false,
       "permissions": [
         "filesystem",
         "network",
@@ -182,7 +182,10 @@
       ],
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
-      "repo": "https://github.com/jhd3197/ServerKit"
+      "repo": "https://github.com/jhd3197/serverkit-localkit",
+      "source": "https://github.com/jhd3197/serverkit-localkit/releases/download/v0.2.0/serverkit-localkit-0.2.0.zip",
+      "sha256": "7c7c37c83eb35e9f5075082b4e12984a1b9a7ed023028159ef53e511b42c806c",
+      "homepage": "https://github.com/jhd3197/serverkit-localkit"
     },
     {
       "slug": "serverkit-gpu",
