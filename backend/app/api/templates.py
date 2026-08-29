@@ -333,6 +333,10 @@ def install_template(template_id):
         user_variables = data.get('variables', {})
         server_id = data.get('server_id') or data.get('target_server_id')
         wait = bool(data.get('wait', False))
+        # The deploy drawer sends true when it showed the operator a
+        # <name>.<base> hostname — that promise must not depend on the
+        # template YAML having opted in. Absent means the template decides.
+        auto_domain = data.get('auto_domain')
 
         result = DeploymentJobService.install_template(
             template_id=template_id,
@@ -341,6 +345,7 @@ def install_template(template_id):
             user_id=current_user_id,
             server_id=server_id,
             wait=wait,
+            auto_domain=None if auto_domain is None else bool(auto_domain),
         )
 
         if not result.get('success'):

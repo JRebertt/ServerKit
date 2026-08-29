@@ -317,15 +317,18 @@ export async function inspectTemplateManifest(templateId, branch = null) {
 }
 
 export async function installTemplate(templateId, appName, variables = {}, options = {}) {
-    return this.request(`/templates/${templateId}/install`, {
-        method: 'POST',
-        body: {
-            app_name: appName,
-            variables,
-            server_id: options.serverId || 'local',
-            wait: options.wait || false,
-        }
-    });
+    const body = {
+        app_name: appName,
+        variables,
+        server_id: options.serverId || 'local',
+        wait: options.wait || false,
+    };
+    // Only sent when the drawer actually promised a <name>.<base> hostname;
+    // omitted otherwise so the template's own auto_domain setting decides.
+    if (options.autoDomain != null) {
+        body.auto_domain = !!options.autoDomain;
+    }
+    return this.request(`/templates/${templateId}/install`, { method: 'POST', body });
 }
 
 export async function validateTemplateInstall(templateId, appName, variables = {}, serverId = null) {

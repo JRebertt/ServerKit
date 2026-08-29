@@ -38,6 +38,7 @@ class DeploymentJobService:
         user_id: int = None,
         server_id: Optional[str] = None,
         wait: bool = False,
+        auto_domain: Optional[bool] = None,
     ) -> Dict:
         """Create a template installation job and optionally run it synchronously."""
         normalized_server_id = cls._normalize_server_id(server_id)
@@ -62,6 +63,7 @@ class DeploymentJobService:
             user_variables=user_variables or {},
             user_id=user_id,
             server_id=normalized_server_id,
+            auto_domain=auto_domain,
         )
         if not plan_result.get('success'):
             return plan_result
