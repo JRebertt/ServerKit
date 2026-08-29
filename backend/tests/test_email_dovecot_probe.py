@@ -22,8 +22,16 @@ from pathlib import Path
 
 import pytest
 
-_DOVECOT = (Path(__file__).resolve().parent.parent
-            / 'app' / 'plugins' / 'serverkit-email' / 'dovecot_service.py')
+from tests.conftest import sibling_extension_dir
+
+_EMAIL_DIR = sibling_extension_dir('serverkit-email')
+_DOVECOT = (Path(_EMAIL_DIR) / 'backend' / 'dovecot_service.py'
+            if _EMAIL_DIR else None)
+
+pytestmark = pytest.mark.skipif(
+    _DOVECOT is None or not _DOVECOT.is_file(),
+    reason='serverkit-email checkout not available '
+           '(set SERVERKIT_EMAIL_DIR to its checkout)')
 
 
 def _load():

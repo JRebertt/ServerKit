@@ -379,6 +379,27 @@ def scoping_rbac(app):
 # ServerKit clone's suite must pass without the extension source.
 
 
+def sibling_extension_dir(slug, env_var=None):
+    """A standalone extension repo's checkout dir, or None (plan 52 cutover).
+
+    Resolution mirrors _wp_ext_tests_dir: an explicit env override first
+    (SERVERKIT_<SLUG>_DIR, dashes/prefix dropped), then the default sibling
+    checkout next to the ServerKit workspace. Suites that exercise an
+    extracted extension mount it from here and skip cleanly when absent.
+    """
+    env_name = env_var or 'SERVERKIT_{}_DIR'.format(
+        slug.replace('serverkit-', '').replace('-', '_').upper())
+    env = os.environ.get(env_name)
+    candidates = [env] if env else []
+    candidates.append(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))), slug))
+    for cand in candidates:
+        if cand and os.path.isfile(os.path.join(cand, 'plugin.json')):
+            return cand
+    return None
+
+
 def _wp_ext_tests_dir():
     """The standalone serverkit-wordpress repo's tests/ dir, or None."""
     env = os.environ.get('SERVERKIT_WORDPRESS_DIR')

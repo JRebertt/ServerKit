@@ -118,7 +118,7 @@
       "category": "integration",
       "author": "ServerKit",
       "first_party": true,
-      "bundled": true,
+      "bundled": false,
       "permissions": [
         "shell",
         "filesystem",
@@ -126,8 +126,11 @@
       ],
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
-      "repo": "https://github.com/jhd3197/ServerKit",
-      "logo": "assets/serverkit-email/logo.png"
+      "repo": "https://github.com/jhd3197/serverkit-email",
+      "logo": "assets/serverkit-email/logo.png",
+      "source": "https://github.com/jhd3197/serverkit-email/releases/download/v1.0.0/serverkit-email-1.0.0.zip",
+      "sha256": "896fea2df5dd5097b70e9401264555078acc6eaea9a8a57382b7e4be92ac381b",
+      "homepage": "https://github.com/jhd3197/serverkit-email"
     },
     {
       "slug": "serverkit-ftp",

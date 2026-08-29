@@ -107,7 +107,6 @@ def _email_was_configured():
 # actually used the feature (D3/#34). Fresh installs and panels that never used
 # the feature just see it in the Marketplace.
 GATED_BUILTIN_SLUGS = {
-    'serverkit-email': _email_was_configured,
     'serverkit-git': _gitea_was_used,
 }
 
@@ -140,6 +139,9 @@ def _scanners_dir_populated():
 # unmarked so the next boot retries; panels without the host tool just see
 # the extension in the Marketplace.
 REGISTRY_GATED_SLUGS = {
+    # serverkit-email left the tree (plan 52 Phase 2 cutover): its gated
+    # auto-install rides the registry now, same predicate as before.
+    'serverkit-email': _email_was_configured,
     'serverkit-fail2ban': _has_command('fail2ban-client'),
     'serverkit-clamav': _has_command('clamscan'),
     'serverkit-lynis': _has_command('lynis'),
