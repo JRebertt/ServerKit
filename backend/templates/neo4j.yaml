@@ -2,7 +2,7 @@ id: neo4j
 name: Neo4j
 version: "5.20"
 description: Graph database with the Cypher query language for highly connected data
-icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/neo4j.svg
+icon: https://serverkit.ai/imgs/template-icons/neo4j.svg
 categories:
   - database
   - graph

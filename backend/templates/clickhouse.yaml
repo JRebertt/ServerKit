@@ -2,7 +2,7 @@ id: clickhouse
 name: ClickHouse
 version: "24.3"
 description: Columnar OLAP database for event data and analytical queries over billions of rows
-icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/clickhouse.svg
+icon: https://serverkit.ai/imgs/template-icons/clickhouse.svg
 categories:
   - database
   - analytics

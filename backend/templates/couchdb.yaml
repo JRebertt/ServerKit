@@ -2,7 +2,7 @@ id: couchdb
 name: CouchDB
 version: "3.3"
 description: Document database with an HTTP API and multi-master replication for offline-first apps
-icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/couchdb.svg
+icon: https://serverkit.ai/imgs/template-icons/couchdb.svg
 categories:
   - database
   - nosql

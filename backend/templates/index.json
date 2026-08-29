@@ -9,7 +9,7 @@
       "name": "Actual Budget",
       "version": "1.0",
       "description": "Privacy-first personal budgeting app using envelope budgeting with optional bank sync.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/actualbudget.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/actualbudget.svg",
       "categories": [
         "finance",
         "productivity"
@@ -20,7 +20,7 @@
       "name": "AgentSite",
       "version": "1.0",
       "description": "AI-powered website builder with multi-agent orchestration, deployed straight from its Git repository.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/agentsite.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/agentsite.png",
       "categories": [
         "ai",
         "website",
@@ -32,7 +32,7 @@
       "name": "AnythingLLM",
       "version": "1.0",
       "description": "All-in-one private ChatGPT-style app with built-in RAG, AI agents, and document workspaces.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/anythingllm.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/anythingllm.svg",
       "categories": [
         "ai",
         "llm",
@@ -45,7 +45,7 @@
       "name": "Audiobookshelf",
       "version": "1.0",
       "description": "Self-hosted server for managing and streaming your audiobooks, podcasts, and ebooks.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/audiobookshelf.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/audiobookshelf.svg",
       "categories": [
         "media",
         "audiobooks"
@@ -56,7 +56,7 @@
       "name": "Authelia",
       "version": "4.37",
       "description": "Authentication and authorization server providing 2FA and SSO",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/authelia.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/authelia.png",
       "categories": [
         "security",
         "authentication",
@@ -68,7 +68,7 @@
       "name": "Authentik",
       "version": "1.0",
       "description": "Open-source identity provider for single sign-on with OIDC, SAML, and LDAP.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/authentik.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/authentik.svg",
       "categories": [
         "security",
         "identity",
@@ -80,7 +80,7 @@
       "name": "Beszel",
       "version": "1.0",
       "description": "Lightweight server monitoring hub with historical metrics and alerts.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/beszel.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/beszel.svg",
       "categories": [
         "monitoring"
       ]
@@ -90,7 +90,7 @@
       "name": "BookStack",
       "version": "23.12",
       "description": "Simple, self-hosted platform for organizing and storing information",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/bookstack.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/bookstack.png",
       "categories": [
         "productivity",
         "wiki",
@@ -102,7 +102,7 @@
       "name": "Caddy",
       "version": "2.7",
       "description": "Fast, multi-platform web server with automatic HTTPS",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/caddy.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/caddy.svg",
       "categories": [
         "networking",
         "proxy",
@@ -114,7 +114,7 @@
       "name": "Calibre-Web",
       "version": "1.0",
       "description": "Clean web interface for browsing, reading, and downloading books from a Calibre ebook library.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/calibre-web.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/calibre-web.svg",
       "categories": [
         "media",
         "ebooks",
@@ -126,7 +126,7 @@
       "name": "Chatwoot",
       "version": "1.0",
       "description": "Open-source customer engagement suite with live chat and a shared inbox.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/chatwoot.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/chatwoot.svg",
       "categories": [
         "business",
         "support",
@@ -138,7 +138,7 @@
       "name": "Chroma",
       "version": "1.0",
       "description": "Open-source vector database for embeddings and semantic search in AI and RAG applications.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/chroma.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/chroma.svg",
       "categories": [
         "ai",
         "database",
@@ -150,7 +150,7 @@
       "name": "ClickHouse",
       "version": "24.3",
       "description": "Columnar OLAP database for event data and analytical queries over billions of rows",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/clickhouse.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/clickhouse.svg",
       "categories": [
         "database",
         "analytics"
@@ -179,7 +179,7 @@
       "name": "CockroachDB",
       "version": "24.1",
       "description": "Distributed SQL database that speaks the PostgreSQL wire protocol, with survivable single-node mode for self-hosting",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/cockroachdb.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/cockroachdb.svg",
       "categories": [
         "database",
         "sql",
@@ -209,7 +209,7 @@
       "name": "Code Server",
       "version": "4.20",
       "description": "VS Code in the browser with full IDE features and extensions support",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/code-server.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/code-server.ico",
       "categories": [
         "development",
         "ide",
@@ -221,7 +221,7 @@
       "name": "CouchDB",
       "version": "3.3",
       "description": "Document database with an HTTP API and multi-master replication for offline-first apps",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/couchdb.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/couchdb.svg",
       "categories": [
         "database",
         "nosql"
@@ -250,7 +250,7 @@
       "name": "CrowdSec",
       "version": "1.6",
       "description": "Collaborative security engine for detecting and blocking threats",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/crowdsec.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/crowdsec.png",
       "categories": [
         "security",
         "firewall",
@@ -262,7 +262,7 @@
       "name": "Directus",
       "version": "10.8",
       "description": "Open-source data platform with instant REST and GraphQL API for any SQL database",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/directus.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/directus.ico",
       "categories": [
         "cms",
         "headless",
@@ -275,7 +275,7 @@
       "name": "Documenso",
       "version": "1.0",
       "description": "Open-source document signing platform for sending and signing documents online.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/documenso.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/documenso.svg",
       "categories": [
         "business",
         "documents",
@@ -287,7 +287,7 @@
       "name": "Drone CI",
       "version": "2.22",
       "description": "Container-native continuous integration platform with simple pipeline configuration",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/drone.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/drone.svg",
       "categories": [
         "devops",
         "ci-cd",
@@ -299,7 +299,7 @@
       "name": "Duplicati",
       "version": "2.0",
       "description": "Free backup software to store encrypted backups online",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/duplicati.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/duplicati.svg",
       "categories": [
         "storage",
         "backup",
@@ -311,7 +311,7 @@
       "name": "Excalidraw",
       "version": "0.17",
       "description": "Virtual whiteboard for sketching hand-drawn like diagrams",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/excalidraw.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/excalidraw.png",
       "categories": [
         "productivity",
         "diagrams",
@@ -323,7 +323,7 @@
       "name": "File Browser",
       "version": "2.27",
       "description": "Web-based file manager with upload, download, and file sharing features",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/filebrowser.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/filebrowser.svg",
       "categories": [
         "storage",
         "files",
@@ -335,7 +335,7 @@
       "name": "Firefly III",
       "version": "1.0",
       "description": "Self-hosted personal finance manager for budgeting, accounts, and money tracking.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/firefly-iii.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/firefly-iii.svg",
       "categories": [
         "finance",
         "productivity"
@@ -346,7 +346,7 @@
       "name": "Flask - Hello World",
       "version": "1.0",
       "description": "Simple Flask app for testing and debugging. Shows server info, port, and connection status. No database needed.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/flask-hello-world.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/flask-hello-world.ico",
       "categories": [
         "development",
         "api",
@@ -358,7 +358,7 @@
       "name": "Flowise",
       "version": "1.0",
       "description": "Low-code drag-and-drop builder for LLM agents and chains.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/flowise.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/flowise.svg",
       "categories": [
         "ai",
         "llm",
@@ -371,7 +371,7 @@
       "name": "FreshRSS",
       "version": "1.0",
       "description": "Free, self-hosted RSS and Atom feed aggregator for following news and websites in one place.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/freshrss.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/freshrss.svg",
       "categories": [
         "news",
         "rss",
@@ -383,7 +383,7 @@
       "name": "Ghost",
       "version": "5.75",
       "description": "Professional publishing platform for blogs and newsletters",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/ghost.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/ghost.ico",
       "categories": [
         "cms",
         "blog",
@@ -395,7 +395,7 @@
       "name": "Gitea",
       "version": "1.21",
       "description": "Lightweight self-hosted Git service",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/gitea.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/gitea.svg",
       "categories": [
         "devops",
         "git",
@@ -407,7 +407,7 @@
       "name": "GitLab Runner",
       "version": "16.6",
       "description": "Application that works with GitLab CI/CD to run jobs in a pipeline",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/gitlab-runner.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/gitlab-runner.png",
       "categories": [
         "devops",
         "ci-cd",
@@ -419,7 +419,7 @@
       "name": "Gotify",
       "version": "1.0",
       "description": "Self-hosted push notification server with Android client support.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/gotify.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/gotify.svg",
       "categories": [
         "notifications",
         "messaging"
@@ -430,7 +430,7 @@
       "name": "Grafana",
       "version": "10.2",
       "description": "Open-source analytics and interactive visualization platform for metrics, logs, and traces",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/grafana.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/grafana.svg",
       "categories": [
         "monitoring",
         "analytics",
@@ -442,7 +442,7 @@
       "name": "Grav CMS",
       "version": "1.7",
       "description": "Modern flat-file CMS that is fast, simple, and flexible",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/grav.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/grav.png",
       "categories": [
         "cms",
         "flat-file",
@@ -454,7 +454,7 @@
       "name": "Home Assistant",
       "version": "2024.1",
       "description": "Open-source home automation platform with focus on local control and privacy",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/homeassistant.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/homeassistant.png",
       "categories": [
         "home-automation",
         "iot",
@@ -466,7 +466,7 @@
       "name": "Immich",
       "version": "1.91",
       "description": "High-performance self-hosted photo and video backup solution with mobile apps",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/immich.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/immich.svg",
       "categories": [
         "media",
         "photos",
@@ -478,7 +478,7 @@
       "name": "InfluxDB",
       "version": "2.7",
       "description": "Purpose-built time-series database for metrics, sensors and monitoring data",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/influxdb.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/influxdb.svg",
       "categories": [
         "database",
         "timeseries",
@@ -508,7 +508,7 @@
       "name": "Jaeger",
       "version": "1.52",
       "description": "Open-source distributed tracing system for monitoring and troubleshooting microservices",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/jaeger.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/jaeger.png",
       "categories": [
         "monitoring",
         "tracing",
@@ -520,7 +520,7 @@
       "name": "Jellyfin",
       "version": "10.8",
       "description": "Free and open-source media server for streaming movies, TV shows, music, and more",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/jellyfin.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/jellyfin.svg",
       "categories": [
         "media",
         "streaming",
@@ -532,7 +532,7 @@
       "name": "Jellyseerr",
       "version": "1.0",
       "description": "Media request and discovery portal for Jellyfin/Plex and the PVR apps",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/jellyseerr.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/jellyseerr.svg",
       "categories": [
         "media",
         "automation"
@@ -543,7 +543,7 @@
       "name": "Jenkins",
       "version": "2.426",
       "description": "Leading open-source automation server for building, deploying, and automating projects",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/jenkins.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/jenkins.svg",
       "categories": [
         "devops",
         "ci-cd",
@@ -555,7 +555,7 @@
       "name": "Jitsi Meet",
       "version": "9111",
       "description": "Secure, fully featured, and completely free video conferencing",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/jitsi.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/jitsi.svg",
       "categories": [
         "collaboration",
         "video",
@@ -567,7 +567,7 @@
       "name": "Karakeep",
       "version": "1.0",
       "description": "Self-hosted bookmark-everything app (formerly Hoarder) that saves links, notes, and images with AI tagging and full-text search.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/karakeep.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/karakeep.svg",
       "categories": [
         "productivity",
         "bookmarks"
@@ -578,7 +578,7 @@
       "name": "Keycloak",
       "version": "23.0",
       "description": "Open-source identity and access management for modern applications",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/keycloak.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/keycloak.svg",
       "categories": [
         "security",
         "authentication",
@@ -590,7 +590,7 @@
       "name": "Langflow",
       "version": "1.0",
       "description": "Visual framework for building multi-agent and RAG applications.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/langflow.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/langflow.svg",
       "categories": [
         "ai",
         "llm",
@@ -603,7 +603,7 @@
       "name": "LibreChat",
       "version": "1.0",
       "description": "Open-source multi-model chat UI (OpenAI, Anthropic, Google, local) with conversation search.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/librechat.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/librechat.svg",
       "categories": [
         "ai",
         "llm",
@@ -615,7 +615,7 @@
       "name": "linkding",
       "version": "1.0",
       "description": "Minimal, fast self-hosted bookmark manager.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/linkding.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/linkding.svg",
       "categories": [
         "productivity",
         "bookmarks"
@@ -626,7 +626,7 @@
       "name": "LiteLLM",
       "version": "1.0",
       "description": "OpenAI-compatible proxy and gateway that routes requests across 100+ LLM providers.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/litellm.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/litellm.svg",
       "categories": [
         "ai",
         "llm",
@@ -638,7 +638,7 @@
       "name": "Grafana Loki",
       "version": "2.9",
       "description": "Horizontally scalable, highly available log aggregation system inspired by Prometheus",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/loki.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/loki.svg",
       "categories": [
         "monitoring",
         "logging",
@@ -650,7 +650,7 @@
       "name": "MariaDB",
       "version": "11.4",
       "description": "Community-developed MySQL fork -- a drop-in relational database with a faster release cadence",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mariadb.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/mariadb.svg",
       "categories": [
         "database",
         "sql"
@@ -679,7 +679,7 @@
       "name": "Matrix Synapse",
       "version": "1.98",
       "description": "Decentralized communication server for secure, federated messaging",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/matrix-synapse.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/matrix-synapse.svg",
       "categories": [
         "collaboration",
         "chat",
@@ -691,7 +691,7 @@
       "name": "Mattermost",
       "version": "9.2",
       "description": "Open-source Slack alternative for secure team collaboration and messaging",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mattermost.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/mattermost.png",
       "categories": [
         "collaboration",
         "chat",
@@ -703,7 +703,7 @@
       "name": "Meilisearch",
       "version": "1.12",
       "description": "Lightning-fast, typo-tolerant search engine that many apps rely on for instant full-text search.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/meilisearch.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/meilisearch.svg",
       "categories": [
         "search",
         "database"
@@ -731,7 +731,7 @@
       "name": "Memos",
       "version": "1.0",
       "description": "Lightweight, privacy-first note-taking and micro-blogging app.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/memos.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/memos.svg",
       "categories": [
         "notes",
         "productivity"
@@ -742,7 +742,7 @@
       "name": "Metabase",
       "version": "1.0",
       "description": "Open-source business intelligence and dashboards tool for exploring your data.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/metabase.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/metabase.svg",
       "categories": [
         "analytics",
         "business",
@@ -754,7 +754,7 @@
       "name": "Miniflux",
       "version": "1.0",
       "description": "Minimalist and fast self-hosted RSS feed reader backed by PostgreSQL.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/miniflux.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/miniflux.svg",
       "categories": [
         "news",
         "rss"
@@ -765,7 +765,7 @@
       "name": "MinIO",
       "version": "2024-01",
       "description": "High-performance, S3-compatible object storage for cloud-native applications",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/minio.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/minio.png",
       "categories": [
         "storage",
         "s3",
@@ -777,7 +777,7 @@
       "name": "Mongo Express",
       "version": "1.0",
       "description": "Web-based MongoDB admin interface for managing databases and collections",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mongo-express.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/mongo-express.ico",
       "categories": [
         "database",
         "mongodb",
@@ -789,7 +789,7 @@
       "name": "MongoDB",
       "version": "7.0",
       "description": "Document store with flexible schemas, aggregation pipelines and change streams",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mongodb.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/mongodb.svg",
       "categories": [
         "database",
         "nosql"
@@ -818,7 +818,7 @@
       "name": "Eclipse Mosquitto",
       "version": "2.0",
       "description": "Lightweight MQTT message broker for IoT and home automation",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mosquitto.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/mosquitto.svg",
       "categories": [
         "home-automation",
         "iot",
@@ -830,7 +830,7 @@
       "name": "MySQL",
       "version": "8.4",
       "description": "The most widely deployed open-source relational database, with InnoDB storage and mature replication",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mysql.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/mysql.svg",
       "categories": [
         "database",
         "sql"
@@ -859,7 +859,7 @@
       "name": "n8n",
       "version": "1.22",
       "description": "Extendable workflow automation tool for connecting apps and services",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/n8n.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/n8n.ico",
       "categories": [
         "productivity",
         "automation",
@@ -871,7 +871,7 @@
       "name": "Navidrome",
       "version": "0.50",
       "description": "Modern music server and streamer compatible with Subsonic/Airsonic",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/navidrome.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/navidrome.png",
       "categories": [
         "media",
         "music",
@@ -883,7 +883,7 @@
       "name": "Neo4j",
       "version": "5.20",
       "description": "Graph database with the Cypher query language for highly connected data",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/neo4j.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/neo4j.svg",
       "categories": [
         "database",
         "graph"
@@ -912,7 +912,7 @@
       "name": "Netdata",
       "version": "1.44",
       "description": "Real-time performance and health monitoring for systems and applications",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/netdata.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/netdata.ico",
       "categories": [
         "monitoring",
         "metrics",
@@ -924,7 +924,7 @@
       "name": "Nextcloud",
       "version": "28.0",
       "description": "Self-hosted productivity platform with file sync and collaboration",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/nextcloud.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/nextcloud.svg",
       "categories": [
         "storage",
         "collaboration",
@@ -936,7 +936,7 @@
       "name": "Nginx Proxy Manager",
       "version": "2.10",
       "description": "Easy-to-use reverse proxy with SSL management",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/nginx-proxy-manager.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/nginx-proxy-manager.png",
       "categories": [
         "networking",
         "proxy",
@@ -948,7 +948,7 @@
       "name": "Node.js Application",
       "version": "20",
       "description": "Custom Node.js application. Supports Node 18-21. Perfect for Express, Next.js, or any Node.js project.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/node-app.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/node-app.svg",
       "categories": [
         "development",
         "api",
@@ -960,7 +960,7 @@
       "name": "NodeBB",
       "version": "1.0",
       "description": "Modern, real-time forum and community platform built on Node.js.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/nodebb.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/nodebb.svg",
       "categories": [
         "community",
         "forum",
@@ -972,7 +972,7 @@
       "name": "Node-RED",
       "version": "3.1",
       "description": "Flow-based programming tool for wiring together hardware devices and APIs",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/nodered.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/nodered.svg",
       "categories": [
         "home-automation",
         "automation",
@@ -984,7 +984,7 @@
       "name": "ntfy",
       "version": "1.0",
       "description": "Simple HTTP-based pub/sub service that pushes notifications to your phone or desktop via a POST.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/ntfy.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/ntfy.svg",
       "categories": [
         "notifications",
         "messaging"
@@ -995,7 +995,7 @@
       "name": "Ollama + Open WebUI",
       "version": "1.0",
       "description": "Local LLM inference with Ollama and a friendly chat interface (Open WebUI).",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/ollama-webui.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/ollama-webui.svg",
       "categories": [
         "ai",
         "llm",
@@ -1007,7 +1007,7 @@
       "name": "Outline",
       "version": "0.74",
       "description": "Beautiful, real-time collaborative team wiki and knowledge base",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/outline.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/outline.svg",
       "categories": [
         "productivity",
         "wiki",
@@ -1019,7 +1019,7 @@
       "name": "Paperless-ngx",
       "version": "1.0",
       "description": "Document management system that scans, OCRs, indexes and archives your documents into a searchable online archive.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/paperless-ngx.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/paperless-ngx.svg",
       "categories": [
         "documents",
         "productivity"
@@ -1030,7 +1030,7 @@
       "name": "Payload CMS",
       "version": "2.5",
       "description": "Modern TypeScript headless CMS with powerful admin panel and customization",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/payload.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/payload.svg",
       "categories": [
         "cms",
         "headless",
@@ -1042,7 +1042,7 @@
       "name": "pgAdmin 4",
       "version": "8.2",
       "description": "Web-based PostgreSQL administration and development platform",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/pgadmin.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/pgadmin.ico",
       "categories": [
         "database",
         "postgresql",
@@ -1054,7 +1054,7 @@
       "name": "PhotoPrism",
       "version": "231128",
       "description": "AI-powered photo management application with face recognition and auto-tagging",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/photoprism.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/photoprism.svg",
       "categories": [
         "media",
         "photos",
@@ -1066,7 +1066,7 @@
       "name": "PHP Application",
       "version": "8.3",
       "description": "Custom PHP application with Apache. Supports PHP 8.0-8.3. Perfect for Laravel, WordPress themes, or any PHP project.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/php-app.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/php-app.svg",
       "categories": [
         "development",
         "web",
@@ -1078,7 +1078,7 @@
       "name": "phpMyAdmin",
       "version": "5.2",
       "description": "Web-based MySQL and MariaDB administration tool",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/phpmyadmin.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/phpmyadmin.png",
       "categories": [
         "database",
         "mysql",
@@ -1090,7 +1090,7 @@
       "name": "Pi-hole",
       "version": "1.0",
       "description": "Network-wide ad-blocking DNS sinkhole with a web dashboard.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/pihole.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/pihole.svg",
       "categories": [
         "networking",
         "dns",
@@ -1102,7 +1102,7 @@
       "name": "Plane",
       "version": "1.0",
       "description": "Open-source project management and issue tracking with cycles, modules, and views (a Jira/Linear alternative).",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/plane.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/plane.svg",
       "categories": [
         "productivity",
         "project-management"
@@ -1113,7 +1113,7 @@
       "name": "Plausible Analytics",
       "version": "2.0",
       "description": "Privacy-friendly, lightweight alternative to Google Analytics",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/plausible.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/plausible.svg",
       "categories": [
         "analytics",
         "privacy",
@@ -1125,7 +1125,7 @@
       "name": "Plex Media Server",
       "version": "1.32",
       "description": "Organize and stream your personal media collection to any device",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/plex.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/plex.png",
       "categories": [
         "media",
         "streaming",
@@ -1137,7 +1137,7 @@
       "name": "Portainer",
       "version": "2.19",
       "description": "Lightweight Docker management UI with container visualization",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/portainer.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/portainer.png",
       "categories": [
         "devops",
         "docker",
@@ -1149,7 +1149,7 @@
       "name": "PostgreSQL",
       "version": "16",
       "description": "Standards-compliant relational database with JSONB, full-text search and a deep extension ecosystem",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/postgresql.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/postgresql.svg",
       "categories": [
         "database",
         "sql"
@@ -1179,7 +1179,7 @@
       "name": "PostgreSQL + pgvector",
       "version": "16",
       "description": "PostgreSQL on an image that ships the pgvector shared library, so vector search can be enabled without rebuilding the container",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/postgresql.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/postgresql.svg",
       "categories": [
         "database",
         "sql",
@@ -1210,7 +1210,7 @@
       "name": "PostHog",
       "version": "1.0",
       "description": "Open-source product analytics with session replay, feature flags, A/B testing, and event autocapture.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/posthog.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/posthog.svg",
       "categories": [
         "analytics",
         "business"
@@ -1221,7 +1221,7 @@
       "name": "Prometheus",
       "version": "2.48",
       "description": "Open-source monitoring and alerting toolkit designed for reliability and scalability",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/prometheus.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/prometheus.svg",
       "categories": [
         "monitoring",
         "metrics",
@@ -1246,7 +1246,7 @@
       "name": "Prowlarr",
       "version": "1.0",
       "description": "Indexer manager and proxy that integrates your indexers with the PVR apps",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/prowlarr.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/prowlarr.svg",
       "categories": [
         "media",
         "automation"
@@ -1257,7 +1257,7 @@
       "name": "Python Application",
       "version": "3.12",
       "description": "Custom Python application. Supports Python 3.9-3.12. Perfect for Flask, FastAPI, Django, or any Python project.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/python-app.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/python-app.svg",
       "categories": [
         "development",
         "api",
@@ -1269,7 +1269,7 @@
       "name": "qBittorrent",
       "version": "1.0",
       "description": "Open-source BitTorrent client with a full-featured web UI",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/qbittorrent.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/qbittorrent.svg",
       "categories": [
         "media",
         "downloads"
@@ -1280,7 +1280,7 @@
       "name": "Qdrant",
       "version": "1.0",
       "description": "Vector similarity search engine for AI/LLM and semantic-search applications.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/qdrant.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/qdrant.svg",
       "categories": [
         "ai",
         "database",
@@ -1292,7 +1292,7 @@
       "name": "Radarr",
       "version": "1.0",
       "description": "PVR for movies that monitors, grabs, sorts, and renames films automatically",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/radarr.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/radarr.svg",
       "categories": [
         "media",
         "automation"
@@ -1303,7 +1303,7 @@
       "name": "Redis Commander",
       "version": "0.8",
       "description": "Web-based Redis management tool for viewing and editing data",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/redis-commander.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/redis-commander.ico",
       "categories": [
         "database",
         "redis",
@@ -1315,7 +1315,7 @@
       "name": "Redis",
       "version": "7.2",
       "description": "In-memory key-value store used for cache, queues and ephemeral state",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/redis.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/redis.svg",
       "categories": [
         "database",
         "cache"
@@ -1344,7 +1344,7 @@
       "name": "Docker Registry",
       "version": "2.8",
       "description": "Private Docker container image registry for storing and distributing container images",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/registry.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/registry.png",
       "categories": [
         "devops",
         "docker",
@@ -1356,7 +1356,7 @@
       "name": "Rocket.Chat",
       "version": "6.5",
       "description": "Open-source team communication platform with chat, video, and file sharing",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/rocketchat.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/rocketchat.svg",
       "categories": [
         "collaboration",
         "chat",
@@ -1368,7 +1368,7 @@
       "name": "Seafile",
       "version": "11.0",
       "description": "Open-source file sync and share platform with built-in collaboration",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/seafile.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/seafile.png",
       "categories": [
         "storage",
         "sync",
@@ -1380,7 +1380,7 @@
       "name": "SearXNG",
       "version": "1.0",
       "description": "Privacy-respecting metasearch engine that aggregates results from many sources without tracking you.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/searxng.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/searxng.svg",
       "categories": [
         "search",
         "privacy"
@@ -1391,7 +1391,7 @@
       "name": "SigNoz",
       "version": "1.0",
       "description": "OpenTelemetry-native observability platform for traces, metrics, and logs (an open-source APM alternative to Datadog).",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/signoz.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/signoz.svg",
       "categories": [
         "monitoring",
         "observability",
@@ -1403,7 +1403,7 @@
       "name": "SonarQube",
       "version": "10.3",
       "description": "Continuous inspection of code quality and security vulnerabilities",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/sonarqube.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/sonarqube.ico",
       "categories": [
         "devops",
         "code-quality",
@@ -1415,7 +1415,7 @@
       "name": "Sonarr",
       "version": "1.0",
       "description": "PVR for TV series that monitors, grabs, sorts, and renames episodes automatically",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/sonarr.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/sonarr.svg",
       "categories": [
         "media",
         "automation"
@@ -1426,7 +1426,7 @@
       "name": "Stirling PDF",
       "version": "1.0",
       "description": "Local web toolkit for splitting, merging, converting and OCR-ing PDF files.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/stirling-pdf.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/stirling-pdf.svg",
       "categories": [
         "documents",
         "productivity",
@@ -1438,7 +1438,7 @@
       "name": "Strapi",
       "version": "4.15",
       "description": "Open-source headless CMS with customizable API and admin panel",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/strapi.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/strapi.svg",
       "categories": [
         "cms",
         "headless",
@@ -1450,7 +1450,7 @@
       "name": "Syncthing",
       "version": "1.27",
       "description": "Continuous file synchronization for decentralized, peer-to-peer sync",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/syncthing.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/syncthing.svg",
       "categories": [
         "storage",
         "sync",
@@ -1462,7 +1462,7 @@
       "name": "Traefik",
       "version": "3.0",
       "description": "Modern HTTP reverse proxy and load balancer with automatic HTTPS",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/traefik.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/traefik.png",
       "categories": [
         "networking",
         "proxy",
@@ -1474,7 +1474,7 @@
       "name": "Typesense",
       "version": "1.0",
       "description": "Typo-tolerant search engine optimized for fast, instant search-as-you-type experiences.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/typesense.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/typesense.svg",
       "categories": [
         "search",
         "database"
@@ -1485,7 +1485,7 @@
       "name": "Umami",
       "version": "2.9",
       "description": "Simple, fast, privacy-focused alternative to Google Analytics",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/umami.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/umami.ico",
       "categories": [
         "analytics",
         "privacy",
@@ -1497,7 +1497,7 @@
       "name": "Uptime Kuma",
       "version": "1.23",
       "description": "A fancy self-hosted monitoring tool for websites and services",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/uptime-kuma.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/uptime-kuma.svg",
       "categories": [
         "monitoring",
         "devops"
@@ -1508,7 +1508,7 @@
       "name": "Valkey",
       "version": "8",
       "description": "Redis-compatible fork stewarded by the Linux Foundation -- a drop-in for cache workloads",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/valkey.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/valkey.svg",
       "categories": [
         "database",
         "cache"
@@ -1537,7 +1537,7 @@
       "name": "HashiCorp Vault",
       "version": "1.15",
       "description": "Secrets management and data protection platform for securing sensitive data",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/vault.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/vault.svg",
       "categories": [
         "devops",
         "security",
@@ -1549,7 +1549,7 @@
       "name": "Vaultwarden",
       "version": "1.30",
       "description": "Lightweight Bitwarden-compatible password manager server",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/vaultwarden.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/vaultwarden.svg",
       "categories": [
         "security",
         "passwords",
@@ -1561,7 +1561,7 @@
       "name": "Vikunja",
       "version": "1.0",
       "description": "Self-hosted to-do list and task and project manager.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/vikunja.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/vikunja.svg",
       "categories": [
         "productivity",
         "tasks"
@@ -1572,7 +1572,7 @@
       "name": "WG-Easy",
       "version": "1.0",
       "description": "The easiest way to run WireGuard VPN with a web admin UI.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/wg-easy.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/wg-easy.svg",
       "categories": [
         "networking",
         "vpn",
@@ -1584,7 +1584,7 @@
       "name": "Wiki.js",
       "version": "2.5",
       "description": "Modern and powerful wiki app built on Node.js",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/wikijs.svg",
+      "icon": "https://serverkit.ai/imgs/template-icons/wikijs.svg",
       "categories": [
         "productivity",
         "wiki",
@@ -1596,7 +1596,7 @@
       "name": "WordPress (External Database)",
       "version": "6.4",
       "description": "WordPress CMS connecting to an existing external MySQL database. Use this for dev/prod setups sharing the same database with different table prefixes.",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/wordpress-external-db.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/wordpress-external-db.png",
       "categories": [
         "cms",
         "blog",
@@ -1609,7 +1609,7 @@
       "name": "WordPress",
       "version": "6.4",
       "description": "World's most popular content management system for blogs and websites",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/wordpress.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/wordpress.png",
       "categories": [
         "cms",
         "blog",
@@ -1621,7 +1621,7 @@
       "name": "Zigbee2MQTT",
       "version": "1.35",
       "description": "Bridge Zigbee devices to MQTT without proprietary bridges or gateways",
-      "icon": "https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/zigbee2mqtt.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/zigbee2mqtt.png",
       "categories": [
         "home-automation",
         "iot",

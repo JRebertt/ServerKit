@@ -2,7 +2,7 @@ id: valkey
 name: Valkey
 version: "8"
 description: Redis-compatible fork stewarded by the Linux Foundation -- a drop-in for cache workloads
-icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/valkey.svg
+icon: https://serverkit.ai/imgs/template-icons/valkey.svg
 categories:
   - database
   - cache
