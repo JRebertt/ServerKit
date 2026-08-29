@@ -2,7 +2,7 @@ id: mysql
 name: MySQL
 version: "8.4"
 description: The most widely deployed open-source relational database, with InnoDB storage and mature replication
-icon: https://serverkit.ai/imgs/template-icons/mysql.svg
+icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mysql.svg
 categories:
   - database
   - sql

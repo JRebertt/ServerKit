@@ -2,7 +2,7 @@ id: mongodb
 name: MongoDB
 version: "7.0"
 description: Document store with flexible schemas, aggregation pipelines and change streams
-icon: https://serverkit.ai/imgs/template-icons/mongodb.svg
+icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mongodb.svg
 categories:
   - database
   - nosql

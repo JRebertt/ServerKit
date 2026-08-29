@@ -2,7 +2,7 @@ id: postgresql-pgvector
 name: PostgreSQL + pgvector
 version: "16"
 description: PostgreSQL on an image that ships the pgvector shared library, so vector search can be enabled without rebuilding the container
-icon: https://serverkit.ai/imgs/template-icons/postgresql.svg
+icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/postgresql.svg
 categories:
   - database
   - sql

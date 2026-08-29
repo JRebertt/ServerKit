@@ -2,7 +2,7 @@ id: cockroachdb
 name: CockroachDB
 version: "24.1"
 description: Distributed SQL database that speaks the PostgreSQL wire protocol, with survivable single-node mode for self-hosting
-icon: https://serverkit.ai/imgs/template-icons/cockroachdb.svg
+icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/cockroachdb.svg
 categories:
   - database
   - sql

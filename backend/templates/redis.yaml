@@ -2,7 +2,7 @@ id: redis
 name: Redis
 version: "7.2"
 description: In-memory key-value store used for cache, queues and ephemeral state
-icon: https://serverkit.ai/imgs/template-icons/redis.svg
+icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/redis.svg
 categories:
   - database
   - cache

@@ -2,7 +2,7 @@ id: influxdb
 name: InfluxDB
 version: "2.7"
 description: Purpose-built time-series database for metrics, sensors and monitoring data
-icon: https://serverkit.ai/imgs/template-icons/influxdb.svg
+icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/influxdb.svg
 categories:
   - database
   - timeseries

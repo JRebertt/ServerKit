@@ -2,7 +2,7 @@ id: mariadb
 name: MariaDB
 version: "11.4"
 description: Community-developed MySQL fork -- a drop-in relational database with a faster release cadence
-icon: https://serverkit.ai/imgs/template-icons/mariadb.svg
+icon: https://cdn.jsdelivr.net/gh/jhd3197/serverkit-templates@master/icons/mariadb.svg
 categories:
   - database
   - sql
