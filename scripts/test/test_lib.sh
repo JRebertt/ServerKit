@@ -51,12 +51,12 @@ printf '\nmulti-distro lib unit tests\n\n'
 # ==========================================================================
 # pkg.sh
 # ==========================================================================
-for mgr in apt dnf yum zypper pacman apk; do
+for mgr in apt dnf yum zypper pacman apk emerge; do
     if ! got="$( set -Eeuo pipefail; PKG_MGR_OVERRIDE="$mgr" pkg_detect )" || [ "$got" != "$mgr" ]; then
         bad "pkg_detect override $mgr -> [$got]"
     fi
 done
-ok "pkg_detect honors PKG_MGR_OVERRIDE for all six managers"
+ok "pkg_detect honors PKG_MGR_OVERRIDE for all seven managers"
 
 # Each manager's install command, captured in dry-run.
 declare -A expect_install=(
@@ -68,6 +68,7 @@ declare -A expect_install=(
     [zypper]="zypper --non-interactive install git"
     [pacman]="pacman -S --noconfirm git"
     [apk]="apk add git"
+    [emerge]="emerge --noreplace --ask=n git"
 )
 allok=1
 for mgr in "${!expect_install[@]}"; do
@@ -87,6 +88,7 @@ declare -A expect_noninteractive=(
     [yum]="-y"
     [zypper]="--non-interactive"
     [pacman]="--noconfirm"
+    [emerge]="--ask=n"
 )
 allok=1
 for mgr in "${!expect_noninteractive[@]}"; do

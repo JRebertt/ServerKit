@@ -123,7 +123,9 @@ def test_manifest_loads_and_resolves_every_family():
     manifest = deps.load_manifest()
     for family in distro.FAMILIES:
         base = deps.base_packages(manifest, family)
-        assert "nginx" in base, f"{family} base packages should include nginx"
+        # Gentoo names packages as category/atom (www-servers/nginx).
+        assert any(p == "nginx" or p.endswith("/nginx") for p in base), \
+            f"{family} base packages should include nginx"
         assert deps.package_manager(manifest, family), f"{family} needs a package manager"
         assert deps.python_spec(manifest, family), f"{family} needs a python spec"
 

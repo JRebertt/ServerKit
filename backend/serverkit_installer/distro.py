@@ -10,7 +10,7 @@ import os
 import shutil
 from dataclasses import dataclass
 
-FAMILIES = ("debian", "rhel", "fedora", "suse", "arch", "alpine")
+FAMILIES = ("debian", "rhel", "fedora", "suse", "arch", "alpine", "gentoo")
 
 # Exact ID → family map (matches install.sh's case arms).
 _ID_FAMILY = {
@@ -23,6 +23,7 @@ _ID_FAMILY = {
     "sles": "suse", "sled": "suse", "suse": "suse", "sle-micro": "suse",
     "arch": "arch", "manjaro": "arch", "endeavouros": "arch", "cachyos": "arch",
     "alpine": "alpine",
+    "gentoo": "gentoo", "funtoo": "gentoo",
 }
 
 # ID_LIKE substrings → family, in priority order. rhel before fedora so RHEL
@@ -34,6 +35,7 @@ _LIKE_FAMILY = (
     ("suse", "suse"),
     ("arch", "arch"),
     ("alpine", "alpine"),
+    ("gentoo", "gentoo"),
 )
 
 

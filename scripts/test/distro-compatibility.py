@@ -37,20 +37,48 @@ CATALOG_PATH = REPO_ROOT / "backend" / "app" / "data" / "distro-catalog.json"
 DEFAULT_OUTPUT_ROOT = SCRIPT_DIR / "output" / "distro-compatibility"
 MODES = ("quick", "provision")
 
+# The suites run inside MINIMAL base images, so the harness must guarantee the
+# tools the source-level suites legitimately assume a server has: bash, plus
+# find (test_update's backup-retention assertions) and awk (test_install /
+# test_cli function-body extraction). Amazon Linux 2023 ships no findutils,
+# openSUSE Tumbleweed's minimal image has neither, and the SLES BCI has no awk —
+# without this bootstrap those are harness gaps, not product failures.
 BOOTSTRAP_BASH = r"""
-if ! command -v bash >/dev/null 2>&1; then
-  { command -v apt-get >/dev/null 2>&1 && apt-get update -qq && apt-get install -y -qq bash; } ||
-  { command -v dnf >/dev/null 2>&1 && dnf install -y -q bash; } ||
-  { command -v yum >/dev/null 2>&1 && yum install -y -q bash; } ||
-  { command -v zypper >/dev/null 2>&1 && zypper --non-interactive install bash; } ||
-  { command -v pacman >/dev/null 2>&1 && pacman -Sy --noconfirm bash; } ||
-  { command -v apk >/dev/null 2>&1 && apk add --no-cache bash; } ||
-  { command -v emerge >/dev/null 2>&1 && emerge --oneshot app-shells/bash; } || true
+need=""
+command -v bash >/dev/null 2>&1 || need="$need bash"
+command -v find >/dev/null 2>&1 || need="$need find"
+command -v awk >/dev/null 2>&1 || need="$need awk"
+if [ -n "$need" ]; then
+  pkgs=""
+  for tool in $need; do
+    if command -v emerge >/dev/null 2>&1; then
+      case "$tool" in
+        bash) pkgs="$pkgs app-shells/bash" ;;
+        find) pkgs="$pkgs sys-apps/findutils" ;;
+        awk)  pkgs="$pkgs sys-apps/gawk" ;;
+      esac
+    else
+      case "$tool" in
+        bash) pkgs="$pkgs bash" ;;
+        find) pkgs="$pkgs findutils" ;;
+        awk)  pkgs="$pkgs gawk" ;;
+      esac
+    fi
+  done
+  { command -v apt-get >/dev/null 2>&1 && apt-get update -qq && apt-get install -y -qq $pkgs; } ||
+  { command -v dnf >/dev/null 2>&1 && dnf install -y -q $pkgs; } ||
+  { command -v yum >/dev/null 2>&1 && yum install -y -q $pkgs; } ||
+  { command -v zypper >/dev/null 2>&1 && zypper --non-interactive install $pkgs; } ||
+  { command -v pacman >/dev/null 2>&1 && pacman -Sy --noconfirm $pkgs; } ||
+  { command -v apk >/dev/null 2>&1 && apk add --no-cache $pkgs; } ||
+  { command -v emerge >/dev/null 2>&1 && emerge --oneshot $pkgs; } || true
 fi
-command -v bash >/dev/null 2>&1 || {
-  echo "COMPAT_HARNESS_ERROR=no bash available" >&2
-  exit 127
-}
+for tool in bash find awk; do
+  command -v "$tool" >/dev/null 2>&1 || {
+    echo "COMPAT_HARNESS_ERROR=no $tool available" >&2
+    exit 127
+  }
+done
 """.strip()
 
 MODE_COMMANDS = {

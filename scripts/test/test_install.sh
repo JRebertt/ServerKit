@@ -56,15 +56,21 @@ mkpy() {  # mkpy <name> <major.minor>
     } > "$PY_STUB/$1"
     chmod +x "$PY_STUB/$1"
 }
-# python3.12 reports an out-of-range 3.14 (rejected); python3.11 is in range;
-# bare python3 is an old 3.10 (rejected). locate_python must therefore pick
-# python3.11 — proving it no longer blindly trusts `python3`.
+# The newer minor-version stubs report an out-of-range 3.15 (rejected);
+# python3.11 is in range; bare python3 is an old 3.10 (rejected). locate_python
+# must therefore pick python3.11 — proving it no longer blindly trusts
+# `python3`.
 #
 # The out-of-range stub used to report 3.13, which stopped being out of range
-# when the gate moved to cover Debian 13 (issue #99). Pick a version ABOVE
-# PYTHON_MAX, and move it whenever the ceiling moves — the point of the stub is
-# "too new", not any particular number.
-mkpy python3.12 3.14
+# when the gate moved to cover Debian 13 (issue #99), then 3.14, which stopped
+# being out of range when the gate moved to cover Arch rolling (2026-08
+# baseline). Pick a version ABOVE PYTHON_MAX, and move it whenever the ceiling
+# moves — the point of the stub is "too new", not any particular number. Every
+# candidate name locate_python probes is shadowed so a real python3.1x on the
+# host can never win over the fixtures.
+mkpy python3.14 3.15
+mkpy python3.13 3.15
+mkpy python3.12 3.15
 mkpy python3.11 3.11
 mkpy python3     3.10
 export PATH="$STUB_BIN:$PATH"
@@ -93,16 +99,18 @@ else
 fi
 
 # --------------------------------------------------------------------------
-# T2 — ver_in_range gate (3.11/3.12/3.13 accepted, 3.10/3.14 rejected).
+# T2 — ver_in_range gate (3.11/3.12/3.13/3.14 accepted, 3.10/3.15 rejected).
 #
 # 3.13 MUST be accepted: Debian 13 ships only python3.13, and this assertion
 # previously required it to be rejected — the suite was actively pinning the
-# bug that made trixie uninstallable (issue #99).
+# bug that made trixie uninstallable (issue #99). 3.14 MUST be accepted: Arch/
+# Manjaro rolling ship only python 3.14 and carry no versioned fallback
+# packages at all (2026-08 compatibility baseline).
 # --------------------------------------------------------------------------
 if ( set -Eeuo pipefail; ver_in_range 3.11 ) && ( set -Eeuo pipefail; ver_in_range 3.12 ) && \
-   ( set -Eeuo pipefail; ver_in_range 3.13 ) && \
-   ! ( set -Eeuo pipefail; ver_in_range 3.10 ) && ! ( set -Eeuo pipefail; ver_in_range 3.14 ); then
-    ok "ver_in_range accepts 3.11/3.12/3.13 and rejects 3.10/3.14"
+   ( set -Eeuo pipefail; ver_in_range 3.13 ) && ( set -Eeuo pipefail; ver_in_range 3.14 ) && \
+   ! ( set -Eeuo pipefail; ver_in_range 3.10 ) && ! ( set -Eeuo pipefail; ver_in_range 3.15 ); then
+    ok "ver_in_range accepts 3.11/3.12/3.13/3.14 and rejects 3.10/3.15"
 else
     bad "ver_in_range gate is wrong"
 fi
@@ -115,6 +123,15 @@ if [ "$PYTHON_MAX" = "3.13" ] || printf '%s\n%s' "3.13" "$PYTHON_MAX" | sort -C 
     ok "PYTHON_MAX ($PYTHON_MAX) covers Debian 13's python3.13"
 else
     bad "PYTHON_MAX is $PYTHON_MAX — Debian 13 ships only python3.13 and would fall to a source build"
+fi
+
+# Same guard for the rolling ceiling: Arch/Manjaro carry ONLY the newest python
+# (3.14 at the 2026-08 baseline) and no versioned fallback packages, so a
+# ceiling below it can never be satisfied from their repos.
+if [ "$PYTHON_MAX" = "3.14" ] || printf '%s\n%s' "3.14" "$PYTHON_MAX" | sort -C -V; then
+    ok "PYTHON_MAX ($PYTHON_MAX) covers Arch rolling's python 3.14"
+else
+    bad "PYTHON_MAX is $PYTHON_MAX — Arch/Manjaro ship only python 3.14 and would fall to a source build"
 fi
 
 # --------------------------------------------------------------------------
@@ -269,6 +286,8 @@ check_fam fedora "" fedora
 check_fam opensuse-leap "" suse
 check_fam arch "" arch
 check_fam alpine "" alpine
+check_fam gentoo "" gentoo
+check_fam funtoo "" gentoo
 check_fam mydistro "debian" debian              # unknown ID, debian-like
 check_fam clone "rhel centos fedora" rhel        # RHEL clone: rhel wins over fedora
 check_fam spin "fedora" fedora                    # pure fedora spin
@@ -696,7 +715,12 @@ mkvless() {  # mkvless <name> <major.minor> — version OK, `-m venv` broken
     } > "$PYX/$1"
     chmod +x "$PYX/$1"
 }
-mkvless python3.12 3.13     # out of range — rejected before the venv probe
+# Every candidate name locate_python probes must be shadowed here — a real
+# python3.14 (Manjaro) or python3.13 (Gentoo stage3) earlier in PATH would
+# otherwise win over the fixtures and turn this into a host-dependent test.
+mkvless python3.14 3.15     # out of range — rejected before the venv probe
+mkvless python3.13 3.15     # out of range — rejected before the venv probe
+mkvless python3.12 3.12     # in range but venv-less — must be rejected
 mkvless python3.11 3.11     # in range but venv-less — must be rejected
 mkvless python3     3.10    # too old
 if ( set -Eeuo pipefail; PATH="$PYX:$PATH"; locate_python ) >/dev/null 2>&1; then

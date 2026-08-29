@@ -277,7 +277,7 @@
       "family": "independent",
       "published_status": "community",
       "architectures": ["amd64"],
-      "windows_strategy": "Exact stage3 Docker userland probe. Expected failures remain visible because emerge is not an installer package-manager path.",
+      "windows_strategy": "Exact stage3 Docker userland probe. Portage (emerge) is a supported installer package-manager path; the stage3's slotted dev-lang/python packages satisfy the version gate.",
       "probes": [
         {"key": "gentoo", "label": "Gentoo stage3", "image": "gentoo/stage3:latest", "fidelity": "exact", "full_image": null}
       ]
