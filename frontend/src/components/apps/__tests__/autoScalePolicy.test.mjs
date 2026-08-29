@@ -18,6 +18,18 @@ test('normalizes a missing policy to the UI defaults', () => {
     });
 });
 
+test('coerces backend nulls back to form-safe values', () => {
+    // The backend stores an unset service_name as null; the form must never
+    // receive it or the inputs flip from controlled to uncontrolled.
+    assert.deepEqual(normalizeScalePolicy({
+        enabled: null,
+        service_name: null,
+        min_replicas: null,
+        max_replicas: 'not-a-number',
+        current_replicas: null,
+    }), DEFAULT_SCALE_POLICY);
+});
+
 test('serializes the policy using the same bounds as the API', () => {
     assert.deepEqual(scalePolicyPayload({
         enabled: true,
