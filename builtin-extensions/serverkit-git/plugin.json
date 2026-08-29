@@ -1,37 +1,50 @@
 {
-    "name": "serverkit-git",
-    "display_name": "Git Server",
-    "version": "1.0.0",
-    "description": "Self-hosted Git server (Gitea) exposed through the ServerKit extension system.",
-    "author": "ServerKit",
-    "license": "MIT",
-    "category": "deployment",
-    "homepage": "https://github.com/jhd3197/ServerKit",
-    "permissions": ["docker", "filesystem"],
-    "contributions": {
-        "nav": [
-            {
-                "id": "git",
-                "label": "Git",
-                "route": "/git",
-                "category": "infrastructure",
-                "icon": "<circle cx=\"18\" cy=\"18\" r=\"3\"/><circle cx=\"6\" cy=\"6\" r=\"3\"/><path d=\"M6 21V9a9 9 0 0 0 9 9\"/>"
-            }
-        ],
-        "routes": [
-            { "path": "git", "component": "GitExtensionPage" },
-            { "path": "git/:tab", "component": "GitExtensionPage" }
-        ],
-        "page_titles": {
-            "/git": "Git Repositories"
-        },
-        "command_palette": [
-            {
-                "label": "Git",
-                "path": "/git",
-                "category": "Pages",
-                "keywords": "git repos deploy extension plugin"
-            }
-        ]
-    }
+  "name": "serverkit-git",
+  "display_name": "Git Server",
+  "version": "1.0.0",
+  "description": "Self-hosted Git server (Gitea) exposed through the ServerKit extension system.",
+  "author": "ServerKit",
+  "license": "MIT",
+  "category": "deployment",
+  "homepage": "https://github.com/jhd3197/ServerKit",
+  "permissions": [
+    "docker",
+    "filesystem",
+    "shell"
+  ],
+  "contributions": {
+    "nav": [
+      {
+        "id": "git",
+        "label": "Git",
+        "route": "/git",
+        "category": "infrastructure",
+        "icon": "<circle cx=\"18\" cy=\"18\" r=\"3\"/><circle cx=\"6\" cy=\"6\" r=\"3\"/><path d=\"M6 21V9a9 9 0 0 0 9 9\"/>"
+      }
+    ],
+    "routes": [
+      {
+        "path": "git",
+        "component": "GitExtensionPage"
+      },
+      {
+        "path": "git/:tab",
+        "component": "GitExtensionPage"
+      }
+    ],
+    "page_titles": {
+      "/git": "Git Repositories"
+    },
+    "command_palette": [
+      {
+        "label": "Git",
+        "path": "/git",
+        "category": "Pages",
+        "keywords": "git repos deploy extension plugin"
+      }
+    ]
+  },
+  "entry_point": "gitea:gitea_bp",
+  "url_prefix": "/api/v1/git",
+  "min_panel_version": "1.9.11"
 }

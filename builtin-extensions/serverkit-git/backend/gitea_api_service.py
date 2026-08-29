@@ -11,9 +11,9 @@ class GiteaAPIService:
     @classmethod
     def _get_base_url(cls) -> Optional[str]:
         """Get the Gitea base URL from config."""
-        from app.services.git_service import GitService
+        from .gitea_service import GiteaServerService
 
-        status = GitService.get_gitea_status()
+        status = GiteaServerService.get_gitea_status()
         if not status.get('installed') or not status.get('running'):
             return None
 

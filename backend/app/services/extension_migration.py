@@ -76,6 +76,20 @@ def remove_retired_extensions():
             logger.warning(f'Could not remove retired extension row {slug}: {e}')
 
 
+def _gitea_was_used():
+    """True if this panel actually runs the self-hosted Gitea the git
+    extension manages — the panel-managed application row exists. Gates
+    serverkit-git auto-install after its backend split (plan 52 Phase 6) so
+    only Gitea operators get the extension back automatically; deploys from
+    external remotes never depended on it."""
+    try:
+        from app.models import Application
+        return (Application.query.filter_by(name='serverkit-gitea').first()
+                is not None)
+    except Exception:
+        return False
+
+
 def _email_was_configured():
     """True if this panel actually ran a mail server before the extraction — any
     email domain/account row exists. Used to gate serverkit-email auto-install so
@@ -94,6 +108,7 @@ def _email_was_configured():
 # the feature just see it in the Marketplace.
 GATED_BUILTIN_SLUGS = {
     'serverkit-email': _email_was_configured,
+    'serverkit-git': _gitea_was_used,
 }
 
 
@@ -333,7 +348,11 @@ def run_backend_acquisition():
         return
 
     changed = False
-    for slug in CONVERTED_BUILTIN_SLUGS:
+    # Gated slugs join the sweep: acquisition only ever fires for a slug the
+    # panel already INSTALLED whose builtin now ships a backend it lacks on
+    # disk (serverkit-git gained one in the plan 52 Phase 6 split), so the
+    # usage gate has already been answered by the install itself.
+    for slug in list(CONVERTED_BUILTIN_SLUGS) + list(GATED_BUILTIN_SLUGS):
         if slug in done:
             continue
         entry = builtins.get(slug)
