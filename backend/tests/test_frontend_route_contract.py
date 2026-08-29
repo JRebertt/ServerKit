@@ -48,6 +48,18 @@ ALLOWLIST = {
 BUILTIN_EXTENSIONS_DIR = (Path(__file__).resolve().parents[2]
                           / 'builtin-extensions')
 
+# Prefixes owned by EXTRACTED (standalone-repo) extensions that core clients
+# still probe fail-soft — the plan 52 cutover deleted their builtin dirs, so
+# their plugin.json can no longer vouch for them. Kept explicit and minimal:
+# each entry names the extension serving the prefix when installed. The
+# core callers behind them degrade to "not installed" on 404 by design
+# (Settings relay tile, the app-creation repo pickers).
+EXTRACTED_EXTENSION_PREFIXES = {
+    '/git': 'serverkit-git',
+    '/email': 'serverkit-email',
+    '/cloudflare': 'serverkit-cloudflare-ops',
+}
+
 
 def _extension_prefixes():
     """/api/v1-relative url_prefix of every builtin extension.
@@ -55,9 +67,10 @@ def _extension_prefixes():
     Paths under these prefixes are owned by extensions the session app may
     not have loaded, so an unresolved path there is excused — but only
     while a plugin.json still declares the prefix, so a removed extension
-    turns its frontend calls back into failures."""
+    turns its frontend calls back into failures. Extracted extensions keep
+    their prefixes excused via EXTRACTED_EXTENSION_PREFIXES above."""
     import json
-    prefixes = {}
+    prefixes = dict(EXTRACTED_EXTENSION_PREFIXES)
     for manifest in sorted(BUILTIN_EXTENSIONS_DIR.glob('*/plugin.json')):
         prefix = json.loads(manifest.read_text(encoding='utf-8')).get('url_prefix', '')
         if prefix.startswith('/api/v1/'):
