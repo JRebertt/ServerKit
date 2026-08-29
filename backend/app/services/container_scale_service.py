@@ -31,7 +31,18 @@ class ContainerScaleService:
     @classmethod
     def set_policy(cls, application_id, **fields):
         policy = cls.get_or_create_policy(application_id)
+        try:
+            cls._apply_policy_fields(policy, fields)
+            db.session.commit()
+        except ValueError:
+            # Validation raises after fields were already assigned to the ORM
+            # row; roll back here so callers never inherit a dirty session.
+            db.session.rollback()
+            raise
+        return policy
 
+    @classmethod
+    def _apply_policy_fields(cls, policy, fields):
         if fields.get('enabled') is not None:
             enabled = fields['enabled']
             if not isinstance(enabled, bool):
@@ -58,8 +69,6 @@ class ContainerScaleService:
             raise ValueError('cpu_low_percent must be less than cpu_high_percent')
         if policy.enabled and not policy.service_name:
             raise ValueError('service_name is required when auto-scale is enabled')
-        db.session.commit()
-        return policy
 
     @classmethod
     def _service_cpu(cls, app, policy):

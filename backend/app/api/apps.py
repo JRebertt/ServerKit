@@ -1888,7 +1888,7 @@ def update_scale_policy(app_id):
     try:
         policy = ContainerScaleService.set_policy(app_id, **data)
     except ValueError as exc:
-        db.session.rollback()
+        # The service rolls back its own dirty session before raising.
         return jsonify({'error': str(exc)}), 400
     return jsonify(policy.to_dict())
 
