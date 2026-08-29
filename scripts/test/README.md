@@ -153,6 +153,43 @@ bash scripts/test/test_install.sh
 bash scripts/test/test_lib.sh
 ```
 
+## All-25 distro compatibility discovery (Windows-friendly)
+
+`distro-compatibility.py` turns the published 25-target list into a repeatable
+evidence report. It runs directly from Windows against Docker Desktop, so it
+does not modify the installed WSL distributions. The shared
+`backend/app/data/distro-catalog.json` records exact images, vendor userland proxies, base-only
+proxies, and targets that require a separate VM/hardware harness.
+
+```powershell
+# Validate and list all 25 targets without running Docker
+python .\scripts\test\distro-compatibility.py --list
+
+# Run source-level suites plus real Python provisioning across every image
+python .\scripts\test\distro-compatibility.py --mode both --jobs 4
+
+# A smaller investigation or a CI-gating run
+python .\scripts\test\distro-compatibility.py --only ubuntu22,debian13,rocky10
+python .\scripts\test\distro-compatibility.py --mode provision --strict
+```
+
+Each run writes `report.md`, `report.json`, image-pull logs, and one log per
+probe/mode under `scripts/test/output/distro-compatibility/<timestamp>/`.
+Failures remain failures by default, but discovery runs exit zero so one known
+incompatibility does not erase the rest of the matrix. Pass `--strict` when the
+selected matrix is intended to gate CI.
+
+The two modes deliberately make narrower claims than a full install:
+
+- **quick** — shell syntax plus the source-level installer/update/lib/CLI suites.
+- **provision** — real repositories through `install.sh`, including supported
+  Python, venv, pip, SSL, SQLite, and ctypes.
+
+Neither mode proves systemd, nginx, firewall behavior, Docker-in-Docker,
+kernel-specific behavior, LXC nesting, a hypervisor, or Raspberry Pi hardware.
+Use the Windows VM harness above and the per-target path in the generated
+report for that evidence.
+
 ## Probe environment matrix (plan 75 §D)
 
 `scripts/test/probe-matrix.sh` runs `backend/tests/test_probe_env_integration.py`

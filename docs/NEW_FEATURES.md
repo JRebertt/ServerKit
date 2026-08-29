@@ -1,10 +1,9 @@
 # New Features — Endpoint & Page Reference
 
-Reference for the features added on `dev` — the 12 UI/Docker/WAF feature commits
-(`cd16d9a … 70883d5`) plus the SSL/TLS hardening follow-up (`02afdec … a09bf0f`,
-see §6). All endpoints are under `/api/v1`. "admin" = requires `user.is_admin`;
-"edit" = `_can_edit_app` (owner or admin); "auth" = any valid JWT. Tables
-auto-create on startup via `db.create_all()`.
+Reference for the current UI, Docker, WAF, and TLS surfaces on `dev`. All endpoints
+are under `/api/v1`. "admin" requires an admin user; "edit" uses `_can_edit_app`
+(owner, admin, or an editor grant); "auth" accepts any valid JWT. Migration
+`093_container_scale_policies` versions the scaling-policy table.
 
 ---
 
@@ -57,12 +56,24 @@ no-activity-baseline policy is never slept blind.
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/apps/<id>/scale-policy` | auth | |
-| PUT | `/apps/<id>/scale-policy` | edit | Body `{enabled?, service_name?, min_replicas?, max_replicas?, cpu_high_percent?, cpu_low_percent?, cooldown_seconds?}`. |
-| POST | `/apps/<id>/scale` | edit | Body `{replicas}` — manual scale (`docker compose --scale`). |
+| PUT | `/apps/<id>/scale-policy` | edit | Body `{enabled?, service_name?, min_replicas?, max_replicas?, cpu_high_percent?, cpu_low_percent?, cooldown_seconds?}`. Enabling requires a service name; low CPU must remain below high CPU. |
+| POST | `/apps/<id>/scale` | edit | Body `{replicas}`; manual scale through `docker compose --scale`, with a minimum of one replica. |
 | POST | `/apps/<id>/scale/evaluate` | edit | One auto decision (returns `action`: scaled_up/down/hold/cooldown/disabled/unknown). |
 | POST | `/apps/scale-sweep` | admin | Evaluate every enabled policy. **Cron-drivable.** |
 
-Requires a scale-capable compose service (no fixed host port / `container_name`). Local apps only.
+Requires a scale-capable Compose service with no fixed host port or `container_name`.
+Local apps only. The configured minimum acts as a floor on the next evaluation,
+even when CPU metrics are unavailable. The feature does not configure a load
+balancer, shared storage, health checks, or failover, so it must not be presented
+as end-to-end high availability. `current_replicas` records the last successful
+ServerKit scale command; it does not reconcile changes made through Docker outside
+ServerKit.
+
+Verification lives in `frontend/src/components/apps/__tests__/autoScalePolicy.test.mjs`,
+`frontend/src/services/api/__tests__/containerOps.test.mjs`, and
+`backend/tests/test_container_scale.py`. The backend workflow test covers policy
+read/write, evaluation, manual scale, and persistence. Docker execution and traffic
+continuity still require the real-host checklist in `docs/HORIZONTAL_SCALING_SPEC.md`.
 
 ### GPU monitoring — `services/gpu_service.py` (no model)
 | Method | Path | Auth | Notes |

@@ -2,9 +2,11 @@
 
 Universal contract (every bundled template): parses + passes the real
 ``TemplateService.validate_template``, has an ``id`` matching its filename, and
-ships some icon. The roadmap templates added by this work additionally use an
-inline base64 icon (offline-safe), are brand-neutral, and use the list-shaped
-variables form. The community-repo index generator (#28) must cover them all.
+ships some icon. The roadmap templates added by this work additionally use a
+registry-hosted icon (serverkit.ai proxies /imgs/template-icons/ from the
+serverkit-templates repo; templates with no public logo keep an inline base64
+icon), are brand-neutral, and use the list-shaped variables form. The
+community-repo index generator (#28) must cover them all.
 """
 import os
 
@@ -13,6 +15,10 @@ import pytest
 from app.services.template_service import TemplateService
 
 TEMPLATES_DIR = TemplateService.LOCAL_TEMPLATES_DIR
+
+# Stable icon host: serverkit.ai proxies this path from the serverkit-templates
+# repo's raw tree, so the URLs resolve for every logo the registry carries.
+ICON_HOST = "https://serverkit.ai/imgs/template-icons/"
 
 # Templates authored/converted for the services roadmap (Phases 0-3).
 ROADMAP_IDS = sorted({
@@ -49,7 +55,7 @@ def test_template_parses_and_validates(filename):
 
 @pytest.mark.parametrize("tid", ROADMAP_IDS)
 def test_roadmap_template_conventions(tid):
-    """Roadmap templates use an inline base64 icon, list-shaped vars, brand-neutral."""
+    """Roadmap templates use a registry-hosted icon, list-shaped vars, brand-neutral."""
     path = os.path.join(TEMPLATES_DIR, f"{tid}.yaml")
     assert os.path.exists(path), f"{tid}: template file missing"
 
@@ -57,7 +63,10 @@ def test_roadmap_template_conventions(tid):
     assert result.get("success"), f"{tid}: {result.get('errors') or result.get('error')}"
     tmpl = result["template"]
 
-    assert str(tmpl.get("icon", "")).startswith("data:image/svg+xml;base64,"), f"{tid}: not an inline icon"
+    icon = str(tmpl.get("icon", ""))
+    assert icon.startswith(ICON_HOST) or icon.startswith("data:image/svg+xml;base64,"), (
+        f"{tid}: icon must be registry-hosted ({ICON_HOST}...) or an inline data URI"
+    )
 
     variables = tmpl.get("variables", [])
     assert isinstance(variables, list), f"{tid}: variables should be a list"

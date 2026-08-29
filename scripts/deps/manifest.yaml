@@ -10,6 +10,7 @@
 #   suse    → openSUSE Leap/Tumbleweed, SLES/SLED
 #   arch    → Arch, Manjaro, EndeavourOS   (community-supported, best-effort)
 #   alpine  → Alpine                         (community-supported, best-effort)
+#   gentoo  → Gentoo, Funtoo                 (community-supported, best-effort)
 #
 # WHO READS THIS
 # --------------
@@ -20,9 +21,10 @@
 # the two in sync when editing. This file is therefore both the spec and the
 # documentation of what "supported distro" actually means.
 #
-# Python policy (Goal G2): accept 3.11 OR 3.12, prefer the distro package over a
-# source compile. Debian 12 ships 3.11; Ubuntu 24.04 and Fedora 40 ship 3.12;
-# RHEL 9 has 3.11 (and 3.12 on 9.4+) via CRB/EPEL; openSUSE Leap ships python311.
+# Python policy (Goal G2): accept 3.11 through 3.14, prefer the distro package
+# over a source compile. Debian 12 ships 3.11; Ubuntu 24.04 and Fedora 40 ship
+# 3.12; Debian 13 ships only 3.13; Arch/Manjaro rolling ship only 3.14; RHEL 9
+# has 3.11 (and 3.12 on 9.4+) via CRB/EPEL; openSUSE Leap ships python311.
 
 python:
   debian:
@@ -48,10 +50,13 @@ python:
     package: python311
     dev_package: python311-devel
   arch:
-    package: python          # rolling; already 3.11+
+    package: python          # rolling; tracks the newest line the gate covers
   alpine:
     package: python3
     dev_package: python3-dev
+  gentoo:
+    package: "dev-lang/python:3.13"          # portage slot; parallel-installable
+    fallback_package: "dev-lang/python:3.12"
 
 node:
   # Node 18 is the floor for the Vite build. Distro nodejs on supported targets
@@ -63,6 +68,7 @@ node:
   suse:      { method: distro, package: nodejs20, npm_package: npm20 }
   arch:      { method: distro, package: nodejs, npm_package: npm }
   alpine:    { method: distro, package: nodejs, npm_package: npm }
+  gentoo:    { method: distro, package: net-libs/nodejs }
 
 docker:
   debian: { method: get.docker.com }
@@ -74,6 +80,7 @@ docker:
   suse:   { method: distro, packages: [docker, docker-compose] }
   arch:   { method: distro, packages: [docker, docker-compose] }
   alpine: { method: distro, packages: [docker, docker-cli-compose] }
+  gentoo: { method: distro, packages: [app-containers/docker, app-containers/docker-cli, app-containers/docker-compose] }
 
 base_packages:
   debian: [git, curl, nginx, sqlite3, ca-certificates, openssl]
@@ -82,6 +89,7 @@ base_packages:
   suse:   [git, curl, nginx, sqlite3, ca-certificates, openssl]
   arch:   [git, curl, nginx, sqlite, ca-certificates, openssl]
   alpine: [git, curl, nginx, sqlite, ca-certificates, openssl]
+  gentoo: [dev-vcs/git, net-misc/curl, www-servers/nginx, dev-db/sqlite, app-misc/ca-certificates, dev-libs/openssl]
 
 # Package-manager + init-system per family, mirrored by scripts/lib/pkg.sh and
 # scripts/lib/init.sh (which detect at runtime rather than reading this).
@@ -92,3 +100,4 @@ package_manager:
   suse:   zypper
   arch:   pacman
   alpine: apk
+  gentoo: emerge

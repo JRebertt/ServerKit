@@ -82,12 +82,19 @@ def test_issue_wildcard_cert_route53(monkeypatch):
     monkeypatch.setattr(PackageManager, 'is_available', staticmethod(lambda: False))
     captured = {}
 
+    class FakeProc:
+        returncode = 0
+        stdout = 'Congratulations'
+        stderr = ''
+
     def fake_run(cmd, **kw):
         captured['cmd'] = list(cmd)
         captured['kw'] = kw
-        return {'stdout': 'Congratulations'}
+        return FakeProc()
 
-    monkeypatch.setattr(mod, 'run_unprivileged', fake_run)
+    # certbot writes /etc/letsencrypt as root — the privileged door is the
+    # contract, and its returncode decides success.
+    monkeypatch.setattr(mod, 'run_privileged', fake_run)
 
     res = AdvancedSSLService.issue_wildcard_cert('example.com', 'route53',
                                                  {'api_key': 'AK', 'api_secret': 'SK'},
@@ -98,8 +105,12 @@ def test_issue_wildcard_cert_route53(monkeypatch):
     assert '--dns-route53' in cmd
     assert 'example.com' in cmd and '*.example.com' in cmd
     assert '--email' in cmd and 'ops@example.com' in cmd
-    assert captured['kw']['env']['AWS_ACCESS_KEY_ID'] == 'AK'
-    assert captured['kw']['env']['AWS_SECRET_ACCESS_KEY'] == 'SK'
+    # sudo's env_reset would strip a plain env= kwarg, so the AWS credentials
+    # travel as `env A=B` argv entries in front of certbot instead.
+    assert cmd[0] == 'env'
+    assert 'AWS_ACCESS_KEY_ID=AK' in cmd
+    assert 'AWS_SECRET_ACCESS_KEY=SK' in cmd
+    assert 'env' not in captured['kw']
 
 
 # ── setup orchestration ─────────────────────────────────────────────────────

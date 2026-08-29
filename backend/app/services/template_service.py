@@ -1587,16 +1587,30 @@ class TemplateService:
     @classmethod
     def build_install_plan(cls, template_id: str, app_name: str,
                            user_variables: Dict = None, user_id: int = None,
-                           server_id: str = None) -> Dict:
+                           server_id: str = None,
+                           auto_domain: bool = None) -> Dict:
         """Build a reusable deployment plan for installing a template.
 
         The returned plan can be executed locally or by a connected agent.
+
+        ``auto_domain=True`` opts this install into subdomain publishing even
+        when the template YAML doesn't — the deploy drawer shows the operator
+        the exact <name>.<base> hostname before they click Deploy, and a
+        promise shown on screen must not silently depend on a per-template
+        flag they can't see (the install landed on host:port instead, which a
+        default firewall doesn't even expose). ``None`` keeps the template's
+        own say.
         """
         result = cls.get_template(template_id)
         if not result.get('success'):
             return result
 
         template = result['template']
+        if auto_domain and not template.get('auto_domain'):
+            # Copy, not mutate — get_template may serve this dict to others.
+            # Downstream (FQDN magic context, plan flag, finalizer) all read
+            # the template flag, so opting in here opts in everywhere.
+            template = {**template, 'auto_domain': True}
         variables_result = cls._prepare_install_variables(
             template_id,
             template,
@@ -1700,6 +1714,7 @@ class TemplateService:
                 'variables': variables,
                 'port': app_port,
                 'server_id': server_id,
+                'auto_domain': bool(template.get('auto_domain')),
                 'steps': steps,
             },
             'template': template,

@@ -12,6 +12,12 @@ from flask import Blueprint, jsonify, request
 
 from app.middleware.rbac import admin_required, auth_required, get_current_user
 from app.services.connection_registry import ConnectionRegistry
+from app.services.connection_provider_sdk import (
+    ConnectionProviderRegistry,
+    ConnectionRef,
+)
+# Register built-in provider adapters before serving SDK schema/operations.
+from app.services import connection_providers  # noqa: F401
 from app.services.container_registry_service import ContainerRegistryService
 from app.services.workspace_service import WorkspaceService
 
@@ -39,6 +45,117 @@ def _workspace_id():
     user = get_current_user()
     return WorkspaceService.resolve_workspace_id(
         user, request.headers.get('X-Workspace-Id') or request.args.get('workspace_id'))
+
+
+def _connection_ref(kind, connection_id):
+    user = get_current_user()
+    normalized_id = int(connection_id) if str(connection_id).isdigit() else connection_id
+    return ConnectionRef(
+        kind=kind,
+        connection_id=normalized_id,
+        user_id=user.id if user else None,
+        workspace_id=_workspace_id(),
+    )
+
+
+def _provider_response(result):
+    if result.success:
+        return jsonify(result.to_dict())
+    status = {
+        'validation_error': 400,
+        'invalid_reference': 400,
+        'not_found': 404,
+        'unknown_provider': 404,
+        'unsupported_operation': 405,
+        'rate_limited': 429,
+        'connection_test_failed': 502,
+        'rotation_test_failed': 502,
+    }.get(result.error_code, 502)
+    response = jsonify(result.to_dict())
+    if result.retry_after:
+        response.headers['Retry-After'] = str(result.retry_after)
+    return response, status
+
+
+def _audit_provider_operation(kind, connection_id, operation, result):
+    """One secret-free audit shape for provider mutations and live tests."""
+    from app.services.audit_service import AuditService
+
+    user = get_current_user()
+    AuditService.log(
+        action=f'connection.provider.{operation}',
+        user_id=user.id if user else None,
+        target_type=f'connection:{kind}',
+        target_id=int(connection_id) if str(connection_id).isdigit() else None,
+        details={
+            'connection_id': str(connection_id),
+            'operation': operation,
+            'success': result.success,
+            'error_code': result.error_code,
+            'retryable': result.retryable,
+        },
+    )
+
+
+# ── Provider SDK ─────────────────────────────────────────────────────────────
+
+@connections_bp.route('/providers', methods=['GET'])
+@admin_required
+def list_provider_schemas():
+    return jsonify({'providers': ConnectionProviderRegistry.schemas()})
+
+
+@connections_bp.route('/providers/<kind>/validate', methods=['POST'])
+@admin_required
+def validate_provider_credentials(kind):
+    result = ConnectionProviderRegistry.execute(
+        kind, 'validate', payload=request.get_json() or {},
+        partial=request.args.get('partial', '').lower() == 'true')
+    return _provider_response(result)
+
+
+@connections_bp.route('/providers/<kind>/<connection_id>/health', methods=['GET'])
+@admin_required
+def provider_health(kind, connection_id):
+    result = ConnectionProviderRegistry.execute(
+        kind, 'health', ref=_connection_ref(kind, connection_id))
+    return _provider_response(result)
+
+
+@connections_bp.route('/providers/<kind>/<connection_id>/resources', methods=['GET'])
+@admin_required
+def provider_resources(kind, connection_id):
+    result = ConnectionProviderRegistry.execute(
+        kind, 'list_resources', ref=_connection_ref(kind, connection_id))
+    return _provider_response(result)
+
+
+@connections_bp.route('/providers/<kind>/<connection_id>/test', methods=['POST'])
+@admin_required
+def provider_test(kind, connection_id):
+    result = ConnectionProviderRegistry.execute(
+        kind, 'test', ref=_connection_ref(kind, connection_id))
+    _audit_provider_operation(kind, connection_id, 'test', result)
+    return _provider_response(result)
+
+
+@connections_bp.route('/providers/<kind>/<connection_id>/rotate', methods=['POST'])
+@admin_required
+def provider_rotate(kind, connection_id):
+    result = ConnectionProviderRegistry.execute(
+        kind, 'rotate', ref=_connection_ref(kind, connection_id),
+        payload=request.get_json() or {})
+    _audit_provider_operation(kind, connection_id, 'rotate', result)
+    return _provider_response(result)
+
+
+@connections_bp.route('/providers/<kind>/<connection_id>', methods=['DELETE'])
+@admin_required
+def provider_disconnect(kind, connection_id):
+    result = ConnectionProviderRegistry.execute(
+        kind, 'disconnect', ref=_connection_ref(kind, connection_id))
+    _audit_provider_operation(kind, connection_id, 'disconnect', result)
+    return _provider_response(result)
 
 
 @connections_bp.route('/registries', methods=['GET'])
@@ -92,8 +209,10 @@ def delete_registry(registry_id):
     registry = ContainerRegistryService.get(registry_id)
     if not registry:
         return jsonify({'error': 'Registry not found'}), 404
-    ContainerRegistryService.delete(registry)
-    return jsonify({'success': True})
+    result = ConnectionProviderRegistry.execute(
+        'registry', 'disconnect', ref=_connection_ref('registry', registry_id))
+    _audit_provider_operation('registry', registry_id, 'disconnect', result)
+    return _provider_response(result)
 
 
 @connections_bp.route('/registries/<int:registry_id>/test', methods=['POST'])
@@ -102,7 +221,7 @@ def test_registry(registry_id):
     registry = ContainerRegistryService.get(registry_id)
     if not registry:
         return jsonify({'error': 'Registry not found'}), 404
-    result = ContainerRegistryService.test_connection(registry)
-    if result.get('success'):
-        return jsonify({'success': True, 'message': f'Logged in to {registry.login_host()}'})
-    return jsonify({'success': False, 'error': result.get('error', 'Login failed')}), 400
+    result = ConnectionProviderRegistry.execute(
+        'registry', 'test', ref=_connection_ref('registry', registry_id))
+    _audit_provider_operation('registry', registry_id, 'test', result)
+    return _provider_response(result)

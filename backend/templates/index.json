@@ -9,7 +9,7 @@
       "name": "Actual Budget",
       "version": "1.0",
       "description": "Privacy-first personal budgeting app using envelope budgeting with optional bank sync.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDEyVjdINWEyIDIgMCAwIDEgMC00aDE0djQiLz48cGF0aCBkPSJNMyA1djE0YTIgMiAwIDAgMCAyIDJoMTZ2LTUiLz48cGF0aCBkPSJNMTggMTJhMiAyIDAgMCAwIDAgNGg0di00eiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/actualbudget.svg",
       "categories": [
         "finance",
         "productivity"
@@ -20,7 +20,7 @@
       "name": "AgentSite",
       "version": "1.0",
       "description": "AI-powered website builder with multi-agent orchestration, deployed straight from its Git repository.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJjdXJyZW50Q29sb3IiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cmVjdCB4PSIzIiB5PSIxMSIgd2lkdGg9IjE4IiBoZWlnaHQ9IjEwIiByeD0iMiIvPjxjaXJjbGUgY3g9IjEyIiBjeT0iNSIgcj0iMiIvPjxwYXRoIGQ9Ik0xMiA3djQiLz48cGF0aCBkPSJNOCAxNmguMDEiLz48cGF0aCBkPSJNMTYgMTZoLjAxIi8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/agentsite.png",
       "categories": [
         "ai",
         "website",
@@ -32,7 +32,7 @@
       "name": "AnythingLLM",
       "version": "1.0",
       "description": "All-in-one private ChatGPT-style app with built-in RAG, AI agents, and document workspaces.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMTEiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxMCIgcng9IjIiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjUiIHI9IjIiLz48cGF0aCBkPSJNMTIgN3Y0Ii8+PGNpcmNsZSBjeD0iOCIgY3k9IjE2IiByPSIxIi8+PGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/anythingllm.svg",
       "categories": [
         "ai",
         "llm",
@@ -45,7 +45,7 @@
       "name": "Audiobookshelf",
       "version": "1.0",
       "description": "Self-hosted server for managing and streaming your audiobooks, podcasts, and ebooks.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgMTh2LTZhOSA5IDAgMCAxIDE4IDB2NiIvPjxwYXRoIGQ9Ik0yMSAxOWEyIDIgMCAwIDEtMiAyaC0xYTIgMiAwIDAgMS0yLTJ2LTNhMiAyIDAgMCAxIDItMmgzek0zIDE5YTIgMiAwIDAgMCAyIDJoMWEyIDIgMCAwIDAgMi0ydi0zYTIgMiAwIDAgMC0yLTJIM3oiLz48L3N2Zz4=",
+      "icon": "https://serverkit.ai/imgs/template-icons/audiobookshelf.svg",
       "categories": [
         "media",
         "audiobooks"
@@ -68,7 +68,7 @@
       "name": "Authentik",
       "version": "1.0",
       "description": "Open-source identity provider for single sign-on with OIDC, SAML, and LDAP.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDIyczgtNCA4LTEwVjVsLTgtMy04IDN2N2MwIDYgOCAxMCA4IDEweiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/authentik.svg",
       "categories": [
         "security",
         "identity",
@@ -80,7 +80,7 @@
       "name": "Beszel",
       "version": "1.0",
       "description": "Lightweight server monitoring hub with historical metrics and alerts.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjIgMTIgMTggMTIgMTUgMjEgOSAzIDYgMTIgMiAxMiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/beszel.svg",
       "categories": [
         "monitoring"
       ]
@@ -114,7 +114,7 @@
       "name": "Calibre-Web",
       "version": "1.0",
       "description": "Clean web interface for browsing, reading, and downloading books from a Calibre ebook library.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTQgMTkuNUEyLjUgMi41IDAgMCAxIDYuNSAxN0gyMCIvPjxwYXRoIGQ9Ik02LjUgMkgyMHYyMEg2LjVBMi41IDIuNSAwIDAgMSA0IDE5LjV2LTE1QTIuNSAyLjUgMCAwIDEgNi41IDJ6Ii8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/calibre-web.svg",
       "categories": [
         "media",
         "ebooks",
@@ -126,7 +126,7 @@
       "name": "Chatwoot",
       "version": "1.0",
       "description": "Open-source customer engagement suite with live chat and a shared inbox.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSI0Ii8+PGxpbmUgeDE9IjQuOTMiIHkxPSI0LjkzIiB4Mj0iOS4xNyIgeTI9IjkuMTciLz48bGluZSB4MT0iMTQuODMiIHkxPSIxNC44MyIgeDI9IjE5LjA3IiB5Mj0iMTkuMDciLz48bGluZSB4MT0iMTQuODMiIHkxPSI5LjE3IiB4Mj0iMTkuMDciIHkyPSI0LjkzIi8+PGxpbmUgeDE9IjQuOTMiIHkxPSIxOS4wNyIgeDI9IjkuMTciIHkyPSIxNC44MyIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/chatwoot.svg",
       "categories": [
         "business",
         "support",
@@ -138,7 +138,7 @@
       "name": "Chroma",
       "version": "1.0",
       "description": "Open-source vector database for embeddings and semantic search in AI and RAG applications.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iNiIgY3k9IjciIHI9IjEuNSIvPjxjaXJjbGUgY3g9IjE3IiBjeT0iNiIgcj0iMS41Ii8+PGNpcmNsZSBjeD0iOSIgY3k9IjEzIiByPSIxLjUiLz48Y2lyY2xlIGN4PSIxNSIgY3k9IjE1IiByPSIxLjUiLz48Y2lyY2xlIGN4PSI2IiBjeT0iMTgiIHI9IjEuNSIvPjxjaXJjbGUgY3g9IjE5IiBjeT0iMTciIHI9IjEuNSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/chroma.svg",
       "categories": [
         "ai",
         "database",
@@ -275,7 +275,7 @@
       "name": "Documenso",
       "version": "1.0",
       "description": "Open-source document signing platform for sending and signing documents online.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDE5bDctNyAzIDMtNyA3LTMtM3oiLz48cGF0aCBkPSJNMTggMTNsLTEuNS03LjVMMiAybDMuNSAxNC41TDEzIDE4bDUtNXoiLz48cGF0aCBkPSJNMiAybDcuNTg2IDcuNTg2Ii8+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iMiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/documenso.svg",
       "categories": [
         "business",
         "documents",
@@ -299,7 +299,7 @@
       "name": "Duplicati",
       "version": "2.0",
       "description": "Free backup software to store encrypted backups online",
-      "icon": "https://serverkit.ai/imgs/template-icons/duplicati.png",
+      "icon": "https://serverkit.ai/imgs/template-icons/duplicati.svg",
       "categories": [
         "storage",
         "backup",
@@ -335,7 +335,7 @@
       "name": "Firefly III",
       "version": "1.0",
       "description": "Self-hosted personal finance manager for budgeting, accounts, and money tracking.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMSIgeDI9IjEyIiB5Mj0iMjMiLz48cGF0aCBkPSJNMTcgNUg5LjVhMy41IDMuNSAwIDAgMCAwIDdoNWEzLjUgMy41IDAgMCAxIDAgN0g2Ii8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/firefly-iii.svg",
       "categories": [
         "finance",
         "productivity"
@@ -358,7 +358,7 @@
       "name": "Flowise",
       "version": "1.0",
       "description": "Low-code drag-and-drop builder for LLM agents and chains.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIxNSIgeT0iMTUiIHdpZHRoPSI2IiBoZWlnaHQ9IjYiIHJ4PSIxIi8+PHBhdGggZD0iTTkgNmg2YTIgMiAwIDAgMSAyIDJ2NyIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/flowise.svg",
       "categories": [
         "ai",
         "llm",
@@ -371,7 +371,7 @@
       "name": "FreshRSS",
       "version": "1.0",
       "description": "Free, self-hosted RSS and Atom feed aggregator for following news and websites in one place.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTQgMTFhOSA5IDAgMCAxIDkgOSIvPjxwYXRoIGQ9Ik00IDRhMTYgMTYgMCAwIDEgMTYgMTYiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMTkiIHI9IjEiLz48L3N2Zz4=",
+      "icon": "https://serverkit.ai/imgs/template-icons/freshrss.svg",
       "categories": [
         "news",
         "rss",
@@ -419,7 +419,7 @@
       "name": "Gotify",
       "version": "1.0",
       "description": "Self-hosted push notification server with Android client support.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xOCA4QTYgNiAwIDAgMCA2IDhjMCA3LTMgOS0zIDloMTJzLTMtMi0zLTl6Ii8+PHBhdGggZD0iTTEwLjMgMjFhMiAyIDAgMCAwIDMuNCAwIi8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/gotify.svg",
       "categories": [
         "notifications",
         "messaging"
@@ -532,7 +532,7 @@
       "name": "Jellyseerr",
       "version": "1.0",
       "description": "Media request and discovery portal for Jellyfin/Plex and the PVR apps",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiByeD0iMi4xOCIvPjxsaW5lIHgxPSI3IiB5MT0iMiIgeDI9IjciIHkyPSIyMiIvPjxsaW5lIHgxPSIxNyIgeTE9IjIiIHgyPSIxNyIgeTI9IjIyIi8+PGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48bGluZSB4MT0iMiIgeTE9IjciIHgyPSI3IiB5Mj0iNyIvPjxsaW5lIHgxPSIyIiB5MT0iMTciIHgyPSI3IiB5Mj0iMTciLz48bGluZSB4MT0iMTciIHkxPSIxNyIgeDI9IjIyIiB5Mj0iMTciLz48bGluZSB4MT0iMTciIHkxPSI3IiB4Mj0iMjIiIHkyPSI3Ii8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/jellyseerr.svg",
       "categories": [
         "media",
         "automation"
@@ -555,7 +555,7 @@
       "name": "Jitsi Meet",
       "version": "9111",
       "description": "Secure, fully featured, and completely free video conferencing",
-      "icon": "https://serverkit.ai/imgs/template-icons/jitsi.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/jitsi.svg",
       "categories": [
         "collaboration",
         "video",
@@ -567,7 +567,7 @@
       "name": "Karakeep",
       "version": "1.0",
       "description": "Self-hosted bookmark-everything app (formerly Hoarder) that saves links, notes, and images with AI tagging and full-text search.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE5IDIxbC03LTUtNyA1VjVhMiAyIDAgMCAxIDItMmgxMGEyIDIgMCAwIDEgMiAyeiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/karakeep.svg",
       "categories": [
         "productivity",
         "bookmarks"
@@ -590,7 +590,7 @@
       "name": "Langflow",
       "version": "1.0",
       "description": "Visual framework for building multi-agent and RAG applications.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjYiIGhlaWdodD0iNiIgcng9IjEiLz48cmVjdCB4PSIxNSIgeT0iMTUiIHdpZHRoPSI2IiBoZWlnaHQ9IjYiIHJ4PSIxIi8+PHBhdGggZD0iTTkgNmg2YTIgMiAwIDAgMSAyIDJ2NyIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/langflow.svg",
       "categories": [
         "ai",
         "llm",
@@ -603,7 +603,7 @@
       "name": "LibreChat",
       "version": "1.0",
       "description": "Open-source multi-model chat UI (OpenAI, Anthropic, Google, local) with conversation search.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDExLjVhOC4zOCA4LjM4IDAgMCAxLS45IDMuOCA4LjUgOC41IDAgMCAxLTcuNiA0LjcgOC4zOCA4LjM4IDAgMCAxLTMuOC0uOUwzIDIxbDEuOS01LjdhOC4zOCA4LjM4IDAgMCAxLS45LTMuOCA4LjUgOC41IDAgMCAxIDQuNy03LjYgOC4zOCA4LjM4IDAgMCAxIDMuOC0uOWguNWE4LjQ4IDguNDggMCAwIDEgOCA4eiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/librechat.svg",
       "categories": [
         "ai",
         "llm",
@@ -615,7 +615,7 @@
       "name": "linkding",
       "version": "1.0",
       "description": "Minimal, fast self-hosted bookmark manager.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE5IDIxbC03LTUtNyA1VjVhMiAyIDAgMCAxIDItMmgxMGEyIDIgMCAwIDEgMiAyeiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/linkding.svg",
       "categories": [
         "productivity",
         "bookmarks"
@@ -626,7 +626,7 @@
       "name": "LiteLLM",
       "version": "1.0",
       "description": "OpenAI-compatible proxy and gateway that routes requests across 100+ LLM providers.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iNiIgY3k9IjYiIHI9IjMiLz48Y2lyY2xlIGN4PSIxOCIgY3k9IjYiIHI9IjMiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjE4IiByPSIzIi8+PHBhdGggZD0iTTYgOXYyYTIgMiAwIDAgMCAyIDJoOGEyIDIgMCAwIDAgMi0yVjlNMTIgMTV2MCIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/litellm.svg",
       "categories": [
         "ai",
         "llm",
@@ -703,7 +703,7 @@
       "name": "Meilisearch",
       "version": "1.12",
       "description": "Lightning-fast, typo-tolerant search engine that many apps rely on for instant full-text search.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iOCIvPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/meilisearch.svg",
       "categories": [
         "search",
         "database"
@@ -731,7 +731,7 @@
       "name": "Memos",
       "version": "1.0",
       "description": "Lightweight, privacy-first note-taking and micro-blogging app.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE1LjUgM0g1YTIgMiAwIDAgMC0yIDJ2MTRhMiAyIDAgMCAwIDIgMmgxNGEyIDIgMCAwIDAgMi0yVjguNXoiLz48cGF0aCBkPSJNMTUgM3Y2aDYiLz48L3N2Zz4=",
+      "icon": "https://serverkit.ai/imgs/template-icons/memos.svg",
       "categories": [
         "notes",
         "productivity"
@@ -742,7 +742,7 @@
       "name": "Metabase",
       "version": "1.0",
       "description": "Open-source business intelligence and dashboards tool for exploring your data.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMjAiIHgyPSIxMiIgeTI9IjEwIi8+PGxpbmUgeDE9IjE4IiB5MT0iMjAiIHgyPSIxOCIgeTI9IjQiLz48bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2Ii8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/metabase.svg",
       "categories": [
         "analytics",
         "business",
@@ -754,7 +754,7 @@
       "name": "Miniflux",
       "version": "1.0",
       "description": "Minimalist and fast self-hosted RSS feed reader backed by PostgreSQL.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTQgMTFhOSA5IDAgMCAxIDkgOSIvPjxwYXRoIGQ9Ik00IDRhMTYgMTYgMCAwIDEgMTYgMTYiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMTkiIHI9IjEiLz48L3N2Zz4=",
+      "icon": "https://serverkit.ai/imgs/template-icons/miniflux.svg",
       "categories": [
         "news",
         "rss"
@@ -960,7 +960,7 @@
       "name": "NodeBB",
       "version": "1.0",
       "description": "Modern, real-time forum and community platform built on Node.js.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE3IDIxdi0yYTQgNCAwIDAgMC00LTRINWE0IDQgMCAwIDAtNCA0djIiLz48Y2lyY2xlIGN4PSI5IiBjeT0iNyIgcj0iNCIvPjxwYXRoIGQ9Ik0yMyAyMXYtMmE0IDQgMCAwIDAtMy0zLjg3TTE2IDMuMTNhNCA0IDAgMCAxIDAgNy43NSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/nodebb.svg",
       "categories": [
         "community",
         "forum",
@@ -984,7 +984,7 @@
       "name": "ntfy",
       "version": "1.0",
       "description": "Simple HTTP-based pub/sub service that pushes notifications to your phone or desktop via a POST.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE4IDhBNiA2IDAgMCAwIDYgOGMwIDctMyA5LTMgOWgxOHMtMy0yLTMtOXoiLz48cGF0aCBkPSJNMTMuNzMgMjFhMiAyIDAgMCAxLTMuNDYgMCIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/ntfy.svg",
       "categories": [
         "notifications",
         "messaging"
@@ -995,7 +995,7 @@
       "name": "Ollama + Open WebUI",
       "version": "1.0",
       "description": "Local LLM inference with Ollama and a friendly chat interface (Open WebUI).",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiPjxyZWN0IHg9IjMiIHk9IjMiIHdpZHRoPSIxOCIgaGVpZ2h0PSIxOCIgcng9IjIiLz48cGF0aCBkPSJNOCAxMmg4TTEyIDh2OCIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/ollama-webui.svg",
       "categories": [
         "ai",
         "llm",
@@ -1019,7 +1019,7 @@
       "name": "Paperless-ngx",
       "version": "1.0",
       "description": "Document management system that scans, OCRs, indexes and archives your documents into a searchable online archive.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4eiIvPjxwb2x5bGluZSBwb2ludHM9IjE0IDIgMTQgOCAyMCA4Ii8+PGxpbmUgeDE9IjE2IiB5MT0iMTMiIHgyPSI4IiB5Mj0iMTMiLz48bGluZSB4MT0iMTYiIHkxPSIxNyIgeDI9IjgiIHkyPSIxNyIvPjxwb2x5bGluZSBwb2ludHM9IjEwIDkgOSA5IDggOSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/paperless-ngx.svg",
       "categories": [
         "documents",
         "productivity"
@@ -1090,7 +1090,7 @@
       "name": "Pi-hole",
       "version": "1.0",
       "description": "Network-wide ad-blocking DNS sinkhole with a web dashboard.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlnb24gcG9pbnRzPSIyMiAzIDIgMyAxMCAxMi40NiAxMCAxOSAxNCAyMSAxNCAxMi40NiAyMiAzIi8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/pihole.svg",
       "categories": [
         "networking",
         "dns",
@@ -1102,7 +1102,7 @@
       "name": "Plane",
       "version": "1.0",
       "description": "Open-source project management and issue tracking with cycles, modules, and views (a Jira/Linear alternative).",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIvPjxwYXRoIGQ9Ik04IDd2N00xMiA3djEwTTE2IDd2NCIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/plane.svg",
       "categories": [
         "productivity",
         "project-management"
@@ -1113,7 +1113,7 @@
       "name": "Plausible Analytics",
       "version": "2.0",
       "description": "Privacy-friendly, lightweight alternative to Google Analytics",
-      "icon": "https://serverkit.ai/imgs/template-icons/plausible.ico",
+      "icon": "https://serverkit.ai/imgs/template-icons/plausible.svg",
       "categories": [
         "analytics",
         "privacy",
@@ -1210,7 +1210,7 @@
       "name": "PostHog",
       "version": "1.0",
       "description": "Open-source product analytics with session replay, feature flags, A/B testing, and event autocapture.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGxpbmUgeDE9IjEyIiB5MT0iMjAiIHgyPSIxMiIgeTI9IjEwIi8+PGxpbmUgeDE9IjE4IiB5MT0iMjAiIHgyPSIxOCIgeTI9IjQiLz48bGluZSB4MT0iNiIgeTE9IjIwIiB4Mj0iNiIgeTI9IjE2Ii8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/posthog.svg",
       "categories": [
         "analytics",
         "business"
@@ -1246,7 +1246,7 @@
       "name": "Prowlarr",
       "version": "1.0",
       "description": "Indexer manager and proxy that integrates your indexers with the PVR apps",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iOCIvPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/prowlarr.svg",
       "categories": [
         "media",
         "automation"
@@ -1269,7 +1269,7 @@
       "name": "qBittorrent",
       "version": "1.0",
       "description": "Open-source BitTorrent client with a full-featured web UI",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDE1djRhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTQiLz48cG9seWxpbmUgcG9pbnRzPSI3IDEwIDEyIDE1IDE3IDEwIi8+PGxpbmUgeDE9IjEyIiB5MT0iMTUiIHgyPSIxMiIgeTI9IjMiLz48L3N2Zz4=",
+      "icon": "https://serverkit.ai/imgs/template-icons/qbittorrent.svg",
       "categories": [
         "media",
         "downloads"
@@ -1280,7 +1280,7 @@
       "name": "Qdrant",
       "version": "1.0",
       "description": "Vector similarity search engine for AI/LLM and semantic-search applications.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjMiLz48cGF0aCBkPSJNMTIgMXYyMk0xIDloMjJNMSAxNWgyMiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/qdrant.svg",
       "categories": [
         "ai",
         "database",
@@ -1292,7 +1292,7 @@
       "name": "Radarr",
       "version": "1.0",
       "description": "PVR for movies that monitors, grabs, sorts, and renames films automatically",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiByeD0iMi4xOCIvPjxsaW5lIHgxPSI3IiB5MT0iMiIgeDI9IjciIHkyPSIyMiIvPjxsaW5lIHgxPSIxNyIgeTE9IjIiIHgyPSIxNyIgeTI9IjIyIi8+PGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48bGluZSB4MT0iMiIgeTE9IjciIHgyPSI3IiB5Mj0iNyIvPjxsaW5lIHgxPSIyIiB5MT0iMTciIHgyPSI3IiB5Mj0iMTciLz48bGluZSB4MT0iMTciIHkxPSIxNyIgeDI9IjIyIiB5Mj0iMTciLz48bGluZSB4MT0iMTciIHkxPSI3IiB4Mj0iMjIiIHkyPSI3Ii8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/radarr.svg",
       "categories": [
         "media",
         "automation"
@@ -1380,7 +1380,7 @@
       "name": "SearXNG",
       "version": "1.0",
       "description": "Privacy-respecting metasearch engine that aggregates results from many sources without tracking you.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iOCIvPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/searxng.svg",
       "categories": [
         "search",
         "privacy"
@@ -1391,7 +1391,7 @@
       "name": "SigNoz",
       "version": "1.0",
       "description": "OpenTelemetry-native observability platform for traces, metrics, and logs (an open-source APM alternative to Datadog).",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iMjIgMTIgMTggMTIgMTUgMjEgOSAzIDYgMTIgMiAxMiIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/signoz.svg",
       "categories": [
         "monitoring",
         "observability",
@@ -1415,7 +1415,7 @@
       "name": "Sonarr",
       "version": "1.0",
       "description": "PVR for TV series that monitors, grabs, sorts, and renames episodes automatically",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMiIgeT0iMiIgd2lkdGg9IjIwIiBoZWlnaHQ9IjIwIiByeD0iMi4xOCIvPjxsaW5lIHgxPSI3IiB5MT0iMiIgeDI9IjciIHkyPSIyMiIvPjxsaW5lIHgxPSIxNyIgeTE9IjIiIHgyPSIxNyIgeTI9IjIyIi8+PGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiLz48bGluZSB4MT0iMiIgeTE9IjciIHgyPSI3IiB5Mj0iNyIvPjxsaW5lIHgxPSIyIiB5MT0iMTciIHgyPSI3IiB5Mj0iMTciLz48bGluZSB4MT0iMTciIHkxPSIxNyIgeDI9IjIyIiB5Mj0iMTciLz48bGluZSB4MT0iMTciIHkxPSI3IiB4Mj0iMjIiIHkyPSI3Ii8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/sonarr.svg",
       "categories": [
         "media",
         "automation"
@@ -1426,7 +1426,7 @@
       "name": "Stirling PDF",
       "version": "1.0",
       "description": "Local web toolkit for splitting, merging, converting and OCR-ing PDF files.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTE0IDJINmEyIDIgMCAwIDAtMiAydjE2YTIgMiAwIDAgMCAyIDJoMTJhMiAyIDAgMCAwIDItMlY4eiIvPjxwb2x5bGluZSBwb2ludHM9IjE0IDIgMTQgOCAyMCA4Ii8+PGxpbmUgeDE9IjE2IiB5MT0iMTMiIHgyPSI4IiB5Mj0iMTMiLz48bGluZSB4MT0iMTYiIHkxPSIxNyIgeDI9IjgiIHkyPSIxNyIvPjxwb2x5bGluZSBwb2ludHM9IjEwIDkgOSA5IDggOSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/stirling-pdf.svg",
       "categories": [
         "documents",
         "productivity",
@@ -1474,7 +1474,7 @@
       "name": "Typesense",
       "version": "1.0",
       "description": "Typo-tolerant search engine optimized for fast, instant search-as-you-type experiences.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTEiIGN5PSIxMSIgcj0iOCIvPjxsaW5lIHgxPSIyMSIgeTE9IjIxIiB4Mj0iMTYuNjUiIHkyPSIxNi42NSIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/typesense.svg",
       "categories": [
         "search",
         "database"
@@ -1561,7 +1561,7 @@
       "name": "Vikunja",
       "version": "1.0",
       "description": "Self-hosted to-do list and task and project manager.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBvbHlsaW5lIHBvaW50cz0iOSAxMSAxMiAxNCAyMiA0Ii8+PHBhdGggZD0iTTIxIDEydjdhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJWNWEyIDIgMCAwIDEgMi0yaDExIi8+PC9zdmc+",
+      "icon": "https://serverkit.ai/imgs/template-icons/vikunja.svg",
       "categories": [
         "productivity",
         "tasks"
@@ -1572,7 +1572,7 @@
       "name": "WG-Easy",
       "version": "1.0",
       "description": "The easiest way to run WireGuard VPN with a web admin UI.",
-      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMTYiIHk9IjE2IiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxyZWN0IHg9IjIiIHk9IjE2IiB3aWR0aD0iNiIgaGVpZ2h0PSI2IiByeD0iMSIvPjxyZWN0IHg9IjkiIHk9IjIiIHdpZHRoPSI2IiBoZWlnaHQ9IjYiIHJ4PSIxIi8+PHBhdGggZD0iTTUgMTZ2LTNhMSAxIDAgMCAxIDEtMWgxMmExIDEgMCAwIDEgMSAxdjNNMTIgMTJWOCIvPjwvc3ZnPg==",
+      "icon": "https://serverkit.ai/imgs/template-icons/wg-easy.svg",
       "categories": [
         "networking",
         "vpn",

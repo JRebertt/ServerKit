@@ -18,9 +18,16 @@ const POLL_MS = 2500;
 const HISTORY_LIMIT = 20;
 
 const FAMILY_META = {
-    debian: { labelKey: 'app.testSandbox.debian', label: 'Debian', kind: 'cyan' },
+    debian: { kind: 'cyan' },
     rhel: { label: 'RHEL', kind: 'amber' },
     suse: { label: 'SUSE', kind: 'violet' },
+    independent: { kind: 'gray' },
+};
+
+const familyLabel = (t, familyKey) => {
+    if (familyKey === 'debian') return t('app.testSandbox.debian', 'Debian');
+    if (familyKey === 'independent') return t('app.testSandbox.independent', 'Independent');
+    return FAMILY_META[familyKey]?.label;
 };
 
 const MODES = [
@@ -77,7 +84,9 @@ function RunResults({ run, distroMeta, logs, openLogs, onToggleLog }) {
                             {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                             <span className="ts-result__name">{meta.label || key}</span>
                             {family && (
-                                <Pill kind={family.kind} dot={false}>{family.label}</Pill>
+                                <Pill kind={family.kind} dot={false}>
+                                    {familyLabel(t, meta.family)}
+                                </Pill>
                             )}
                             <span className="ts-result__spacer" />
                             {result.duration_s != null && (
@@ -424,8 +433,13 @@ const TestSandbox = () => {
                                 >
                                     <span className="ts-distro__label">{d.label}</span>
                                     <span className="ts-distro__meta">
-                                        {family && <Pill kind={family.kind} dot={false}>{family.label}</Pill>}
+                                        {family && (
+                                            <Pill kind={family.kind} dot={false}>
+                                                {familyLabel(t, d.family)}
+                                            </Pill>
+                                        )}
                                         <span className="ts-distro__hint">
+                                            {d.fidelity === 'proxy' && t('app.testSandbox.userlandProxy', 'userland proxy · ')}
                                             {disabled ? 'quick only' : (d.full ? 'quick + full' : 'quick')}
                                         </span>
                                     </span>

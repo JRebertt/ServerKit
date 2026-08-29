@@ -5,20 +5,20 @@
 # The ServerKit installer/updater needs to refresh the package index, install a
 # handful of OS packages, and check whether something is already present — and it
 # has to do this identically on Debian/Ubuntu (apt), RHEL/Rocky/Alma/Fedora
-# (dnf, or yum on older boxes), openSUSE (zypper), Arch (pacman) and Alpine
-# (apk). Sprinkling per-distro `if command -v apt` branches through every script
+# (dnf, or yum on older boxes), openSUSE (zypper), Arch (pacman), Alpine (apk)
+# and Gentoo (emerge). Sprinkling per-distro `if command -v apt` branches through every script
 # rots fast and is impossible to unit-test, so we centralise the dispatch here.
 #
 # This bash helper mirrors the semantics of the Python PackageManager class in
 # backend/app/utils/system.py (same detect → install/is_installed contract,
 # same sudo-only-when-needed rule) so the host and the running panel agree on
 # what "installed" means. It covers the three managers the Python side knows
-# (apt/dnf/yum) plus the three install-time-only ones (zypper/pacman/apk) that
-# the shell installer can hit before the panel is even up.
+# (apt/dnf/yum) plus the four install-time-only ones (zypper/pacman/apk/emerge)
+# that the shell installer can hit before the panel is even up.
 #
 # Contract (these names/behaviours are depended on by callers and unit tests —
 # do not rename them or add extra public functions):
-#   pkg_detect                  → echoes: apt|dnf|yum|zypper|pacman|apk|"" (none)
+#   pkg_detect                  → echoes: apt|dnf|yum|zypper|pacman|apk|emerge|"" (none)
 #   pkg_refresh                 → refresh the package index (best-effort)
 #   pkg_install <pkg> [pkg...]  → install packages non-interactively
 #   pkg_is_installed <pkg>      → return 0 if installed, 1 otherwise
@@ -67,7 +67,7 @@ pkg_detect() {
         return 0
     fi
     local mgr
-    for mgr in apt dnf yum zypper pacman apk; do
+    for mgr in apt dnf yum zypper pacman apk emerge; do
         if command -v "$mgr" >/dev/null 2>&1; then
             printf '%s\n' "$mgr"
             return 0
@@ -92,6 +92,7 @@ pkg_refresh() {
         zypper) _pkg_run zypper --non-interactive refresh || true ;;
         pacman) _pkg_run pacman -Sy --noconfirm || true ;;
         apk)    _pkg_run apk update || true ;;
+        emerge) _pkg_run emerge --sync || true ;;
         *)      : ;;
     esac
     return 0
@@ -124,6 +125,10 @@ pkg_install() {
         zypper) _pkg_run zypper --non-interactive install "$@" ;;
         pacman) _pkg_run pacman -S --noconfirm "$@" ;;
         apk)    _pkg_run apk add "$@" ;;
+        # --ask=n pins emerge's explicit-prompt flag off; emerge is already
+        # non-interactive by default, this just keeps that true under MAKEOPTS
+        # or config drift (mirrors the non-interactivity every other arm gets).
+        emerge) _pkg_run emerge --noreplace --ask=n "$@" ;;
         *)
             printf '  [pkg] no supported package manager found — cannot install: %s\n' "$*" >&2
             return 1
@@ -165,6 +170,16 @@ pkg_is_installed() {
         apk)
             command -v apk >/dev/null 2>&1 || return 1
             apk info -e "$pkg" >/dev/null 2>&1
+            ;;
+        emerge)
+            # Portage's installed database is /var/db/pkg/<category>/<name-ver>;
+            # strip any :slot suffix and glob for a matching install dir.
+            local q="${pkg%%:*}"
+            [ -d /var/db/pkg ] || return 1
+            case "$q" in
+                */*) compgen -G "/var/db/pkg/$q-*" >/dev/null ;;
+                *)   compgen -G "/var/db/pkg/*/$q-*" >/dev/null ;;
+            esac
             ;;
         *)
             return 1

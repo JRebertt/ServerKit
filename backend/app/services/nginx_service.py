@@ -172,6 +172,47 @@ class NginxService:
 }}
 '''
 
+    # WordPress authentication endpoints receive a dedicated request limit in
+    # published reverse-proxy vhosts. The zones are shared across vhosts, while
+    # the key includes server_name so traffic to one site cannot consume
+    # another site's allowance.
+    WORDPRESS_RATE_LIMIT_CONF_NAME = 'serverkit-wordpress-rate-limit.conf'
+    WORDPRESS_RATE_LIMIT_ZONE_SNIPPET = '''# ServerKit WordPress request-limit zones (auto-generated; do not edit).
+limit_req_zone $server_name$binary_remote_addr zone=serverkit_wp_login:10m rate=10r/m;
+limit_req_zone $server_name$binary_remote_addr zone=serverkit_wp_xmlrpc:10m rate=30r/m;
+'''
+
+    WORDPRESS_PROTECTION_BLOCK = '''    # ServerKit WordPress brute-force protection
+    location = /wp-login.php {{
+        limit_req zone=serverkit_wp_login burst=10 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:{port};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+        proxy_connect_timeout 60;
+        proxy_send_timeout 60;
+    }}
+
+    location = /xmlrpc.php {{
+        limit_req zone=serverkit_wp_xmlrpc burst=20 nodelay;
+        limit_req_status 429;
+        proxy_pass http://127.0.0.1:{port};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
+        proxy_connect_timeout 60;
+        proxy_send_timeout 60;
+    }}
+
+'''
+
     # Reverse proxy to a service reached over a WireGuard tunnel (roadmap
     # #12). The upstream is a peer's WG IP:port; the private agent forwards
     # it to the real service. proxy_buffering off keeps media/streaming
@@ -523,7 +564,8 @@ location /p/ {{
                            php_version: str = '8.2',
                            ssl_cert: str = None, ssl_key: str = None,
                            upstream: str = None,
-                           micro_cache: bool = False) -> Dict:
+                           micro_cache: bool = False,
+                           wordpress_protection: bool = False) -> Dict:
         """Render the vhost config for a site to a string — no side effects.
 
         This is the exact template pipeline :meth:`create_site` writes to disk;
@@ -595,10 +637,60 @@ location /p/ {{
             # also carries a server_name line) never receives cache directives.
             config = cls._with_micro_cache(config, app_type)
 
+        if wordpress_protection:
+            if app_type != 'docker' or not port:
+                return {
+                    'success': False,
+                    'error': 'WordPress protection requires a Docker proxy port',
+                }
+            config = cls._with_wordpress_protection(config, port)
+
         if ssl_cert and ssl_key:
             config = cls._with_ssl(config, domains_str, ssl_cert, ssl_key)
 
         return {'success': True, 'config': config}
+
+    @classmethod
+    def _with_wordpress_protection(cls, config: str, port: int) -> str:
+        """Add exact-match throttling locations before the catch-all proxy."""
+        anchor = '    location / {\n'
+        if anchor not in config:
+            return config
+        block = cls.WORDPRESS_PROTECTION_BLOCK.format(port=port)
+        return config.replace(anchor, block + anchor, 1)
+
+    @classmethod
+    def ensure_wordpress_rate_limit_zones(cls) -> Dict:
+        """Write the shared WordPress rate-limit zones to nginx conf.d."""
+        conf_path = os.path.join(
+            cls.NGINX_CONF_DIR,
+            'conf.d',
+            cls.WORDPRESS_RATE_LIMIT_CONF_NAME,
+        )
+        try:
+            if os.path.isfile(conf_path):
+                with open(conf_path, 'r') as f:
+                    if f.read() == cls.WORDPRESS_RATE_LIMIT_ZONE_SNIPPET:
+                        return {
+                            'success': True,
+                            'changed': False,
+                            'path': conf_path,
+                            'message': 'WordPress rate-limit zones already configured',
+                        }
+            written = write_privileged_file(
+                conf_path,
+                cls.WORDPRESS_RATE_LIMIT_ZONE_SNIPPET,
+            )
+            if not written['success']:
+                return {'success': False, 'error': written['error']}
+            return {
+                'success': True,
+                'changed': True,
+                'path': conf_path,
+                'message': 'WordPress rate-limit zones configured',
+            }
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
 
     @classmethod
     def _with_micro_cache(cls, config: str, app_type: str) -> str:
@@ -694,7 +786,8 @@ location /p/ {{
     def create_site(cls, name: str, app_type: str, domains: List[str],
                     root_path: str = None, port: int = None, php_version: str = '8.2',
                     ssl_cert: str = None, ssl_key: str = None,
-                    upstream: str = None, micro_cache: bool = False) -> Dict:
+                    upstream: str = None, micro_cache: bool = False,
+                    wordpress_protection: bool = False) -> Dict:
         """Create a new site configuration.
 
         When ``ssl_cert``/``ssl_key`` are given the generated vhost serves HTTPS
@@ -707,6 +800,7 @@ location /p/ {{
             name, app_type, domains, root_path=root_path, port=port,
             php_version=php_version, ssl_cert=ssl_cert, ssl_key=ssl_key,
             upstream=upstream, micro_cache=micro_cache,
+            wordpress_protection=wordpress_protection,
         )
         if not rendered.get('success'):
             return rendered
@@ -719,6 +813,17 @@ location /p/ {{
             if not zone.get('success'):
                 return {'success': False,
                         'error': f"micro-cache zone setup failed: {zone.get('error')}"}
+
+        if wordpress_protection:
+            zones = cls.ensure_wordpress_rate_limit_zones()
+            if not zones.get('success'):
+                return {
+                    'success': False,
+                    'error': (
+                        'WordPress rate-limit zone setup failed: '
+                        f"{zones.get('error')}"
+                    ),
+                }
 
         try:
             result = cls.write_vhost(name, config)
@@ -791,6 +896,13 @@ location /p/ {{
 
         Returns ``{'success', 'path'}`` or ``{'success': False, 'error'}``.
         """
+        # `name` becomes a filesystem path below — refuse anything that is not
+        # a plain filename so a caller-controlled name cannot traverse out of
+        # sites-available (preview_diff applies the same rule for reads).
+        if (not name or os.path.basename(name) != name
+                or name in ('.', '..') or '\x00' in name):
+            return {'success': False, 'error': f'Invalid site name: {name!r}'}
+
         available_path = os.path.join(cls.SITES_AVAILABLE, name)
         enabled_path = os.path.join(cls.SITES_ENABLED, name)
         previous = cls.read_vhost(name)
@@ -816,6 +928,10 @@ location /p/ {{
 
         reloaded = cls.reload()
         if not reloaded['success']:
+            # A failed reload means nginx is still serving the previous config
+            # (reload fails safe) — restore the file so on-disk state matches
+            # what nginx actually runs, exactly like the config-test rollback.
+            cls._restore_vhost(name, previous, was_enabled)
             return reloaded
         return {'success': True, 'path': available_path}
 

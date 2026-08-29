@@ -72,6 +72,16 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 
+    # Rate-limit storage backend. flask-limiter reads RATELIMIT_STORAGE_URI
+    # from app.config at init_app time. Unset = in-memory storage, which is
+    # correct for the deliberate single-worker deployment but per-process and
+    # triggers flask-limiter's "not recommended for production" warning. Set
+    # e.g. redis://localhost:6379/0 to share limit state across processes.
+    # Defined only when the env var is non-empty so a blank value never
+    # reaches the storage URI parser.
+    if os.environ.get('RATELIMIT_STORAGE_URI'):
+        RATELIMIT_STORAGE_URI = os.environ['RATELIMIT_STORAGE_URI']
+
     # CORS - allow the launcher defaults plus legacy local dev ports.
     DEFAULT_CORS_ORIGINS = ','.join([
         'http://localhost:41921',

@@ -568,7 +568,7 @@ preflight_check() {
     local py_bin py_version
     py_bin="$(locate_python 2>/dev/null || true)"
     if [ -z "$py_bin" ]; then
-        halt "Python 3.11 or 3.12 is required. Install python3.11/3.12 and python3-venv."
+        halt "Python 3.11-3.14 is required. Install a supported python3.1x and python3-venv."
     fi
     py_version="$($py_bin -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
     good "Python $py_version available ($py_bin)"
@@ -661,7 +661,7 @@ preflight_check() {
 # ---------------------------------------------------------------------------
 locate_python() {
     local c v
-    for c in python3.12 python3.11 python3; do
+    for c in python3.14 python3.13 python3.12 python3.11 python3; do
         if command -v "$c" &>/dev/null; then
             v="$($c -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)"
             # An EMPTY version means the binary/shim exists but can't actually
@@ -669,7 +669,7 @@ locate_python() {
             # below ("" sorts before everything). Reject it and move on.
             [ -n "$v" ] || continue
             if printf '%s\n%s' "3.11" "$v" | sort -C -V && \
-               printf '%s\n%s' "$v" "3.12" | sort -C -V; then
+               printf '%s\n%s' "$v" "3.14" | sort -C -V; then
                 printf '%s' "$c"
                 return 0
             fi
@@ -683,7 +683,7 @@ rebuild_virtualenv() {
     step "Rebuilding Python virtual environment..."
 
     local py_bin
-    py_bin="$(locate_python)" || halt "ServerKit requires Python 3.11 or 3.12."
+    py_bin="$(locate_python)" || halt "ServerKit requires Python 3.11-3.14."
 
     if [ "$DRY_RUN" = "1" ]; then
         info "[dry-run] would recreate venv at $target_dir using $py_bin"
@@ -908,8 +908,8 @@ atomic_switch() {
 # sqlite3; with none available we fail rather than fall back to a racy cp.
 # ---------------------------------------------------------------------------
 # Snapshotting or integrity-checking a SQLite file needs nothing more than an
-# interpreter carrying the stdlib `sqlite3` module — NOT the 3.11/3.12 that
-# rebuild_virtualenv and preflight_check legitimately demand. Reusing
+# interpreter carrying the stdlib `sqlite3` module — NOT the gated 3.11-3.14
+# that rebuild_virtualenv and preflight_check legitimately demand. Reusing
 # locate_python here silently coupled the DATA-safety paths to the venv-builder
 # constraint, and blocked updates for a reason unrelated to the data:
 #   * an all-Docker install returns before preflight_check ever runs and does
@@ -923,7 +923,7 @@ atomic_switch() {
 # present, guaranteed to have the module, and independent of what is on PATH.
 locate_sqlite_python() {
     local c
-    for c in "$@" python3.12 python3.11 python3 python; do
+    for c in "$@" python3.14 python3.13 python3.12 python3.11 python3 python; do
         [ -n "$c" ] || continue
         command -v "$c" >/dev/null 2>&1 || continue
         "$c" -c 'import sqlite3' >/dev/null 2>&1 || continue

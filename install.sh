@@ -89,7 +89,11 @@ PYTHON_MIN="3.11"
 # in the same place. Raising the ceiling needed SQLAlchemy >= 2.0.31 (see
 # backend/requirements.txt) and dropping two stacked @classmethod/@staticmethod
 # decorators that 3.13 no longer collapses.
-PYTHON_MAX="3.13"
+# 3.14 included since the 2026-08 distro-compatibility baseline: Arch/Manjaro
+# rolling ship ONLY python 3.14 from their repos (no versioned python3.1x
+# packages exist to fall back to), so a ceiling of 3.13 made every Arch-family
+# install fall through to the source build — the same trap trixie was in.
+PYTHON_MAX="3.14"
 PYTHON_BIN=""
 
 GITHUB_REPO="${GITHUB_REPO:-jhd3197/ServerKit}"
@@ -284,7 +288,7 @@ preflight() {
 # ---------------------------------------------------------------------------
 # Pure mapping from /etc/os-release ID (+ ID_LIKE fallback) to a ServerKit
 # family. Kept as a standalone function so it is unit-testable without a real
-# /etc/os-release. Echoes: debian|fedora|rhel|suse|arch|alpine|unknown.
+# /etc/os-release. Echoes: debian|fedora|rhel|suse|arch|alpine|gentoo|unknown.
 os_family_from() {
     local id="$1" id_like="$2"
     case "$id" in
@@ -300,6 +304,8 @@ os_family_from() {
             printf 'arch\n'; return ;;
         alpine)
             printf 'alpine\n'; return ;;
+        gentoo|funtoo)
+            printf 'gentoo\n'; return ;;
     esac
     # Unknown ID — map via ID_LIKE to the closest supported family. Check rhel
     # before fedora: RHEL clones advertise ID_LIKE="rhel centos fedora" and want
@@ -311,6 +317,7 @@ os_family_from() {
         *suse*)            printf 'suse\n' ;;
         *arch*)            printf 'arch\n' ;;
         *alpine*)          printf 'alpine\n' ;;
+        *gentoo*)          printf 'gentoo\n' ;;
         *)                 printf 'unknown\n' ;;
     esac
 }
@@ -351,7 +358,7 @@ identify_system() {
 }
 
 # ---------------------------------------------------------------------------
-# Package manager abstraction (apt / dnf / yum)
+# Package manager abstraction (apt / dnf / yum / zypper / pacman / apk / emerge)
 # ---------------------------------------------------------------------------
 # Detection order mirrors scripts/lib/pkg.sh. These run during the early
 # dependency phase — before the repo (and thus scripts/lib) is on disk in the
@@ -375,8 +382,10 @@ APT_EOF
         PKG_MGR="pacman"
     elif command -v apk &>/dev/null; then
         PKG_MGR="apk"
+    elif command -v emerge &>/dev/null; then
+        PKG_MGR="emerge"
     else
-        halt "No supported package manager found (need apt, dnf, yum, zypper, pacman, or apk)."
+        halt "No supported package manager found (need apt, dnf, yum, zypper, pacman, apk, or emerge)."
     fi
 }
 
@@ -393,6 +402,8 @@ refresh_pkg_index() {
         zypper) zypper --non-interactive refresh >/dev/null 2>&1 || true ;;
         pacman) pacman -Sy --noconfirm >/dev/null 2>&1 || true ;;
         apk)    apk update >/dev/null 2>&1 || true ;;
+        # Portage keeps a full repo snapshot; --sync just refreshes it.
+        emerge) emerge --sync >/dev/null 2>&1 || true ;;
     esac
     return 0
 }
@@ -439,6 +450,10 @@ pkg_add() {
         zypper) out=$(zypper --non-interactive install "$@" 2>&1) || rc=$? ;;
         pacman) out=$(pacman -S --noconfirm "$@" 2>&1) || rc=$? ;;
         apk)    out=$(apk add "$@" 2>&1) || rc=$? ;;
+        # --noreplace: already-installed slots are a success, not an error.
+        # --ask=n: emerge never prompts by default; pin it anyway (every other
+        # arm here carries an explicit non-interactive guard).
+        emerge) out=$(emerge --noreplace --ask=n "$@" 2>&1) || rc=$? ;;
         *)      warn "No supported package manager — cannot install: $*"; return 0 ;;
     esac
     if [ "$rc" -ne 0 ]; then
@@ -680,7 +695,7 @@ ensure_swap() {
 }
 
 # ---------------------------------------------------------------------------
-# Python 3.11/3.12 — detect a usable interpreter or build one
+# Python 3.11–3.14 — detect a usable interpreter or build one
 # ---------------------------------------------------------------------------
 ver_in_range() {
     # true when $1 is >= PYTHON_MIN and <= PYTHON_MAX
@@ -710,7 +725,7 @@ locate_python() {
     # given up on. Sets PYTHON_BIN and returns 0 on success; returns 1
     # (without aborting) when nothing fits.
     local c v
-    for c in python3.13 python3.12 python3.11 python3; do
+    for c in python3.14 python3.13 python3.12 python3.11 python3; do
         if command -v "$c" &>/dev/null; then
             v=$("$c" -c 'import sys;print(".".join(map(str,sys.version_info[:2])))' 2>/dev/null || true)
             if [ -n "$v" ] && ver_in_range "$v"; then
@@ -838,10 +853,18 @@ provision_python() {
         pkg_add python311 python311-devel
         command -v python3.11 &>/dev/null || pkg_add python312 python312-devel
     elif [ "$OS_FAMILY" = "arch" ]; then
-        # Rolling release — `python` is already 3.11+.
+        # Rolling release — `python` tracks the newest upstream line the gate
+        # covers (3.14 as of the 2026-08 baseline). Arch carries no versioned
+        # python3.1x packages, so there is nothing to fall back to here; if the
+        # rolling package ever outruns the gate, locate_python below rejects it
+        # and the source-build path takes over.
         pkg_add python
     elif [ "$OS_FAMILY" = "alpine" ]; then
         pkg_add python3 python3-dev
+    elif [ "$OS_FAMILY" = "gentoo" ]; then
+        # Portage carries every supported line as a parallel slot.
+        pkg_add dev-lang/python:3.13
+        command -v python3.13 &>/dev/null || pkg_add dev-lang/python:3.12
     fi
 
     # Did a distro package give us something usable?
@@ -863,6 +886,10 @@ provision_python() {
         pkg_add gcc gcc-c++ make wget zlib-devel libbz2-devel readline-devel \
             sqlite3-devel ncurses-devel xz-devel tk-devel libffi-devel \
             libopenssl-devel
+    elif [ "$OS_FAMILY" = "gentoo" ]; then
+        pkg_add sys-devel/gcc sys-devel/make net-misc/wget sys-libs/zlib \
+            dev-libs/bzip2 sys-libs/readline dev-db/sqlite sys-libs/ncurses \
+            dev-libs/libffi dev-libs/openssl
     else
         pkg_add gcc gcc-c++ make wget zlib-devel bzip2-devel readline-devel \
             sqlite-devel ncurses-devel xz-devel tk-devel libffi-devel \

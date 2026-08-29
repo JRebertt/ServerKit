@@ -2,7 +2,7 @@ id: timescaledb
 name: TimescaleDB
 version: "2.17.2"
 description: Turns PostgreSQL into a time-series database with hypertables, compression and continuous aggregates
-icon: https://serverkit.ai/imgs/template-icons/postgresql.svg
+icon: https://serverkit.ai/imgs/template-icons/postgres.svg
 website: https://www.timescale.com
 documentation: https://docs.timescale.com
 

@@ -1885,7 +1885,11 @@ def update_scale_policy(app_id):
     if not _can_edit_app(user, app):
         return jsonify({'error': 'Access denied'}), 403
     data = request.get_json() or {}
-    policy = ContainerScaleService.set_policy(app_id, **data)
+    try:
+        policy = ContainerScaleService.set_policy(app_id, **data)
+    except ValueError as exc:
+        # The service rolls back its own dirty session before raising.
+        return jsonify({'error': str(exc)}), 400
     return jsonify(policy.to_dict())
 
 

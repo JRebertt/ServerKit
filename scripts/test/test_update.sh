@@ -333,7 +333,7 @@ rm -f "$STUB_BIN/flask"
 # --------------------------------------------------------------------------
 t="$WORK/t10d"; mkdir -p "$t"
 PY=""
-for c in python3.12 python3.11 python3; do
+for c in python3.14 python3.13 python3.12 python3.11 python3; do
     if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sqlite3' 2>/dev/null; then
         PY="$c"; break
     fi
@@ -478,7 +478,7 @@ rm -f "$STUB_BIN/pg_dump" "$STUB_BIN/pg_restore"
 # --------------------------------------------------------------------------
 t="$WORK/t10f"; mkdir -p "$t"
 PY=""
-for c in python3.12 python3.11 python3; do
+for c in python3.14 python3.13 python3.12 python3.11 python3; do
     if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sqlite3' 2>/dev/null; then
         PY="$c"; break
     fi
@@ -541,7 +541,7 @@ else
     # real Python: makes locate_python fail exactly as it does on EL9, while
     # `import sqlite3` keeps working. Shadowing all four candidate names keeps
     # the precondition true regardless of what the host actually has.
-    for n in python3.12 python3.11 python3 python; do
+    for n in python3.14 python3.13 python3.12 python3.11 python3 python; do
         cat > "$t/bin/$n" <<EOF
 #!/usr/bin/env bash
 case "\$*" in
@@ -575,7 +575,7 @@ PYEOF
     ) >/dev/null 2>&1 || el9_rc=$?
     rows="$("$PY" -c "import sqlite3,sys;print(sqlite3.connect(sys.argv[1]).execute('SELECT COUNT(*) FROM t').fetchone()[0])" "$t/snap.db" 2>/dev/null || true)"
     if [ "$el9_rc" -eq 0 ] && [ "$rows" = "100" ]; then
-        ok "SQLite snapshot/verify need only sqlite3, not Python 3.11/3.12 (EL9/22.04 boxes)"
+        ok "SQLite snapshot/verify need only sqlite3, not the gated Python 3.11-3.14 (EL9/22.04 boxes)"
     else
         bad "sqlite helpers still gated on locate_python: rc=$el9_rc, rows=[$rows], expected 100"
     fi

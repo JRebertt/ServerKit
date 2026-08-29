@@ -1,5 +1,4 @@
-"""Tests for container horizontal auto-scaling (decision logic)."""
-import uuid
+"""Tests for container horizontal auto-scaling (decision logic and API flow)."""
 from datetime import datetime
 
 from app import db
@@ -32,6 +31,48 @@ class TestScalePolicy:
         a = _seed_app()
         p = ContainerScaleService.set_policy(a.id, min_replicas=5, max_replicas=2)
         assert p.max_replicas == 5
+
+    def test_rejects_an_enabled_policy_without_a_service(self, app):
+        a = _seed_app()
+        try:
+            ContainerScaleService.set_policy(a.id, enabled=True)
+        except ValueError as exc:
+            assert str(exc) == 'service_name is required when auto-scale is enabled'
+        else:
+            raise AssertionError('enabled policy without a service was accepted')
+
+    def test_rejects_overlapping_cpu_thresholds(self, app):
+        a = _seed_app()
+        try:
+            ContainerScaleService.set_policy(
+                a.id, service_name='web', cpu_low_percent=80,
+                cpu_high_percent=70)
+        except ValueError as exc:
+            assert str(exc) == 'cpu_low_percent must be less than cpu_high_percent'
+        else:
+            raise AssertionError('overlapping CPU thresholds were accepted')
+
+    def test_a_failed_commit_never_leaves_a_dirty_session(self, app, monkeypatch):
+        from sqlalchemy.exc import OperationalError
+
+        a = _seed_app()
+        ContainerScaleService.set_policy(a.id, service_name='web')
+
+        def failing_commit():
+            raise OperationalError('UPDATE container_scale_policies', {},
+                                   RuntimeError('db went away'))
+
+        monkeypatch.setattr(db.session, 'commit', failing_commit)
+        try:
+            ContainerScaleService.set_policy(a.id, min_replicas=4)
+        except OperationalError:
+            pass
+        else:
+            raise AssertionError('commit failure was swallowed')
+        monkeypatch.undo()
+
+        p = ContainerScalePolicy.query.filter_by(application_id=a.id).first()
+        assert p.min_replicas == 1, 'failed commit left the assigned value in the session'
 
 
 class TestEvaluate:
@@ -83,6 +124,26 @@ class TestEvaluate:
         monkeypatch.setattr(ContainerScaleService, '_service_cpu', lambda app_, policy: None)
         assert ContainerScaleService.evaluate(a.id)['action'] == 'unknown'
 
+    def test_enforces_a_raised_minimum_without_waiting_for_high_cpu(self, app, monkeypatch):
+        a = _seed_app()
+        ContainerScaleService.set_policy(
+            a.id, enabled=True, service_name='web', min_replicas=2,
+            max_replicas=3, cooldown_seconds=0)
+        applied = []
+        monkeypatch.setattr(
+            ContainerScaleService, '_service_cpu',
+            lambda app_, policy: (_ for _ in ()).throw(
+                AssertionError('CPU should not gate the replica floor')))
+        monkeypatch.setattr(
+            ContainerScaleService, '_apply_scale',
+            lambda app_, policy, n: applied.append(n) or {'success': True})
+
+        result = ContainerScaleService.evaluate(a.id)
+
+        assert result['action'] == 'scaled_up'
+        assert result['replicas'] == 2
+        assert applied == [2]
+
 
 class TestScaleApi:
     def test_manual_scale_endpoint(self, client, auth_headers, app, monkeypatch):
@@ -96,3 +157,82 @@ class TestScaleApi:
 
     def test_scale_sweep_requires_admin(self, client, app):
         assert client.post('/api/v1/apps/scale-sweep').status_code == 401
+
+    def test_rejects_non_numeric_manual_replica_count(self, client, auth_headers, app):
+        from app.models import User
+        admin = User.query.filter_by(username='testadmin').first()
+        a = _seed_app(user_id=admin.id)
+        ContainerScaleService.set_policy(a.id, service_name='web')
+
+        response = client.post(
+            f'/api/v1/apps/{a.id}/scale', json={'replicas': 'many'},
+            headers=auth_headers)
+
+        assert response.status_code == 400
+        assert response.get_json() == {'error': 'replicas must be an integer'}
+
+    def test_rejects_invalid_policy_without_persisting_it(
+            self, client, auth_headers, app):
+        from app.models import User
+        admin = User.query.filter_by(username='testadmin').first()
+        a = _seed_app(user_id=admin.id)
+
+        response = client.put(
+            f'/api/v1/apps/{a.id}/scale-policy',
+            json={'enabled': True, 'service_name': ''},
+            headers=auth_headers)
+
+        assert response.status_code == 400
+        assert response.get_json() == {
+            'error': 'service_name is required when auto-scale is enabled'}
+        persisted = client.get(
+            f'/api/v1/apps/{a.id}/scale-policy', headers=auth_headers)
+        assert persisted.get_json()['enabled'] is False
+
+    def test_policy_to_evaluation_to_manual_scale_workflow(
+            self, client, auth_headers, app, monkeypatch):
+        from app.models import User
+        admin = User.query.filter_by(username='testadmin').first()
+        a = _seed_app(user_id=admin.id)
+        applied = []
+        monkeypatch.setattr(ContainerScaleService, '_service_cpu', lambda app_, policy: 92.0)
+        monkeypatch.setattr(
+            ContainerScaleService, '_apply_scale',
+            lambda app_, policy, n: applied.append(n) or {'success': True})
+
+        initial = client.get(
+            f'/api/v1/apps/{a.id}/scale-policy', headers=auth_headers)
+        assert initial.status_code == 200
+        assert initial.get_json()['current_replicas'] == 1
+
+        configured = client.put(
+            f'/api/v1/apps/{a.id}/scale-policy',
+            json={
+                'enabled': True,
+                'service_name': 'web',
+                'min_replicas': 1,
+                'max_replicas': 4,
+                'cpu_low_percent': 20,
+                'cpu_high_percent': 75,
+                'cooldown_seconds': 0,
+            },
+            headers=auth_headers)
+        assert configured.status_code == 200
+        assert configured.get_json()['enabled'] is True
+
+        evaluated = client.post(
+            f'/api/v1/apps/{a.id}/scale/evaluate', headers=auth_headers)
+        assert evaluated.status_code == 200
+        assert evaluated.get_json()['action'] == 'scaled_up'
+        assert evaluated.get_json()['replicas'] == 2
+
+        manual = client.post(
+            f'/api/v1/apps/{a.id}/scale', json={'replicas': 3},
+            headers=auth_headers)
+        assert manual.status_code == 200
+        assert manual.get_json()['replicas'] == 3
+
+        persisted = client.get(
+            f'/api/v1/apps/{a.id}/scale-policy', headers=auth_headers)
+        assert persisted.get_json()['current_replicas'] == 3
+        assert applied == [2, 3]

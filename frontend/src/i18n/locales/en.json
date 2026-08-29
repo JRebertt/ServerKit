@@ -6506,6 +6506,7 @@
             "distros": "Distros",
             "dockerIsNotAvailableOnThis": "Docker is not available on this host — test runs cannot start until the Docker daemon is reachable.",
             "fullInstall": "Full install",
+            "independent": "Independent",
             "loadingLog": "Loading log…",
             "loadingRunHistory": "Loading run history…",
             "loadingTestSandbox": "Loading test sandbox…",
@@ -6525,7 +6526,8 @@
             "started": "Started",
             "startedRunAcrossDistroS": "Started {{mode}} run across {{length}} distro(s)",
             "testMode": "Test mode",
-            "testSandbox": "Test Sandbox"
+            "testSandbox": "Test Sandbox",
+            "userlandProxy": "userland proxy · "
         },
         "themeBrowseModal": {
             "browseThemes": "Browse themes",

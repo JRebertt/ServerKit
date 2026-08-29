@@ -19,6 +19,7 @@ This is a Docker-based complement to the Multipass/Vagrant E2E harness in
 scripts/test/ — it trades VM fidelity (real cloud images, Hyper-V) for
 convenience (runs on any host where the panel + Docker already are).
 """
+import json
 import subprocess
 import threading
 import time
@@ -37,50 +38,40 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 QUICK_TIMEOUT_S = 900    # 15 min ceiling for the unit suites
 FULL_TIMEOUT_S = 2400    # 40 min ceiling for a full install + health probe
 
+CATALOG_PATH = Path(__file__).resolve().parents[1] / 'data' / 'distro-catalog.json'
+
+
+def _load_distros():
+    """Flatten the shared 25-target catalog for the Test Sandbox picker."""
+    catalog = json.loads(CATALOG_PATH.read_text(encoding='utf-8'))
+    distros = {}
+    for target in catalog['targets']:
+        for probe in target.get('probes', []):
+            distros[probe['key']] = {
+                'label': probe['label'],
+                'family': target['family'],
+                'target': target['id'],
+                'fidelity': probe['fidelity'],
+                'quick_image': probe['image'],
+                'full_image': probe.get('full_image'),
+            }
+    # Keep explicit legacy probes runnable without counting them among the
+    # published version claims in the compatibility report.
+    for probe in catalog.get('legacy_probes', []):
+        distros[probe['key']] = {
+            'label': probe['label'],
+            'family': probe['family'],
+            'target': probe['target_id'],
+            'fidelity': probe['fidelity'],
+            'quick_image': probe['image'],
+            'full_image': probe.get('full_image'),
+        }
+    return distros
+
+
 # quick_image: plain distro container (unit suites).
-# full_image:  systemd-capable container for a real install (None = unsupported).
-DISTROS = {
-    'ubuntu22': {
-        'label': 'Ubuntu 22.04', 'family': 'debian',
-        'quick_image': 'ubuntu:22.04',
-        'full_image': 'geerlingguy/docker-ubuntu2204-ansible:latest',
-    },
-    'ubuntu24': {
-        'label': 'Ubuntu 24.04', 'family': 'debian',
-        'quick_image': 'ubuntu:24.04',
-        'full_image': 'geerlingguy/docker-ubuntu2404-ansible:latest',
-    },
-    'debian12': {
-        'label': 'Debian 12', 'family': 'debian',
-        'quick_image': 'debian:12',
-        'full_image': 'geerlingguy/docker-debian12-ansible:latest',
-    },
-    'debian11': {
-        'label': 'Debian 11 (legacy)', 'family': 'debian',
-        'quick_image': 'debian:11',
-        'full_image': 'geerlingguy/docker-debian11-ansible:latest',
-    },
-    'rocky9': {
-        'label': 'Rocky Linux 9', 'family': 'rhel',
-        'quick_image': 'rockylinux:9',
-        'full_image': 'geerlingguy/docker-rockylinux9-ansible:latest',
-    },
-    'alma9': {
-        'label': 'AlmaLinux 9', 'family': 'rhel',
-        'quick_image': 'almalinux:9',
-        'full_image': None,  # no maintained systemd image
-    },
-    'fedora40': {
-        'label': 'Fedora 40', 'family': 'rhel',
-        'quick_image': 'fedora:40',
-        'full_image': 'geerlingguy/docker-fedora40-ansible:latest',
-    },
-    'opensuse15': {
-        'label': 'openSUSE Leap 15.5', 'family': 'suse',
-        'quick_image': 'opensuse/leap:15.5',
-        'full_image': None,  # no maintained systemd image
-    },
-}
+# full_image: systemd-capable container for a real install (None = unavailable).
+DISTROS = _load_distros()
 
 # Mirrors the cross-distro job in .github/workflows/scripts-ci.yml.
 QUICK_RUNNER = r"""#!/bin/sh
@@ -89,20 +80,15 @@ cd /src || exit 2
 if ! command -v bash >/dev/null 2>&1; then
   { command -v apt-get >/dev/null 2>&1 && apt-get update -qq && apt-get install -y -qq bash; } ||
   { command -v dnf     >/dev/null 2>&1 && dnf install -y -q bash; } ||
-  { command -v zypper  >/dev/null 2>&1 && zypper --non-interactive install bash; } || true
+  { command -v yum     >/dev/null 2>&1 && yum install -y -q bash; } ||
+  { command -v zypper  >/dev/null 2>&1 && zypper --non-interactive install bash; } ||
+  { command -v pacman  >/dev/null 2>&1 && pacman -Sy --noconfirm bash; } ||
+  { command -v apk     >/dev/null 2>&1 && apk add --no-cache bash; } ||
+  { command -v emerge  >/dev/null 2>&1 && emerge --oneshot app-shells/bash; } || true
 fi
 echo "bash $(bash --version | head -1)"
-fail=0
-for f in serverkit install.sh uninstall.sh scripts/*.sh scripts/lib/*.sh scripts/test/*.sh; do
-  [ -f "$f" ] || continue
-  if bash -n "$f"; then echo "ok   $f"; else echo "FAIL $f"; fail=1; fi
-done
-for s in test_update test_install test_lib test_cli test_agent_install test_stage; do
-  echo "=== $s ==="
-  bash "scripts/test/$s.sh" || fail=1
-done
-echo "QUICK_RESULT=$([ $fail -eq 0 ] && echo PASS || echo FAIL)"
-exit $fail
+command -v bash >/dev/null 2>&1 || exit 127
+exec bash scripts/test/run-distro-quick.sh
 """
 
 # run_id -> list of container names (for cancel / stale sweeps)
@@ -119,6 +105,8 @@ class TestSandboxService:
                 'key': key,
                 'label': spec['label'],
                 'family': spec['family'],
+                'target': spec['target'],
+                'fidelity': spec['fidelity'],
                 'quick': bool(spec['quick_image']),
                 'full': bool(spec['full_image']),
             }

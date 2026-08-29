@@ -19,6 +19,7 @@ than guessing, because a confident wrong answer is worse than no answer.
 """
 
 import logging
+import os
 import re
 from datetime import datetime, timedelta
 
@@ -122,11 +123,12 @@ def check_fit(template, server_id=None):
                         headroom.get('disk_total'),
                         DISK_RESERVE_FRACTION, DISK_RESERVE_MIN),
     ]
+    _apply_other_mounts(checks, headroom)
 
     verdict = _worst(check['verdict'] for check in checks)
     return {
         'verdict': verdict,
-        'headline': _headline(verdict, headroom),
+        'headline': _headline(verdict, headroom, checks),
         'detail': _detail(verdict, checks, footprint, headroom),
         'blocking': False,          # never; the operator decides
         'requirements': footprint,
@@ -162,6 +164,29 @@ def _check_resource(name, need, free, total, reserve_fraction, reserve_min):
     return check
 
 
+def _apply_other_mounts(checks, headroom):
+    """An attached volume can rescue a disk shortfall — say so, don't cry wolf.
+
+    ``disk_free`` measures ONE filesystem (the data path). A box with a volume
+    attached has more room than that number admits, and telling its operator
+    "this server doesn't have room" is then simply wrong — the app's data can
+    live on the volume. When the shortfall is on disk and another writable
+    filesystem could hold the whole footprint, downgrade to "tight" and name
+    the volume. Memory has no equivalent escape hatch.
+    """
+    disk = next((c for c in checks if c['resource'] == 'disk'), None)
+    if disk is None or disk['verdict'] != 'insufficient':
+        return
+    candidates = [m for m in (headroom.get('other_mounts') or [])
+                  if (m.get('free') or 0) >= disk['need']]
+    if not candidates:
+        return
+    best = max(candidates, key=lambda m: m['free'])
+    disk['verdict'] = 'tight'
+    disk['alt_mountpoint'] = best['mountpoint']
+    disk['alt_free'] = best['free']
+
+
 def _worst(verdicts):
     seen = set(verdicts)
     for level in SEVERITY:
@@ -170,10 +195,12 @@ def _worst(verdicts):
     return 'unknown'
 
 
-def _headline(verdict, headroom):
+def _headline(verdict, headroom, checks=()):
     if verdict == 'insufficient':
         return "This server doesn't have room for it"
     if verdict == 'tight':
+        if any(c.get('alt_mountpoint') for c in checks):
+            return 'It fits, if its data lives on the attached volume'
         return 'It fits, but this server will be tight'
     if verdict == 'ok':
         return 'Fits comfortably'
@@ -203,13 +230,21 @@ def _detail(verdict, checks, footprint, headroom):
     short = [c for c in checks if c['verdict'] == 'insufficient']
     if short:
         names = ' and '.join(c['resource'] for c in short)
-        sentence += f' That is more {names} than it has.'
+        sentence += f' That is more {names} than it has free.'
     else:
-        tight = [c for c in checks if c['verdict'] == 'tight']
+        # A check rescued by an attached volume explains itself; the generic
+        # "would leave only" arithmetic is meaningless for it (negative).
+        rescued = [c for c in checks if c.get('alt_mountpoint')]
+        tight = [c for c in checks
+                 if c['verdict'] == 'tight' and not c.get('alt_mountpoint')]
         if tight:
             leftovers = ' and '.join(
                 f'{format_size(c["after"])} {c["resource"]}' for c in tight)
             sentence += f' Installing it would leave only {leftovers} spare.'
+        for c in rescued:
+            sentence += (f' The volume at {c["alt_mountpoint"]} has '
+                         f'{format_size(c["alt_free"])} free — point the '
+                         f"app's data there and it fits.")
 
     if headroom.get('stale'):
         sentence += ' These readings are more than 15 minutes old.'
@@ -245,6 +280,20 @@ def _local_headroom():
         })
     except Exception:  # noqa: BLE001 — a probe failure is "unknown", not fatal
         logger.warning('capacity: could not read local host usage', exc_info=True)
+        return result
+    try:
+        # The other real filesystems on this box — an attached volume can hold
+        # data the measured mountpoint can't, and the verdict must know that
+        # before declaring "no room" (see _apply_other_mounts).
+        measured = os.path.normpath(mountpoint) if mountpoint else None
+        result['other_mounts'] = [
+            {'mountpoint': fs['mountpoint'], 'free': fs['free'],
+             'total': fs['total']}
+            for fs in host_inventory_service.enumerate_filesystems()
+            if os.path.normpath(fs['mountpoint']) != measured
+        ]
+    except Exception:  # noqa: BLE001 — no volumes known is just an empty list
+        logger.debug('capacity: could not enumerate filesystems', exc_info=True)
     return result
 
 

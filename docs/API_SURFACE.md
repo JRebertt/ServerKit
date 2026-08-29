@@ -37,6 +37,7 @@ Regenerate (backend/):
 - `DELETE /cloudflare/zones/{zone_id}/waf/rulesets/{ruleset_id}/rules/{rule_id}`
 - `DELETE /cloudflare/zones/{zone_id}/workers/routes/{route_id}`
 - `DELETE /cloudflare/zones/{zone_id}/workers/{name}`
+- `DELETE /connections/providers/{kind}/{connection_id}`
 - `DELETE /connections/registries/{registry_id}`
 - `DELETE /cron/jobs/{job_id}`
 - `DELETE /dashboards/{board_id}`
@@ -241,6 +242,9 @@ Regenerate (backend/):
 - `GET /cloudflare/zones/{zone_id}/workers`
 - `GET /connections`
 - `GET /connections/`
+- `GET /connections/providers`
+- `GET /connections/providers/{kind}/{connection_id}/health`
+- `GET /connections/providers/{kind}/{connection_id}/resources`
 - `GET /connections/registries`
 - `GET /cron/jobs`
 - `GET /cron/jobs/for-app/{app_id}`
@@ -888,6 +892,9 @@ Regenerate (backend/):
 - `POST /cloudflare/zones/{zone_id}/waf/rules`
 - `POST /cloudflare/zones/{zone_id}/workers`
 - `POST /cloudflare/zones/{zone_id}/workers/routes`
+- `POST /connections/providers/{kind}/validate`
+- `POST /connections/providers/{kind}/{connection_id}/rotate`
+- `POST /connections/providers/{kind}/{connection_id}/test`
 - `POST /connections/registries`
 - `POST /connections/registries/{registry_id}/test`
 - `POST /cron/jobs`

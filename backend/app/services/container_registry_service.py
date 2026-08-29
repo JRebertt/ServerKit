@@ -86,27 +86,30 @@ class ContainerRegistryService:
 
     # ── secret resolution ──
     @staticmethod
-    def _password(registry):
+    def _password(registry, secret_override=None):
         """Plaintext password for ``docker login``. For ECR, exchange the stored
         AWS keys for a short-lived token lazily; otherwise decrypt the stored
         secret."""
         if registry.provider == 'ecr':
-            token = ContainerRegistryService.ecr_password(registry)
+            token = ContainerRegistryService.ecr_password(
+                registry, secret_override=secret_override)
             if token:
                 return token
+        if secret_override is not None:
+            return secret_override
         if not registry.secret_encrypted:
             return None
         return registry.secret
 
     # ── docker login / logout ──
     @staticmethod
-    def login(registry):
+    def login(registry, *, secret_override=None, record_use=True):
         """``docker login`` the registry, piping the secret via stdin. Returns
         ``{'success': bool, 'error'?: str}``. Never logs the secret."""
         username = registry.login_username()
         if not username:
             return {'success': False, 'error': 'Registry has no username configured'}
-        password = ContainerRegistryService._password(registry)
+        password = ContainerRegistryService._password(registry, secret_override)
         if not password:
             return {'success': False, 'error': 'No stored secret for this registry'}
 
@@ -116,11 +119,12 @@ class ContainerRegistryService:
         result = run_checked(cmd, input=password, timeout=None)
 
         if result['success']:
-            try:
-                registry.last_used_at = datetime.utcnow()
-                db.session.commit()
-            except Exception:
-                db.session.rollback()
+            if record_use:
+                try:
+                    registry.last_used_at = datetime.utcnow()
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
             return {'success': True}
         return {'success': False, 'error': result['error'] or 'docker login failed'}
 
@@ -138,12 +142,40 @@ class ContainerRegistryService:
     def test_connection(registry):
         """``docker login`` then immediately ``docker logout`` — report
         success/failure without leaving a session behind."""
-        result = ContainerRegistryService.login(registry)
+        result = ContainerRegistryService.login(registry, record_use=False)
         ContainerRegistryService.logout(registry.login_host())
+        ContainerRegistryService._record_test(registry, result)
         return result
 
     @staticmethod
-    def ecr_password(registry):
+    def _record_test(registry, result):
+        """Persist secret-free health evidence for all connection surfaces."""
+        registry.last_tested_at = datetime.utcnow()
+        registry.last_test_ok = bool(result.get('success'))
+        registry.last_test_error = None if result.get('success') else str(
+            result.get('error') or 'Connection test failed')[:500]
+        db.session.commit()
+
+    @staticmethod
+    def rotate_secret(registry, new_secret):
+        """Test a replacement secret before storing it.
+
+        The old ciphertext stays untouched when validation fails, so a typo
+        cannot destroy the last known credential.
+        """
+        result = ContainerRegistryService.login(
+            registry, secret_override=new_secret, record_use=False)
+        ContainerRegistryService.logout(registry.login_host())
+        ContainerRegistryService._record_test(registry, result)
+        if not result.get('success'):
+            return result
+        registry.secret = new_secret
+        registry.last_test_error = None
+        db.session.commit()
+        return {'success': True}
+
+    @staticmethod
+    def ecr_password(registry, secret_override=None):
         """Best-effort AWS ECR token via ``aws ecr get-login-password``.
 
         Optional/lazy: needs the AWS CLI on PATH. The stored secret may hold
@@ -161,7 +193,7 @@ class ContainerRegistryService:
                     region = parts[idx + 1]
 
             env = None
-            secret = registry.secret
+            secret = secret_override if secret_override is not None else registry.secret
             if secret and ':' in secret:
                 access_key, secret_key = secret.split(':', 1)
                 env = dict(os.environ)

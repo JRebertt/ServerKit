@@ -36,6 +36,9 @@ class ContainerRegistry(db.Model):
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     last_used_at = db.Column(db.DateTime, nullable=True)
+    last_tested_at = db.Column(db.DateTime, nullable=True)
+    last_test_ok = db.Column(db.Boolean, nullable=True)
+    last_test_error = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -65,6 +68,8 @@ class ContainerRegistry(db.Model):
             'workspace_id': self.workspace_id,
             'created_by': self.created_by,
             'last_used_at': self.last_used_at.isoformat() if self.last_used_at else None,
+            'last_tested_at': self.last_tested_at.isoformat() if self.last_tested_at else None,
+            'last_test_ok': self.last_test_ok,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
         }

@@ -823,7 +823,15 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
         return () => { cancelled = true; };
     }, [template.id, selectedServerId]);
 
-    const domainPreview = baseDomain && appName ? `${appName}.${baseDomain}` : null;
+    // The promise is only shown when it can actually be kept: the finalizer
+    // publishes <name>.<base> via the panel's own nginx, which can't proxy a
+    // container on a remote server — and the repo pipeline has no auto-publish
+    // step at all. Showing it and then landing on host:port is worse than not
+    // offering it (the operator had to redo the domain in service settings).
+    const selectedServer = servers.find((s) => s.id === selectedServerId);
+    const isLocalTarget = selectedServerId === 'local' || !!selectedServer?.is_local;
+    const domainPreview = baseDomain && appName && isLocalTarget && !isRepo
+        ? `${appName}.${baseDomain}` : null;
 
     async function handleInstall(e) {
         e.preventDefault();
@@ -871,9 +879,12 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                 return;
             }
 
-            // Install
+            // Install. When the drawer displayed a domain, the deploy must
+            // deliver it — the backend honors this over the template's own
+            // auto_domain flag, so the promise on screen is the contract.
             const result = await api.installTemplate(template.id, appName, variables, {
-                serverId: selectedServerId
+                serverId: selectedServerId,
+                autoDomain: domainPreview ? true : undefined,
             });
             if (result.success && result.job_id) {
                 // Job started — hand off to the full-page Deploy Console.
