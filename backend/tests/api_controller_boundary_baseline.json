@@ -3,7 +3,7 @@
   "policy": "Exact reviewed inventory of direct persistence, subprocess, and filesystem mutation calls in Flask API controllers. New calls are forbidden; remove entries as controllers delegate to services.",
   "counts": {
     "filesystem": 11,
-    "persistence": 503
+    "persistence": 500
   },
   "owners": {
     "api/admin.py": {
@@ -145,10 +145,6 @@
     "api/secrets_webhooks.py": {
       "owner": "ServerKit backend / secrets webhooks domain",
       "rationale": "Legacy secrets webhooks controllers still cross a persistence or host-operation boundary; move each call into an app.services use case before removing it."
-    },
-    "api/security.py": {
-      "owner": "ServerKit backend / security domain",
-      "rationale": "Legacy security controllers still cross a persistence or host-operation boundary; move each call into an app.services use case before removing it."
     },
     "api/servers.py": {
       "owner": "ServerKit backend / servers domain",
@@ -603,9 +599,6 @@
     "api/recipes.py::start_recipe_run::persistence::db.session.commit()::2",
     "api/recipes.py::submit_recipe_handoff::persistence::DeploymentJob.query.get(job_id)::1",
     "api/secrets_webhooks.py::create_vault::persistence::Workspace.query.get(explicit_ws)::1",
-    "api/security.py::get_application_sboms::persistence::SbomArtifact.query.filter_by(application_id=application_id).order_by(SbomArtifact.created_at.desc()).limit(50).all()::1",
-    "api/security.py::get_image_scan::persistence::ImageVulnerabilityScan.query.get(scan_id)::1",
-    "api/security.py::get_sbom::persistence::SbomArtifact.query.get(sbom_id)::1",
     "api/servers.py::acknowledge_alert::persistence::SecurityAlert.query.get(alert_id)::1",
     "api/servers.py::add_agent_version::persistence::db.session.add(version)::1",
     "api/servers.py::add_agent_version::persistence::db.session.commit()::1",
