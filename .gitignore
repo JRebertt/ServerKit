@@ -196,6 +196,7 @@ backend/app/plugins/serverkit-ftp/
 backend/app/plugins/serverkit-gpu/
 backend/app/plugins/serverkit-gui/
 backend/app/plugins/serverkit-localkit/
+backend/app/plugins/serverkit-cloudflare-ops/
 backend/app/plugins/serverkit-k8s/
 backend/app/plugins/serverkit-mail/
 backend/app/plugins/serverkit-remote-access/
@@ -206,6 +207,7 @@ frontend/src/plugins/serverkit-analytics/
 frontend/src/plugins/serverkit-crowdsec/
 frontend/src/plugins/serverkit-dns-server/
 frontend/src/plugins/serverkit-email/
+frontend/src/plugins/serverkit-cloudflare-ops/
 frontend/src/plugins/serverkit-gpu/
 frontend/src/plugins/serverkit-gui/
 frontend/src/plugins/serverkit-k8s/

@@ -229,6 +229,7 @@ def app(request, _flask_app):
     needs_private_app = (
         request.node.get_closest_marker('fresh_app') is not None
         or 'wp_extension' in request.fixturenames
+        or 'cf_extension' in request.fixturenames
     )
     target = create_app('testing') if needs_private_app else _flask_app
 
@@ -398,6 +399,62 @@ def sibling_extension_dir(slug, env_var=None):
         if cand and os.path.isfile(os.path.join(cand, 'plugin.json')):
             return cand
     return None
+
+
+def mount_sibling_extension(app, slug, url_prefix, entry_module, entry_attr,
+                            display_name=None):
+    """Mirror a real install of an extracted extension from its sibling repo:
+    register its backend dir as the ``app.plugins.<slug>`` package, seed an
+    active InstalledPlugin row (manifest included), and mount its blueprint.
+    The plan 52 cutover analogue of _wp_support.ensure_plugin."""
+    import importlib.util
+    import json as _json
+
+    src = sibling_extension_dir(slug)
+    if not src:
+        pytest.skip(f'{slug} checkout not available '
+                    f'(set SERVERKIT_{slug.replace("serverkit-", "").replace("-", "_").upper()}_DIR)')
+    backend_dir = os.path.join(src, 'backend')
+    pkg = f'app.plugins.{slug}'
+    if pkg not in sys.modules:
+        spec = importlib.util.spec_from_file_location(
+            pkg, os.path.join(backend_dir, '__init__.py'),
+            submodule_search_locations=[backend_dir])
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[pkg] = module
+        spec.loader.exec_module(module)
+
+    from app import db
+    from app.models.plugin import InstalledPlugin
+    with open(os.path.join(src, 'plugin.json'), encoding='utf-8') as f:
+        manifest = _json.load(f)
+    plugin = InstalledPlugin.query.filter_by(slug=slug).first()
+    if not plugin:
+        plugin = InstalledPlugin(
+            name=slug, display_name=display_name or manifest.get('display_name', slug),
+            slug=slug, version=manifest.get('version', '0.0.0'),
+            status=InstalledPlugin.STATUS_ACTIVE,
+            has_backend=True, url_prefix=url_prefix,
+        )
+        db.session.add(plugin)
+    plugin.status = InstalledPlugin.STATUS_ACTIVE
+    plugin.manifest = manifest
+    db.session.commit()
+
+    mod = __import__(f'{pkg}.{entry_module}', fromlist=[entry_attr])
+    bp = getattr(mod, entry_attr)
+    if bp.name not in app.blueprints:
+        app.register_blueprint(bp, url_prefix=url_prefix)
+    return plugin
+
+
+@pytest.fixture
+def cf_extension(app):
+    """serverkit-cloudflare-ops mounted from its sibling checkout (skip when
+    absent). Structure-mutating — forces a private app like wp_extension."""
+    return mount_sibling_extension(
+        app, 'serverkit-cloudflare-ops', '/api/v1/cloudflare',
+        'cloudflare', 'cloudflare_bp', display_name='Cloudflare Zone Ops')
 
 
 def _wp_ext_tests_dir():

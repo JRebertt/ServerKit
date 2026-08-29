@@ -50,16 +50,19 @@
       "category": "integration",
       "author": "ServerKit",
       "first_party": true,
-      "bundled": true,
+      "bundled": false,
       "permissions": [
         "network"
       ],
       "min_panel_version": "1.7.0",
       "max_panel_version": null,
-      "repo": "https://github.com/jhd3197/ServerKit",
+      "repo": "https://github.com/jhd3197/serverkit-cloudflare-ops",
       "featured": true,
       "feature_score": 70,
-      "logo": "assets/serverkit-cloudflare-ops/logo.png"
+      "logo": "assets/serverkit-cloudflare-ops/logo.png",
+      "source": "https://github.com/jhd3197/serverkit-cloudflare-ops/releases/download/v1.0.0/serverkit-cloudflare-ops-1.0.0.zip",
+      "sha256": "d6572be32ba4031504855f86b482316f3d8c2a863cc468873f458eebb3919363",
+      "homepage": "https://github.com/jhd3197/serverkit-cloudflare-ops"
     },
     {
       "slug": "serverkit-crowdsec",
