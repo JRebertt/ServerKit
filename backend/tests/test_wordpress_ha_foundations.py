@@ -159,31 +159,18 @@ def test_generic_docker_application_does_not_enable_wordpress_protection():
 
 def test_existing_wordpress_site_drift_target_includes_protection(app):
     from app import db
-    from app.models import Application, User
     from app.models.domain import Domain
     from app.services.drift_service import _nginx_render_expected
-    from werkzeug.security import generate_password_hash
+    from tests.factories import make_application
 
-    owner = User(
-        email='wp-drift@example.com',
-        username='wp-drift-owner',
-        password_hash=generate_password_hash('x'),
-        role=User.ROLE_ADMIN,
-        is_active=True,
-    )
-    db.session.add(owner)
-    db.session.commit()
-    wordpress = Application(
+    wordpress = make_application(
+        db,
         name='existing-wp',
-        app_type='docker',
         status='running',
         root_path='/srv/existing-wp',
         docker_image='WordPress',
-        user_id=owner.id,
         port=8500,
     )
-    db.session.add(wordpress)
-    db.session.commit()
     db.session.add(Domain(
         name='existing-wp.example.com',
         is_primary=True,
