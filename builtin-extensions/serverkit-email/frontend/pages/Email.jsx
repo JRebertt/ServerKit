@@ -12,22 +12,14 @@ import {
     RefreshCw, Plus, Trash2, ShieldCheck, Server, Globe, Users,
     Send, Filter, Inbox, ExternalLink, CheckCircle2, XCircle, HelpCircle, Search,
 } from 'lucide-react';
-import api from '../services/api';
-import useTabParam from '../hooks/useTabParam';
-import { Pill, MetricCard, KpiBand, DataTable, DataTableFooter, ListToolbar, SearchField } from '@/components/ds';
-import PageLayout from '../layouts/PageLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import EmptyState from '../components/EmptyState';
-import { useToast } from '../contexts/ToastContext';
-import { useConfirm } from '../hooks/useConfirm';
-import { useTableSort } from '../hooks/useTableSort';
-import { useColumnVisibility } from '../hooks/useColumnVisibility';
-import { useTranslation } from 'react-i18next';
+import api from '../services/email';
 import {
+    Pill, MetricCard, KpiBand, DataTable, DataTableFooter, ListToolbar,
+    SearchField, PageLayout, Button, Input, EmptyState, useToast, useConfirm,
+    useTabParam, useTableSort, useColumnVisibility, useTranslation,
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
-} from '@/components/ds/grid';
+} from 'serverkit-sdk';
 
 const VALID_TABS = ['overview', 'domains', 'accounts', 'relay', 'spam', 'webmail', 'queue'];
 
