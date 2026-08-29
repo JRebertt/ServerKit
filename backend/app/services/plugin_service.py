@@ -2057,6 +2057,39 @@ def recommend_extensions_for_use_cases(use_cases):
     return out
 
 
+# Wizard round 2 (plan 47 Ph5): "How much security tooling?" The extracted
+# security suite installs by chosen posture, not per-tool nagging. Slugs here
+# resolve through the same catalog index as the use-case map — an entry that
+# is not yet published (or a registry that is unreachable) silently drops out,
+# so the wizard only ever offers what is actually installable right now.
+# Deliberately NOT folded into RECOMMENDED_EXTENSIONS_BY_USE_CASE: posture is
+# persisted separately (`onboarding_security_posture`) and orthogonal to what
+# the server is for.
+SECURITY_POSTURE_LEVELS = {
+    'minimal': [],
+    'recommended': ['serverkit-fail2ban', 'serverkit-auto-updates'],
+    'hardened': [
+        'serverkit-fail2ban', 'serverkit-auto-updates', 'serverkit-clamav',
+        'serverkit-lynis', 'serverkit-image-scan', 'serverkit-crowdsec',
+    ],
+}
+
+
+def recommend_security_extensions(posture):
+    """Resolve a security posture to installable extension metadata.
+
+    Same contract as ``recommend_extensions_for_use_cases``: order-preserving,
+    and slugs that don't resolve to a catalog entry are dropped rather than
+    surfaced as dead install buttons."""
+    index = _recommendation_index()
+    out = []
+    for slug in SECURITY_POSTURE_LEVELS.get(posture or 'minimal', []):
+        meta = index.get(slug)
+        if meta:
+            out.append(meta)
+    return out
+
+
 def finalize_setup_flagships():
     """Keep the panel lean after onboarding completes: any wizard-optional
     flagship (WordPress) the user didn't install during the wizard gets the

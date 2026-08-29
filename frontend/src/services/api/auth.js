@@ -25,10 +25,14 @@ export async function register(email, username, password, inviteToken) {
     return data;
 }
 
-export async function completeOnboarding(useCases, installedExtensions = []) {
+export async function completeOnboarding(useCases, installedExtensions = [], securityPosture = 'minimal') {
     return this.request('/auth/complete-onboarding', {
         method: 'POST',
-        body: { use_cases: useCases, installed_extensions: installedExtensions },
+        body: {
+            use_cases: useCases,
+            installed_extensions: installedExtensions,
+            security_posture: securityPosture,
+        },
     });
 }
 

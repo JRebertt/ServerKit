@@ -196,9 +196,19 @@ def complete_onboarding():
         s for s in installed_extensions if isinstance(s, str) and s.strip()
     ]
 
+    # Security posture (plan 47 Ph5) — persisted separately from use_cases so
+    # posture and purpose stay orthogonal. Absent/invalid falls back to the
+    # lean default rather than failing the whole onboarding.
+    security_posture = data.get('security_posture', 'minimal')
+    from app.services.plugin_service import SECURITY_POSTURE_LEVELS
+    if security_posture not in SECURITY_POSTURE_LEVELS:
+        security_posture = 'minimal'
+
     # Save onboarding use cases + what the wizard installed
     SettingsService.set('onboarding_use_cases', use_cases, user_id=user.id)
     SettingsService.set('onboarding_installed_extensions', installed_extensions,
+                        user_id=user.id)
+    SettingsService.set('onboarding_security_posture', security_posture,
                         user_id=user.id)
 
     # Keep the panel lean: suppress wizard-optional flagships (WordPress) the

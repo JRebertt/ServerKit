@@ -134,11 +134,6 @@ THREAD_OWNERSHIP = {
         'lifecycle': LIFECYCLE_PROCESS_LOOP,
         'rationale': 'Expires process-local nonce state.',
     },
-    'app/services/security_service.py:scan_directory:cls._run_directory_scan': {
-        'owner': 'legacy ClamAV directory scan',
-        'lifecycle': LIFECYCLE_DURABLE_CANDIDATE,
-        'rationale': 'Compatibility endpoint remains; new callers should use security.malware_scan jobs.',
-    },
     'app/services/test_sandbox_service.py:start_run:cls._execute': {
         'owner': 'test sandbox run',
         'lifecycle': LIFECYCLE_DURABLE_CANDIDATE,
@@ -167,8 +162,8 @@ THREAD_OWNERSHIP = {
 }
 
 
-MIGRATED_TO_JOBS = {
-    'ImageScannerService.scan_application': 'security.image_scan',
-    'SecurityService.run_lynis_scan': 'security.lynis_scan',
-}
+# The security scanner threads (ClamAV directory scan, Lynis, image CVE scan)
+# moved to their extensions (serverkit-clamav / serverkit-lynis /
+# serverkit-image-scan) with their job handlers — no core-owned entries left.
+MIGRATED_TO_JOBS = {}
 

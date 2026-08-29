@@ -96,6 +96,42 @@ GATED_BUILTIN_SLUGS = {
     'serverkit-email': _email_was_configured,
 }
 
+
+def _has_command(cmd):
+    def probe():
+        try:
+            from app.utils.system import is_command_available
+            return is_command_available(cmd)
+        except Exception:
+            return False
+    return probe
+
+
+def _scanners_dir_populated():
+    """True if grype/syft were ever installed by the panel's image scanner."""
+    try:
+        from app import paths
+        scanners = os.path.join(paths.SERVERKIT_DATA_DIR, 'scanners')
+        return os.path.isdir(scanners) and bool(os.listdir(scanners))
+    except Exception:
+        return False
+
+
+# Security-suite extractions (plan 47 Ph3b-4 / plan 55 Phase 3). These left
+# core for REGISTRY extensions — there is no builtin folder to copy, so
+# upgrade parity means: when the host tool the old core surface managed is
+# actually present, install the extension from the registry once. Fail-soft:
+# an unreachable registry (or an entry not yet published) leaves the slug
+# unmarked so the next boot retries; panels without the host tool just see
+# the extension in the Marketplace.
+REGISTRY_GATED_SLUGS = {
+    'serverkit-fail2ban': _has_command('fail2ban-client'),
+    'serverkit-clamav': _has_command('clamscan'),
+    'serverkit-lynis': _has_command('lynis'),
+    'serverkit-auto-updates': _has_command('unattended-upgrade'),
+    'serverkit-image-scan': _scanners_dir_populated,
+}
+
 _MARKER_KEY = 'extensions.auto_installed_slugs'
 # Slugs whose now-extracted backend has been re-acquired on an upgraded panel
 # (plan 47 Phase 2). Separate from _MARKER_KEY so the one-shot backend pickup
@@ -186,6 +222,81 @@ def run_auto_install():
 
     if changed:
         _save_processed(processed)
+
+
+_REGISTRY_MARKER_KEY = 'extensions.registry_auto_installed_slugs'
+
+
+def _registry_processed_slugs():
+    from app.services.settings_service import SettingsService
+    raw = SettingsService.get(_REGISTRY_MARKER_KEY, '')
+    if not raw:
+        return set()
+    try:
+        return set(json.loads(raw))
+    except (ValueError, TypeError):
+        return set()
+
+
+def run_registry_auto_install():
+    """Upgrade parity for the extracted security suite. Idempotent, fail-soft.
+
+    Only on an upgraded panel, only for slugs whose host-tool predicate is
+    true, and only when the registry actually lists the slug (an unpublished
+    or unreachable registry defers to the next boot instead of burning the
+    one-shot). Fresh installs go through the wizard/Marketplace instead.
+    """
+    processed = _registry_processed_slugs()
+    pending = {s: gate for s, gate in REGISTRY_GATED_SLUGS.items()
+               if s not in processed}
+    if not pending:
+        return
+
+    if not _looks_like_existing_install():
+        # Fresh install: never auto-install, mark everything done once.
+        _save_registry_processed(processed | set(pending))
+        return
+
+    from app.services import registry_service
+    from app.services.plugin_service import install_registry_extension
+
+    changed = False
+    for slug, gate in pending.items():
+        try:
+            wants_it = bool(gate())
+        except Exception:
+            wants_it = False
+        if not wants_it:
+            processed.add(slug)
+            changed = True
+            continue
+        if InstalledPlugin.query.filter_by(slug=slug).first():
+            processed.add(slug)
+            changed = True
+            continue
+        try:
+            entry = registry_service.get_entry(slug)
+        except Exception:
+            entry = None
+        if not entry:
+            # Not published / registry unreachable — retry next boot.
+            continue
+        try:
+            install_registry_extension(slug)
+            logger.info(f'Auto-installed security extension from registry: {slug}')
+            processed.add(slug)
+            changed = True
+        except Exception as e:  # noqa: BLE001
+            logger.warning(
+                f'Registry auto-install of {slug} failed (retry next boot): {e}')
+
+    if changed:
+        _save_registry_processed(processed)
+
+
+def _save_registry_processed(slugs):
+    from app.services.settings_service import SettingsService
+    SettingsService.set(_REGISTRY_MARKER_KEY, json.dumps(sorted(slugs)))
 
 
 def _backend_acquired_slugs():

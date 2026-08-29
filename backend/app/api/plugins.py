@@ -328,10 +328,23 @@ def recommendations():
     Query: ``?use_cases=wordpress,web-apps``. Returns each recommended
     extension's real display_name/description + install source, so the wizard
     can render checkboxes that install the actual extension on Finish."""
-    from app.services.plugin_service import recommend_extensions_for_use_cases
+    from app.services.plugin_service import (
+        SECURITY_POSTURE_LEVELS,
+        recommend_extensions_for_use_cases,
+        recommend_security_extensions,
+    )
     raw = request.args.get('use_cases', '')
     use_cases = [u.strip() for u in raw.split(',') if u.strip()]
-    return jsonify({'recommendations': recommend_extensions_for_use_cases(use_cases)})
+    return jsonify({
+        'recommendations': recommend_extensions_for_use_cases(use_cases),
+        # Wizard round 2 (plan 47 Ph5): the security-posture chooser. Each
+        # level lists only extensions the catalog can actually install today —
+        # unpublished slugs drop out rather than rendering dead checkboxes.
+        'security_postures': {
+            level: recommend_security_extensions(level)
+            for level in SECURITY_POSTURE_LEVELS
+        },
+    })
 
 
 @plugins_bp.route('/builtin/<slug>/install', methods=['POST'])
