@@ -49,11 +49,11 @@ cheaply. Sizes are the core page's current line count (the UI to relocate).
 |---|---|---|---:|---|
 | 1 | ✅ `serverkit-gpu` | ~~`GpuMonitor.jsx`~~ | 199 | **DONE (plan 32 #7, 2026-07-06).** Backend moved to `builtin-extensions/serverkit-gpu/backend` (`entry_point gpu:gpu_bp`, `url_prefix /api/v1/gpu`); page moved to `frontend/components/GpuMonitor.jsx` (SDK imports); core page + core `app/api/gpu.py` + `app/services/gpu_service.py` deleted; `sdk_version ^1.0.0` declared. Shipped **baked** (dual-path per guardrail below); runtime-ESM build scaffold added, live runtime-loader render deferred with plan 32 #9. |
 | 2 | `serverkit-cloud-provision` | `CloudProvision.jsx` | 239 | One page; leans on connection APIs already in core. |
-| 3 | `serverkit-cloudflare-ops` | `CloudflareZoneSettings.jsx` | 469 | Zone-scoped; shares the CF client with core DNS (keep client in core/SDK). |
+| 3 | ✅ `serverkit-cloudflare-ops` | ~~`CloudflareZoneSettings.jsx`~~ | 469 | **DONE (plan 52 Ph2 prep, 2026-08-29).** Page + WAF/Workers/Tunnels/Storage panels + own API client + SCSS moved into `builtin-extensions/serverkit-cloudflare-ops/frontend/`; DNS records + CF connection stay core. Standalone repo prepared (operator publishes). |
 | 4 | `serverkit-remote-access` | `RemoteAccess.jsx` | 516 | WireGuard pairing UI; agent-fleet coupling via SDK. |
 | 5 | `serverkit-ftp` | `FTPServer.jsx` | 687 | Accounts CRUD; self-contained once helpers move with it. |
 | 6 | `serverkit-status` | `StatusPages.jsx` | 747 | Has a **public** status route (`/status/:slug`) that must stay reachable — verify the public path still resolves post-move. |
-| 7 | `serverkit-email` | `Email.jsx` | 1086 | Large; a heavy vertical (the module-toggle candidate list). Migrate after the smaller ones prove the recipe. |
+| 7 | ✅ `serverkit-email` | ~~`Email.jsx`~~ | 1086 | **DONE (plan 52 Ph2 prep, 2026-08-29).** Page + own API client + SCSS moved into `builtin-extensions/serverkit-email/frontend/`; DNS-provider + relay methods stay core (Settings surfaces). Standalone repo prepared (operator publishes). |
 | 8 | `serverkit-workflows` | `WorkflowBuilder.jsx` | 1092 | Largest Tier B; pulls in `@xyflow/react` — externalize it or bundle it into the extension (it is NOT a host-shared lib). |
 | 9 | `serverkit-git` | Git page group | — | Already plugin-contributed self-rendering (`sk-tabgroup` shell). Mostly a file-move; last in Tier B because its tab-group wiring is the closest analog to Tier C. |
 
