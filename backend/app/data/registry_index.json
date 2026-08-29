@@ -157,19 +157,22 @@
       "slug": "serverkit-git",
       "display_name": "Git Server",
       "description": "Self-hosted Git server (Gitea) exposed through the ServerKit extension system.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "category": "deployment",
       "author": "ServerKit",
       "first_party": true,
-      "bundled": true,
+      "bundled": false,
       "permissions": [
         "docker",
         "filesystem"
       ],
       "min_panel_version": null,
       "max_panel_version": null,
-      "repo": "https://github.com/jhd3197/ServerKit",
-      "logo": "assets/serverkit-git/logo.png"
+      "repo": "https://github.com/jhd3197/serverkit-git",
+      "logo": "assets/serverkit-git/logo.png",
+      "source": "https://github.com/jhd3197/serverkit-git/releases/download/v1.1.0/serverkit-git-1.1.0.zip",
+      "sha256": "f79fb7a34a0504fdacfe78c48a1e1a39761567a06a4408847a0c6984e45024a0",
+      "homepage": "https://github.com/jhd3197/serverkit-git"
     },
     {
       "slug": "serverkit-localkit",

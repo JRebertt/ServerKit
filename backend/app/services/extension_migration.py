@@ -106,9 +106,10 @@ def _email_was_configured():
 # Builtins auto-installed on upgrade ONLY when a usage predicate says the panel
 # actually used the feature (D3/#34). Fresh installs and panels that never used
 # the feature just see it in the Marketplace.
-GATED_BUILTIN_SLUGS = {
-    'serverkit-git': _gitea_was_used,
-}
+# Empty since the plan 52 Ph2 cutover — every gated slug rides the registry
+# now. The dict (and its predicate wiring) stays: the next core->builtin
+# conversion drops straight in.
+GATED_BUILTIN_SLUGS = {}
 
 
 def _has_command(cmd):
@@ -139,9 +140,11 @@ def _scanners_dir_populated():
 # unmarked so the next boot retries; panels without the host tool just see
 # the extension in the Marketplace.
 REGISTRY_GATED_SLUGS = {
-    # serverkit-email left the tree (plan 52 Phase 2 cutover): its gated
-    # auto-install rides the registry now, same predicate as before.
+    # serverkit-email / serverkit-git left the tree (plan 52 Ph2/Ph6
+    # cutover): their gated auto-installs ride the registry now, same
+    # predicates as before.
     'serverkit-email': _email_was_configured,
+    'serverkit-git': _gitea_was_used,
     'serverkit-fail2ban': _has_command('fail2ban-client'),
     'serverkit-clamav': _has_command('clamscan'),
     'serverkit-lynis': _has_command('lynis'),
