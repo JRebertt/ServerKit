@@ -30,7 +30,7 @@ import re
 import logging
 
 from app.utils.system import (ServiceControl, is_command_available,
-                             run_privileged, write_privileged_file)
+                             run_checked, run_privileged, write_privileged_file)
 from app.services.nginx_service import NginxService
 
 logger = logging.getLogger(__name__)
@@ -407,13 +407,12 @@ bantime = {bantime}
         except ValueError:
             info['enabled'] = False
 
-        from app.services.security_service import SecurityService
-        f2b = SecurityService.get_fail2ban_status()
+        f2b = cls.get_fail2ban_status()
         info['fail2ban_installed'] = bool(f2b.get('installed'))
         info['fail2ban_running'] = bool(f2b.get('service_running'))
 
         if info['enabled'] and info['fail2ban_running']:
-            js = SecurityService.get_fail2ban_jail_status(info['jail'])
+            js = cls.get_fail2ban_jail_status(info['jail'])
             if js.get('success'):
                 info.update({
                     'currently_banned': js.get('currently_banned', 0),
@@ -425,8 +424,108 @@ bantime = {bantime}
 
     @classmethod
     def unban(cls, app, ip):
-        """Unban *ip* from this site's jail (thin wrapper over SecurityService)."""
+        """Unban *ip* from this site's jail."""
         if not cls.available():
             return cls._unavailable()
-        from app.services.security_service import SecurityService
-        return SecurityService.unban_ip(ip, cls.jail_name(app))
+        return cls.unban_ip(ip, cls.jail_name(app))
+
+    # ------------------------------------------------------------------
+    # Fail2ban status probing + unban (plan 47 Ph3c inversion). These are
+    # the read/undo half core keeps when the management surface moves to
+    # the serverkit-fail2ban extension: Setup Health, the security audit
+    # and the per-site jail status above all probe through here, and the
+    # extension's routes delegate here too. Pure fail2ban-client probes —
+    # they work whenever the host tool exists, extension installed or not.
+    # ------------------------------------------------------------------
+    @classmethod
+    def get_fail2ban_status(cls):
+        """Get Fail2ban installation and service status."""
+        result = {
+            'installed': False,
+            'service_running': False,
+            'version': None,
+            'jails': []
+        }
+
+        try:
+            version_output = run_checked(['fail2ban-client', '--version'], timeout=10)
+            if version_output['success']:
+                result['installed'] = True
+                result['version'] = version_output['output'].strip().split('\n')[0]
+        except Exception:  # noqa: BLE001 - probe only; absence is the answer
+            pass
+
+        if result['installed']:
+            try:
+                result['service_running'] = ServiceControl.is_active('fail2ban')
+            except Exception:
+                pass
+
+            if result['service_running']:
+                try:
+                    jails_output = run_checked(['fail2ban-client', 'status'], timeout=10)
+                    if jails_output['success']:
+                        for line in jails_output['output'].split('\n'):
+                            if 'Jail list:' in line:
+                                jails_str = line.split(':')[1].strip()
+                                if jails_str:
+                                    result['jails'] = [j.strip() for j in jails_str.split(',')]
+                except Exception:
+                    pass
+
+        return result
+
+    @classmethod
+    def get_fail2ban_jail_status(cls, jail):
+        """Get status of a specific Fail2ban jail."""
+        try:
+            result = run_checked(['fail2ban-client', 'status', jail], timeout=10)
+
+            if not result['success']:
+                return {'success': False, 'error': f'Jail {jail} not found'}
+
+            status = {
+                'jail': jail,
+                'currently_banned': 0,
+                'total_banned': 0,
+                'banned_ips': [],
+                'currently_failed': 0,
+                'total_failed': 0
+            }
+
+            for line in result['output'].split('\n'):
+                line = line.strip()
+                if 'Currently banned:' in line:
+                    status['currently_banned'] = int(line.split(':')[1].strip())
+                elif 'Total banned:' in line:
+                    status['total_banned'] = int(line.split(':')[1].strip())
+                elif 'Banned IP list:' in line:
+                    ips_str = line.split(':')[1].strip()
+                    if ips_str:
+                        status['banned_ips'] = ips_str.split()
+                elif 'Currently failed:' in line:
+                    status['currently_failed'] = int(line.split(':')[1].strip())
+                elif 'Total failed:' in line:
+                    status['total_failed'] = int(line.split(':')[1].strip())
+
+            return {'success': True, **status}
+
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    @classmethod
+    def unban_ip(cls, ip, jail=None):
+        """Unban an IP from Fail2ban."""
+        try:
+            if jail:
+                result = run_checked(['fail2ban-client', 'set', jail, 'unbanip', ip],
+                                     timeout=10)
+            else:
+                result = run_checked(['fail2ban-client', 'unban', ip], timeout=10)
+
+            if result['success']:
+                return {'success': True, 'message': f'IP {ip} unbanned'}
+            return {'success': False, 'error': result['error'] or 'Failed to unban IP'}
+
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
