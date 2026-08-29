@@ -259,6 +259,76 @@ class TestEndpoint:
         assert res.status_code == 401
 
 
+class TestAttachedVolumes:
+    """A disk shortfall on ONE filesystem is not "no room" on a box with a
+    volume attached — the app's data can live there. Red must mean the whole
+    box is short, not that the measured mountpoint is."""
+
+    @staticmethod
+    def _headroom(disk_free, other_mounts, memory_free=6 * GB):
+        return {'server_id': None, 'name': 'This server', 'source': 'local',
+                'measured_at': '2026-08-28T00:00:00Z', 'stale': False,
+                'memory_total': 8 * GB, 'memory_free': memory_free,
+                'disk_total': 25 * GB, 'disk_free': disk_free,
+                'disk_mountpoint': '/', 'other_mounts': other_mounts}
+
+    def test_a_volume_with_room_downgrades_wont_fit_to_tight(self, app, monkeypatch):
+        # The reported bug: 20 GB storage vs 10 GB free on root read as a red
+        # "doesn't have room" while an 80 GB volume sat attached and empty.
+        monkeypatch.setattr(capacity_service, 'server_headroom',
+                            lambda server_id=None: self._headroom(
+                                10 * GB,
+                                [{'mountpoint': '/mnt/volume1',
+                                  'free': 80 * GB, 'total': 100 * GB}]))
+        result = check_fit(_template('4GB', '20GB'))
+        assert result['verdict'] == 'tight'
+        assert 'attached volume' in result['headline']
+        assert '/mnt/volume1' in result['detail']
+        assert "point the app's data there" in result['detail']
+        disk = next(c for c in result['checks'] if c['resource'] == 'disk')
+        assert disk['alt_mountpoint'] == '/mnt/volume1'
+        assert disk['alt_free'] == 80 * GB
+
+    def test_a_volume_too_small_does_not_rescue(self, app, monkeypatch):
+        monkeypatch.setattr(capacity_service, 'server_headroom',
+                            lambda server_id=None: self._headroom(
+                                10 * GB,
+                                [{'mountpoint': '/mnt/volume1',
+                                  'free': 15 * GB, 'total': 100 * GB}]))
+        result = check_fit(_template('4GB', '20GB'))
+        assert result['verdict'] == 'insufficient'
+        assert 'more disk than it has free' in result['detail']
+
+    def test_memory_has_no_escape_hatch(self, app, monkeypatch):
+        # A volume holds files, not processes; a memory shortfall stays red.
+        monkeypatch.setattr(capacity_service, 'server_headroom',
+                            lambda server_id=None: self._headroom(
+                                22 * GB,
+                                [{'mountpoint': '/mnt/volume1',
+                                  'free': 80 * GB, 'total': 100 * GB}],
+                                memory_free=2 * GB))
+        result = check_fit(_template('4GB', '20GB'))
+        assert result['verdict'] == 'insufficient'
+
+    def test_local_headroom_reports_the_other_mounts(self, app, monkeypatch):
+        from collections import namedtuple
+        from app.services import host_inventory_service
+        Usage = namedtuple('Usage', 'total used free percent')
+        monkeypatch.setattr(host_inventory_service, 'data_path_usage',
+                            lambda: ('/', Usage(25 * GB, 15 * GB, 10 * GB, 60.0)))
+        monkeypatch.setattr(host_inventory_service, 'enumerate_filesystems',
+                            lambda: [
+                                {'mountpoint': '/', 'device': '/dev/vda1',
+                                 'free': 10 * GB, 'total': 25 * GB},
+                                {'mountpoint': '/mnt/volume1', 'device': '/dev/sda',
+                                 'free': 80 * GB, 'total': 100 * GB},
+                            ])
+        headroom = capacity_service.server_headroom(None)
+        # The measured mountpoint is excluded — it is already `disk_free`.
+        assert headroom['other_mounts'] == [
+            {'mountpoint': '/mnt/volume1', 'free': 80 * GB, 'total': 100 * GB}]
+
+
 class TestLocalHost:
     def test_reads_the_panel_host_live(self, app):
         # The single-server case: no agent, no metrics row, psutil instead —
