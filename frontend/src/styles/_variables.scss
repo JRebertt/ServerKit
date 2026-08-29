@@ -236,11 +236,14 @@ $sidebar-icon-size: 28px;
 $z-dropdown: 10;
 $z-sticky: 20;
 $z-fixed: 30;
-$z-modal-backdrop: 40;
-$z-modal: 50;
-$z-tooltip: 60;
 $z-shell-panel: 1120;
 $z-shell-statusbar: 1130;
+// Modals sit above ALL shell chrome, statusbar included — a drawer that
+// reaches the bottom edge must not have its footer painted over by the
+// fixed statusbar. Toasts (9999) and the app loader stay above everything.
+$z-modal-backdrop: 1140;
+$z-modal: 1150;
+$z-tooltip: 1160;
 
 // --------------------------------------------
 // BREAKPOINTS
