@@ -34,9 +34,10 @@ class ContainerScaleService:
         try:
             cls._apply_policy_fields(policy, fields)
             db.session.commit()
-        except ValueError:
+        except Exception:
             # Validation raises after fields were already assigned to the ORM
-            # row; roll back here so callers never inherit a dirty session.
+            # row, and commit itself can raise; roll back either way so callers
+            # never inherit a dirty session.
             db.session.rollback()
             raise
         return policy

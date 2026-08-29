@@ -52,6 +52,28 @@ class TestScalePolicy:
         else:
             raise AssertionError('overlapping CPU thresholds were accepted')
 
+    def test_a_failed_commit_never_leaves_a_dirty_session(self, app, monkeypatch):
+        from sqlalchemy.exc import OperationalError
+
+        a = _seed_app()
+        ContainerScaleService.set_policy(a.id, service_name='web')
+
+        def failing_commit():
+            raise OperationalError('UPDATE container_scale_policies', {},
+                                   RuntimeError('db went away'))
+
+        monkeypatch.setattr(db.session, 'commit', failing_commit)
+        try:
+            ContainerScaleService.set_policy(a.id, min_replicas=4)
+        except OperationalError:
+            pass
+        else:
+            raise AssertionError('commit failure was swallowed')
+        monkeypatch.undo()
+
+        p = ContainerScalePolicy.query.filter_by(application_id=a.id).first()
+        assert p.min_replicas == 1, 'failed commit left the assigned value in the session'
+
 
 class TestEvaluate:
     def test_scales_up_on_high_cpu(self, app, monkeypatch):
