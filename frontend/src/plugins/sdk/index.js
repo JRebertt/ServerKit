@@ -190,3 +190,6 @@ export {
 export { default as PageLayout } from '../../layouts/PageLayout';
 export { useTableSort } from '../../hooks/useTableSort';
 export { useColumnVisibility } from '../../hooks/useColumnVisibility';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
+export { PageLoader } from '../../components/PageLoader';
+export { copyToClipboard } from '../../utils/clipboard';

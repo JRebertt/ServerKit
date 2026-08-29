@@ -1,12 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Network } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import EmptyState from '../EmptyState';
-import { useToast } from '../../contexts/ToastContext';
-import api from '../../services/api';
-import { copyToClipboard } from '@/utils/clipboard';
+import api from '../services/cloudflare';
+import { Button, Input, Badge, EmptyState, useToast, copyToClipboard } from 'serverkit-sdk';
 import { useTranslation } from 'react-i18next';
 
 function InstallBox({ command }) {

@@ -1,3 +1,9 @@
+// Compiled through the extension's module graph (imported by index.jsx).
+// The host's design-token partial is imported via a sync-safe relative
+// path — the baked copy lives at frontend/src/plugins/serverkit-cloudflare-ops/,
+// so this resolves to frontend/src/styles/_variables.scss.
+@import '../../../styles/variables';
+
 // Cloudflare zone settings — detail page reached from a Cloudflare-managed DNS
 // zone. Full-bleed top bar (PageTopbar) + tabbed setting groups.
 

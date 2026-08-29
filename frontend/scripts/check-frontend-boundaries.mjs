@@ -222,7 +222,7 @@ for (const file of LEGACY_POLLERS.keys()) {
 const ADOPTION_CEILINGS = [
     {
         name: 'raw api.* calls in pages/ (E1: useServerQuery/useServerMutation)',
-        ceiling: 460,
+        ceiling: 431,
         include: (file) => file.startsWith('pages/'),
         pattern: /\bapi\s*\.\s*\w+\s*\(/g,
     },

@@ -1,25 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Cloud, ShieldCheck, Lock, Gauge, Database, Wand2, Eraser, Flame, Zap, Network, HardDrive } from 'lucide-react';
-import PageLayout from '../layouts/PageLayout';
-import CloudflareWafPanel from '../components/cloudflare/CloudflareWafPanel';
-import WorkersPanel from '../components/cloudflare/WorkersPanel';
-import TunnelsPanel from '../components/cloudflare/TunnelsPanel';
-import StoragePanel from '../components/cloudflare/StoragePanel';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Switch } from '@/components/ui/switch';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
+import CloudflareWafPanel from '../components/CloudflareWafPanel';
+import WorkersPanel from '../components/WorkersPanel';
+import TunnelsPanel from '../components/TunnelsPanel';
+import StoragePanel from '../components/StoragePanel';
+import api from '../services/cloudflare';
 import {
-    Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
-} from '@/components/ui/select';
-import PageLoader from '../components/PageLoader';
-import EmptyState from '../components/EmptyState';
-import ConfirmDialog from '../components/ConfirmDialog';
-import { useToast } from '../contexts/ToastContext';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
+    PageLayout, Tabs, TabsList, TabsTrigger, TabsContent, Switch, Button,
+    Badge, Textarea, Select, SelectTrigger, SelectContent, SelectItem,
+    SelectValue, PageLoader, EmptyState, ConfirmDialog, useToast, useAuth,
+} from 'serverkit-sdk';
 import { useTranslation } from 'react-i18next';
 
 // HSTS max-age presets (seconds). 0 disables the max-age while keeping HSTS off.

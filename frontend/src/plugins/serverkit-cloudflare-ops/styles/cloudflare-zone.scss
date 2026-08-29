@@ -1,0 +1,572 @@
+// Compiled through the extension's module graph (imported by index.jsx).
+// The host's design-token partial is imported via a sync-safe relative
+// path — the baked copy lives at frontend/src/plugins/serverkit-cloudflare-ops/,
+// so this resolves to frontend/src/styles/_variables.scss.
+@import '../../../styles/variables';
+
+// Cloudflare zone settings — detail page reached from a Cloudflare-managed DNS
+// zone. Full-bleed top bar (PageTopbar) + tabbed setting groups.
+
+.cf-zone {
+    &__body {
+        padding: $spacing-lg;
+        max-width: 880px;
+    }
+
+    &__tabs {
+        margin-top: $spacing-sm;
+    }
+
+    &__error-actions {
+        display: flex;
+        justify-content: center;
+        gap: $spacing-sm;
+        margin-top: $spacing-md;
+    }
+}
+
+// Breadcrumb in the top-bar title slot (mirrors the service-detail crumbs).
+.cf-crumbs {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-xs;
+    font-size: 0.95rem;
+
+    a {
+        color: $text-secondary;
+        text-decoration: none;
+
+        &:hover { color: $primary-color; }
+    }
+
+    &__sep { color: $text-tertiary; }
+    &__cur { color: $text-primary; font-weight: 600; }
+}
+
+.cf-panel {
+    background: $card-bg;
+    border: 1px solid $border-color;
+    border-radius: $radius-lg;
+    padding: $spacing-xs $spacing-lg;
+    margin-top: $spacing-md;
+}
+
+// One setting: label/help on the left, control hugging the right.
+.cf-setting {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: $spacing-lg;
+    padding: $spacing-md 0;
+    border-bottom: 1px solid $border-color;
+
+    &:last-child { border-bottom: none; }
+
+    &__info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    &__label {
+        font-weight: 600;
+        color: $text-primary;
+    }
+
+    &__help {
+        font-size: 0.85rem;
+        color: $text-muted;
+        max-width: 52ch;
+        line-height: 1.4;
+    }
+
+    &__badge {
+        align-self: flex-start;
+        margin-top: 2px;
+    }
+
+    &__control {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        min-height: 32px;
+    }
+
+    &__select {
+        min-width: 200px;
+    }
+}
+
+// HSTS compound control — a small stack of rows.
+.cf-hsts {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    min-width: 240px;
+
+    &__row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        font-size: 0.88rem;
+        color: $text-secondary;
+    }
+}
+
+.cf-actions {
+    & + & { margin-top: $spacing-md; }
+
+    .cf-action {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-lg;
+        padding: $spacing-md 0;
+
+        &__text {
+            h3 {
+                margin: 0 0 4px;
+                font-size: 1rem;
+                display: inline-flex;
+                align-items: center;
+                gap: $spacing-xs;
+            }
+            p { margin: 0; color: $text-muted; font-size: 0.88rem; max-width: 60ch; line-height: 1.5; }
+        }
+    }
+
+    &__note {
+        margin: $spacing-sm 0 0;
+        color: $text-muted;
+        font-size: 0.85rem;
+    }
+}
+
+.cf-purge-files {
+    border-top: 1px solid $border-color;
+    padding-top: $spacing-md;
+
+    &__label {
+        display: block;
+        font-size: 0.85rem;
+        color: $text-secondary;
+        margin-bottom: $spacing-xs;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: $spacing-sm;
+    }
+}
+
+// WAF tab — preset picker, custom-rule form, and the active-rules list.
+.cf-waf {
+    &__loading {
+        padding: $spacing-lg;
+        color: $text-muted;
+    }
+
+    &__section {
+        padding: $spacing-md 0;
+        border-bottom: 1px solid $border-color;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    &__heading {
+        margin: 0 0 4px;
+        font-size: 0.95rem;
+    }
+
+    &__hint {
+        margin: 0 0 $spacing-sm;
+        color: $text-muted;
+        font-size: 0.85rem;
+    }
+
+    &__field {
+        margin-bottom: $spacing-sm;
+    }
+
+    &__label {
+        display: block;
+        font-size: 0.82rem;
+        color: $text-secondary;
+        margin-bottom: 4px;
+    }
+
+    &__select {
+        max-width: 320px;
+    }
+
+    &__preset-desc {
+        margin: 0 0 $spacing-sm;
+        color: $text-secondary;
+        font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    &__params {
+        display: flex;
+        flex-wrap: wrap;
+        gap: $spacing-md;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: $spacing-sm;
+    }
+
+    &__list {
+        list-style: none;
+        margin: $spacing-sm 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+    }
+
+    &__rule {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: $spacing-md;
+        padding: $spacing-md;
+        background: $bg-elevated;
+        border: 1px solid $border-color;
+        border-radius: $radius-md;
+    }
+
+    &__rule-main {
+        min-width: 0;
+        flex: 1;
+    }
+
+    &__rule-head {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        margin-bottom: $spacing-xs;
+    }
+
+    &__rule-desc {
+        font-weight: 600;
+        color: $text-primary;
+    }
+
+    &__rule-expr {
+        display: block;
+        font-family: $font-mono;
+        font-size: 0.8rem;
+        color: $text-secondary;
+        background: $bg-code;
+        padding: $spacing-xs $spacing-sm;
+        border-radius: $radius-sm;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    &__rule-actions {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-shrink: 0;
+    }
+}
+
+// Workers tab — deploy form + script/route lists.
+.cf-workers {
+    &__loading {
+        padding: $spacing-lg;
+        color: $text-muted;
+    }
+
+    &__section {
+        padding: $spacing-md 0;
+        border-bottom: 1px solid $border-color;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    &__heading {
+        margin: 0 0 $spacing-sm;
+        font-size: 0.95rem;
+    }
+
+    &__hint {
+        margin: $spacing-xs 0 0;
+        color: $text-muted;
+        font-size: 0.82rem;
+    }
+
+    &__field {
+        margin-bottom: $spacing-sm;
+    }
+
+    &__label {
+        display: block;
+        font-size: 0.82rem;
+        color: $text-secondary;
+        margin-bottom: 4px;
+    }
+
+    &__code {
+        font-family: $font-mono;
+        font-size: 0.82rem;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    &__list {
+        list-style: none;
+        margin: $spacing-sm 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        padding: $spacing-sm $spacing-md;
+        background: $bg-elevated;
+        border: 1px solid $border-color;
+        border-radius: $radius-md;
+    }
+
+    &__name {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        min-width: 0;
+        flex-wrap: wrap;
+
+        code {
+            font-family: $font-mono;
+            font-size: 0.85rem;
+            color: $text-primary;
+        }
+    }
+
+    &__meta {
+        color: $text-muted;
+        font-size: 0.8rem;
+    }
+
+    &__item-actions {
+        flex-shrink: 0;
+    }
+}
+
+// Tunnels tab — create form, install command box, tunnel list with hostnames.
+.cf-tunnels {
+    &__loading {
+        padding: $spacing-lg;
+        color: $text-muted;
+    }
+
+    &__section {
+        padding: $spacing-md 0;
+        border-bottom: 1px solid $border-color;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    &__heading {
+        margin: 0 0 $spacing-sm;
+        font-size: 0.95rem;
+    }
+
+    &__hint {
+        margin: $spacing-xs 0 0;
+        color: $text-muted;
+        font-size: 0.82rem;
+    }
+
+    &__field {
+        margin-bottom: $spacing-sm;
+        max-width: 420px;
+    }
+
+    &__label {
+        display: block;
+        font-size: 0.82rem;
+        color: $text-secondary;
+        margin-bottom: 4px;
+    }
+
+    &__actions {
+        display: flex;
+        justify-content: flex-start;
+    }
+
+    &__install {
+        margin-top: $spacing-md;
+        padding: $spacing-md;
+        background: $bg-code;
+        border: 1px solid $border-color;
+        border-radius: $radius-md;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+        align-items: flex-start;
+    }
+
+    &__cmd {
+        display: block;
+        width: 100%;
+        font-family: $font-mono;
+        font-size: 0.8rem;
+        color: $text-primary;
+        white-space: pre-wrap;
+        word-break: break-all;
+    }
+
+    &__list {
+        list-style: none;
+        margin: $spacing-sm 0 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+    }
+
+    &__item {
+        padding: $spacing-md;
+        background: $bg-elevated;
+        border: 1px solid $border-color;
+        border-radius: $radius-md;
+    }
+
+    &__item-head {
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+    }
+
+    &__name {
+        font-weight: 600;
+        color: $text-primary;
+    }
+
+    &__meta {
+        color: $text-muted;
+        font-size: 0.8rem;
+        font-family: $font-mono;
+    }
+
+    &__item-actions {
+        display: flex;
+        gap: $spacing-sm;
+        margin-top: $spacing-sm;
+        flex-wrap: wrap;
+    }
+
+    &__hostnames {
+        margin-top: $spacing-md;
+        padding-top: $spacing-md;
+        border-top: 1px solid $border-color;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-sm;
+    }
+
+    &__host {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+
+        code {
+            font-family: $font-mono;
+            font-size: 0.82rem;
+            color: $text-secondary;
+        }
+    }
+
+    &__host-add {
+        display: flex;
+        gap: $spacing-sm;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+}
+
+// Storage tab — R2 buckets, KV namespaces, D1 databases.
+.cf-storage {
+    &__loading {
+        padding: $spacing-lg;
+        color: $text-muted;
+    }
+
+    &__section {
+        padding: $spacing-md 0;
+        border-bottom: 1px solid $border-color;
+
+        &:last-child { border-bottom: none; }
+    }
+
+    &__heading {
+        margin: 0 0 $spacing-sm;
+        font-size: 0.95rem;
+    }
+
+    &__hint {
+        margin: $spacing-xs 0;
+        color: $text-muted;
+        font-size: 0.82rem;
+    }
+
+    &__error {
+        margin: $spacing-xs 0;
+        color: $text-muted;
+        font-size: 0.82rem;
+        font-style: italic;
+    }
+
+    &__create {
+        display: flex;
+        gap: $spacing-sm;
+        align-items: center;
+        max-width: 420px;
+        margin-bottom: $spacing-sm;
+    }
+
+    &__list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+    }
+
+    &__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: $spacing-md;
+        padding: $spacing-sm $spacing-md;
+        background: $bg-elevated;
+        border: 1px solid $border-color;
+        border-radius: $radius-md;
+    }
+
+    &__name {
+        font-family: $font-mono;
+        font-size: 0.85rem;
+        color: $text-primary;
+    }
+}
