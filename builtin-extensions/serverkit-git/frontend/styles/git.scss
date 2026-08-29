@@ -1,3 +1,10 @@
+// Compiled through the extension's module graph (imported by index.jsx).
+// The host's design-token partial is imported via a sync-safe relative
+// path — the baked copy lives at frontend/src/plugins/serverkit-git/,
+// so this resolves to frontend/src/styles/_variables.scss.
+@import '../../../styles/variables';
+@import '../../../styles/mixins';
+
 // ============================================
 // GIT PAGE (redesign — infra console look)
 // ============================================
@@ -206,7 +213,20 @@
     // Mono category chip (private / fork / default / protected / rollback) —
     // %sk-state shape (_design-system.scss) with smaller local sizing kept
     .git-chip {
-        @extend %sk-state;
+        // %sk-state shape inlined (the placeholder lives in the host's
+        // _design-system.scss, a different compile unit than this
+        // extension's module graph — @extend can't cross that boundary).
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        white-space: nowrap;
+        flex-shrink: 0;
         vertical-align: middle;
         margin-left: 7px;
         padding: 1px 6px;

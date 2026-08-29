@@ -1,32 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import useTabParam from '../hooks/useTabParam';
-import { api } from '../services/api';
-import { useToast } from '../contexts/ToastContext';
-import ConfirmDialog from '../components/ConfirmDialog';
-import { DangerZone } from '../components/DangerZone';
-import EmptyState from '../components/EmptyState';
-import Modal from '@/components/Modal';
+import giteaApi from '../services/gitea';
 import {
+    api, useTabParam, useToast, ConfirmDialog, DangerZone, EmptyState, Modal,
     Pill, MetricCard, KpiBand, SegControl, Drawer, DataTable, DataTableFooter,
     ListToolbar, statusKind,
-} from '../components/ds';
-import {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
-} from '@/components/ds/grid';
-import { useTableSort } from '@/hooks/useTableSort';
-import { useColumnVisibility } from '@/hooks/useColumnVisibility';
-import PageLayout from '../layouts/PageLayout';
+    useTableSort, useColumnVisibility, PageLayout,
+    Button, Input, Textarea, Label, copyToClipboard,
+} from 'serverkit-sdk';
 import {
     AlertCircle, FolderGit2, Webhook, Rocket, Server, Globe, Terminal, Tag,
     GitBranch, RefreshCw, Plus, ExternalLink, Lock, Trash2, ChevronRight,
     Clock, AlertTriangle, Settings,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from 'react-i18next';
 
 const VALID_TABS = ['overview', 'repositories', 'access', 'webhooks', 'deployments', 'settings'];
@@ -583,7 +570,7 @@ function Git({ basePath = '/git' }) {
 
     const loadStatus = async () => {
         try {
-            const data = await api.getGitServerStatus();
+            const data = await giteaApi.getGitServerStatus();
             setStatus(data);
         } catch (error) {
             console.error('Failed to load status:', error);
@@ -699,7 +686,7 @@ function Git({ basePath = '/git' }) {
     const loadRepositories = async () => {
         setReposLoading(true);
         try {
-            const data = await api.getRepositories();
+            const data = await giteaApi.getRepositories();
             setRepositories(data.repositories || []);
         } catch (error) {
             console.error('Failed to load repositories:', error);
@@ -722,9 +709,9 @@ function Git({ basePath = '/git' }) {
         setSelectedBranch(repo.default_branch);
         setRepoDetailTab('files');
         Promise.all([
-            api.getBranches(repo.owner.login, repo.name),
-            api.getCommits(repo.owner.login, repo.name, repo.default_branch),
-            api.getRepoFiles(repo.owner.login, repo.name, repo.default_branch)
+            giteaApi.getBranches(repo.owner.login, repo.name),
+            giteaApi.getCommits(repo.owner.login, repo.name, repo.default_branch),
+            giteaApi.getRepoFiles(repo.owner.login, repo.name, repo.default_branch)
         ]).then(([branchesData, commitsData, filesData]) => {
             setBranches(branchesData.branches || []);
             setCommits(commitsData.commits || []);
@@ -737,7 +724,7 @@ function Git({ basePath = '/git' }) {
     const navigateToPath = async (path) => {
         if (!selectedRepo) return;
         try {
-            const data = await api.getRepoFiles(selectedRepo.owner.login, selectedRepo.name, selectedBranch, path);
+            const data = await giteaApi.getRepoFiles(selectedRepo.owner.login, selectedRepo.name, selectedBranch, path);
             setFiles(data.files || []);
             setCurrentPath(path);
         } catch {
@@ -758,8 +745,8 @@ function Git({ basePath = '/git' }) {
         setCurrentPath('');
         try {
             const [commitsData, filesData] = await Promise.all([
-                api.getCommits(selectedRepo.owner.login, selectedRepo.name, branchName),
-                api.getRepoFiles(selectedRepo.owner.login, selectedRepo.name, branchName)
+                giteaApi.getCommits(selectedRepo.owner.login, selectedRepo.name, branchName),
+                giteaApi.getRepoFiles(selectedRepo.owner.login, selectedRepo.name, branchName)
             ]);
             setCommits(commitsData.commits || []);
             setFiles(filesData.files || []);
@@ -772,7 +759,7 @@ function Git({ basePath = '/git' }) {
         if (!selectedRepo) return;
         const currentPage = Math.ceil(commits.length / 30) + 1;
         try {
-            const data = await api.getCommits(selectedRepo.owner.login, selectedRepo.name, selectedBranch, currentPage);
+            const data = await giteaApi.getCommits(selectedRepo.owner.login, selectedRepo.name, selectedBranch, currentPage);
             if (data.commits?.length) setCommits([...commits, ...data.commits]);
         } catch {
             toast.error(t('app.git.failedToLoadMoreCommits', 'Failed to load more commits'));
@@ -882,7 +869,7 @@ function Git({ basePath = '/git' }) {
         }
         setActionLoading(true);
         try {
-            const result = await api.installGit(installForm);
+            const result = await giteaApi.installGit(installForm);
             if (result.success) {
                 toast.success(t('app.git.gitServerInstalledSuccessfully', 'Git server installed successfully'));
                 setShowInstallModal(false);
@@ -909,7 +896,7 @@ function Git({ basePath = '/git' }) {
             onConfirm: async () => {
                 setActionLoading(true);
                 try {
-                    await api.uninstallGit(false);
+                    await giteaApi.uninstallGit(false);
                     toast.success(t('app.git.gitServerUninstalled', 'Git server uninstalled'));
                     await loadData();
                 } catch (error) {
@@ -926,7 +913,7 @@ function Git({ basePath = '/git' }) {
     const handleStart = async () => {
         setActionLoading(true);
         try {
-            await api.startGit();
+            await giteaApi.startGit();
             toast.success(t('app.git.gitServerStarted', 'Git server started'));
             await loadStatus();
         } catch (error) {
@@ -945,7 +932,7 @@ function Git({ basePath = '/git' }) {
             onConfirm: async () => {
                 setActionLoading(true);
                 try {
-                    await api.stopGit();
+                    await giteaApi.stopGit();
                     toast.success(t('app.git.gitServerStopped', 'Git server stopped'));
                     await loadStatus();
                 } catch (error) {

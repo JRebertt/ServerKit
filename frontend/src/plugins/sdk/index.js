@@ -187,6 +187,9 @@ export {
     useTableChrome, GridViewPicker, GridChips, GridFilterButton,
     GridToolsMenu, GridFilterDrawer,
 } from '../../components/ds/grid';
+export {
+    statusKind, statusVariant, statusDotClass, statusLabel,
+} from '../../components/ds/status';
 export { default as PageLayout } from '../../layouts/PageLayout';
 export { useTableSort } from '../../hooks/useTableSort';
 export { useColumnVisibility } from '../../hooks/useColumnVisibility';
