@@ -14,6 +14,7 @@ from app.services.run_log_service import append_log, stream_for
 from app.services.docker_service import DockerService
 from app.services.template_service import TemplateService
 from app.services.telemetry_service import generate_correlation_id
+from app.utils.slug import app_name_clash_error
 
 # Unified job kinds (see register_jobs()): asynchronous template installs,
 # builds/deploys of existing apps (e.g. repo-based services from Flow A), and
@@ -49,7 +50,8 @@ class DeploymentJobService:
         if existing:
             return {
                 'success': False,
-                'error': f'An application named "{app_name}" already exists on this target server'
+                'error': app_name_clash_error(existing, app_name,
+                                              suffix=' on this target server')
             }
 
         if normalized_server_id:

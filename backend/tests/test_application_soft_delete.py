@@ -263,3 +263,28 @@ def test_a_tombstoned_app_keeps_its_domains(app, live_app):
         db.session.commit()
 
         assert Domain.query.filter_by(application_id=live_app.id).count() == 1
+
+
+# ------------------------------------------------ naming the name reservation
+
+def test_a_tombstone_clash_names_the_recycle_bin(app, client, auth_headers, dead_app):
+    """The reservation is deliberate, but "already exists" points at an app
+    that is in no list — the message must say where the name is being held
+    and how to release it (GH report: delete an app, can't reuse the name)."""
+    res = client.post('/api/v1/templates/validate-install', headers=auth_headers,
+                      json={'template_id': 'actualbudget', 'app_name': 'shop'})
+
+    assert res.status_code == 400
+    errors = ' '.join(res.get_json()['errors'])
+    assert 'Recycle Bin' in errors
+    assert 'purge' in errors
+
+
+def test_a_live_clash_keeps_the_plain_already_exists(app, client, auth_headers, live_app):
+    res = client.post('/api/v1/templates/validate-install', headers=auth_headers,
+                      json={'template_id': 'actualbudget', 'app_name': 'shop'})
+
+    assert res.status_code == 400
+    errors = ' '.join(res.get_json()['errors'])
+    assert 'already exists' in errors
+    assert 'Recycle Bin' not in errors

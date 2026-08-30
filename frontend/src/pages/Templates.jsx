@@ -898,7 +898,13 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                 setInstalling(false);
             }
         } catch (err) {
-            setErrors([err?.data?.error || err.message || 'Installation failed']);
+            // validate-install 400s with an `errors` ARRAY (no `error` key),
+            // and request() throws on any non-2xx — so invalid input lands
+            // here, never in the `!validation.valid` branch above.
+            const serverErrors = Array.isArray(err?.data?.errors) && err.data.errors.length
+                ? err.data.errors
+                : [err?.data?.error || err.message || 'Installation failed'];
+            setErrors(serverErrors);
             setInstalling(false);
         }
     }
