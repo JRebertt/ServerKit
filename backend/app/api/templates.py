@@ -18,7 +18,7 @@ from app.services.deployment_job_service import DeploymentJobService
 from app.services.template_service import TemplateService
 from app.services.repository_manifest_service import RepositoryManifestService
 from app.services.resource_grant_service import ResourceGrantService
-from app.utils.slug import validate_app_name
+from app.utils.slug import app_name_clash_error, validate_app_name
 from app.error_reporting import unexpected_response
 
 templates_bp = Blueprint('templates', __name__)
@@ -410,7 +410,7 @@ def validate_installation():
         if app_name:
             existing = Application.query.filter_by(name=app_name).first()
             if existing:
-                errors.append(f'An application named "{app_name}" already exists')
+                errors.append(app_name_clash_error(existing, app_name))
 
         # Validate template exists and check required variables
         if template_id:
