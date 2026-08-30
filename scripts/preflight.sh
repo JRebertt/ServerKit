@@ -104,6 +104,20 @@ if [ -n "$NODE" ]; then
         note_fail 'frontend boundaries'
     fi
 
+    banner 'builtin frontend drift'
+    # Extensions CI red on 2026-08-30: a builtin-extensions/ manifest changed
+    # without re-running the sync, and nothing local caught it. Same contract
+    # as the inventory below: a fixable failure is fixed, then flagged so the
+    # diff gets reviewed and committed.
+    if (cd "$REPO" && "$NODE" "$(node_path "$REPO/scripts/sync-builtin-frontends.mjs")" --check >/dev/null 2>&1); then
+        echo 'pre-bundled copies match builtin-extensions/ sources'
+    elif (cd "$REPO" && "$NODE" "$(node_path "$REPO/scripts/sync-builtin-frontends.mjs")"); then
+        echo 'pre-bundled copies were stale and have been re-synced -- review and commit the diff' >&2
+        note_fail 'builtin frontend drift (re-synced; commit the diff)'
+    else
+        note_fail 'builtin frontend drift (sync script failed)'
+    fi
+
     banner 'migration inventory is regenerated'
     # Compared against a snapshot of the file, NOT against HEAD: an uncommitted
     # but correct regeneration is a pass, and only a number that actually moved
@@ -121,7 +135,7 @@ if [ -n "$NODE" ]; then
     fi
     rm -f "$before"
 else
-    note_skip 'frontend boundaries + migration inventory (no node on PATH)'
+    note_skip 'frontend boundaries + builtin frontend drift + migration inventory (no node on PATH)'
 fi
 
 # ---------------------------------------------------------------------------
