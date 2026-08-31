@@ -33,7 +33,9 @@ class EnvironmentActivity(JsonColumnMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    site = db.relationship('WordPressSite', backref=db.backref('activities', lazy='dynamic'))
+    # cascade: site_id is NOT NULL — a site's activity log dies with the site.
+    site = db.relationship('WordPressSite', backref=db.backref(
+        'activities', lazy='dynamic', cascade='all, delete-orphan'))
     user = db.relationship('User', backref=db.backref('environment_activities', lazy='dynamic'))
 
     def to_dict(self):

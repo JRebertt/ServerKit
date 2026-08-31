@@ -36,8 +36,12 @@ class Workspace(JsonColumnMixin, TimestampMixin, db.Model):
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
-    members = db.relationship('WorkspaceMember', backref='workspace', lazy='dynamic')
-    api_keys = db.relationship('WorkspaceApiKey', backref='workspace', lazy='dynamic')
+    # cascade: both child FKs are NOT NULL — memberships and keys die with the
+    # workspace, or the default FK null-out IntegrityErrors on delete.
+    members = db.relationship('WorkspaceMember', backref='workspace',
+                              lazy='dynamic', cascade='all, delete-orphan')
+    api_keys = db.relationship('WorkspaceApiKey', backref='workspace',
+                               lazy='dynamic', cascade='all, delete-orphan')
 
     @property
     def settings(self):
@@ -85,7 +89,9 @@ class WorkspaceMember(db.Model):
 
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('workspace_memberships', lazy='dynamic'))
+    # cascade: user_id is NOT NULL — memberships die with the account too.
+    user = db.relationship('User', backref=db.backref(
+        'workspace_memberships', lazy='dynamic', cascade='all, delete-orphan'))
 
     __table_args__ = (
         db.UniqueConstraint('workspace_id', 'user_id', name='uq_workspace_user'),

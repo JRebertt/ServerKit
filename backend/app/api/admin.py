@@ -216,6 +216,17 @@ def delete_user(user_id):
         if admin_count <= 1:
             return jsonify({'error': 'Cannot delete the last admin'}), 400
 
+    # Applications never ride a user delete: their user_id is NOT NULL, but the
+    # rows own containers and volumes that must go through app delete + Recycle
+    # Bin purge — never a silent cascade. Unfiltered on purpose: a tombstoned
+    # app still holds the FK, so it blocks too.
+    from app.models import Application
+    owned = Application.query.filter_by(user_id=user.id).count()
+    if owned:
+        return jsonify({'error': f'User still owns {owned} application(s), '
+                                 'including any in the Recycle Bin — delete or '
+                                 'purge them first'}), 409
+
     username = user.username
     user_id_deleted = user.id
 

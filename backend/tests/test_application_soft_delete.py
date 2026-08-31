@@ -190,26 +190,76 @@ def test_purge_takes_the_one_to_one_policy_rows_with_it(app, dead_app, monkeypat
         assert Deployment.query.filter_by(app_id=dead_app.id).first() is None
 
 
-def test_every_not_null_child_of_application_cascades_deletes(app):
-    """The invariant behind the purge crash, pinned for FUTURE models too: any
-    one-to-many from Application whose child FK is NOT NULL must carry a delete
-    cascade, because SQLAlchemy's default on parent delete is to NULL the child
-    FK — which the NOT NULL constraint turns into an IntegrityError at purge."""
+# Relationships DELIBERATELY left without a delete cascade. Each entry must be
+# backed by something that keeps the parent delete from ever reaching the FK
+# null-out — a guard, or the absence of any delete path:
+#   User.applications      — delete_user REFUSES (409) while the user owns apps;
+#                            apps go through app delete + Recycle Bin purge so
+#                            containers/volumes are cleaned, never a cascade.
+#   CloudProvider.servers  — no code path deletes a CloudProvider row today;
+#                            silently dropping the inventory of provisioned
+#                            (billing!) VMs must stay a deliberate decision.
+DELIBERATELY_UNCASCADED = {
+    'User.applications',
+    'CloudProvider.servers',
+}
+
+
+def test_every_not_null_child_relationship_cascades_deletes(app):
+    """The invariant behind the purge crash, pinned for EVERY model: a
+    one-to-many whose child FK is NOT NULL must carry a delete cascade, because
+    SQLAlchemy's default on parent delete — dynamic relationships included — is
+    to NULL the child FK, which the NOT NULL constraint turns into an
+    IntegrityError the moment anything hard-deletes the parent (Recycle Bin
+    purge, retention pruning, admin deletes). Exceptions are enumerated and
+    justified in DELIBERATELY_UNCASCADED above."""
     from sqlalchemy import inspect as sa_inspect
 
     with app.app_context():
-        offenders = []
-        for rel in sa_inspect(Application).relationships:
-            if rel.direction.name != 'ONETOMANY' or rel.viewonly:
+        offenders = set()
+        seen = set()
+        for mapper in db.Model.registry.mappers:
+            cls = mapper.class_
+            if cls in seen:
                 continue
-            fk_cols = [c for c in rel.remote_side if c.foreign_keys]
-            if not fk_cols or all(c.nullable for c in fk_cols):
-                continue
-            if 'delete' not in rel.cascade:
-                offenders.append(str(rel))
-        assert not offenders, (
-            'NOT NULL children of Application without a delete cascade '
-            f'(purge would IntegrityError): {offenders}')
+            seen.add(cls)
+            for rel in mapper.relationships:
+                if rel.direction.name != 'ONETOMANY' or rel.viewonly:
+                    continue
+                fk_cols = [c for c in rel.remote_side if c.foreign_keys]
+                if not fk_cols or all(c.nullable for c in fk_cols):
+                    continue
+                if 'delete' not in rel.cascade:
+                    offenders.add(f'{cls.__name__}.{rel.key}')
+        unexpected = offenders - DELIBERATELY_UNCASCADED
+        assert not unexpected, (
+            'NOT NULL child relationships without a delete cascade (a parent '
+            f'hard-delete would IntegrityError): {sorted(unexpected)}')
+        # The allowlist may only shrink: an entry that stops matching is stale.
+        stale = DELIBERATELY_UNCASCADED - offenders
+        assert not stale, f'stale DELIBERATELY_UNCASCADED entries: {sorted(stale)}'
+
+
+def test_deleting_a_user_who_owns_applications_is_refused(app, client, auth_headers, dead_app):
+    """The User.applications entry in DELIBERATELY_UNCASCADED is only honest
+    while delete_user refuses instead of 500ing — even for a tombstoned app,
+    which still holds the NOT NULL FK."""
+    from werkzeug.security import generate_password_hash
+    from app.models import User
+
+    with app.app_context():
+        owner = User(email='app-owner@test.local', username='app-owner',
+                     password_hash=generate_password_hash('x'),
+                     role=User.ROLE_DEVELOPER, is_active=True)
+        db.session.add(owner)
+        db.session.commit()
+        Application.query.get(dead_app.id).user_id = owner.id
+        db.session.commit()
+        owner_id = owner.id
+
+    res = client.delete(f'/api/v1/admin/users/{owner_id}', headers=auth_headers)
+    assert res.status_code == 409, res.get_json()
+    assert 'application' in res.get_json()['error']
 
 
 def test_purge_honours_an_explicit_remove_data_false(app, dead_app, monkeypatch):

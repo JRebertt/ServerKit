@@ -28,7 +28,9 @@ class SourceConnection(SerializableMixin, db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_used_at = db.Column(db.DateTime, nullable=True)
 
-    user = db.relationship('User', backref=db.backref('source_connections', lazy='dynamic'))
+    # cascade: user_id is NOT NULL — a user's git credentials die with the account.
+    user = db.relationship('User', backref=db.backref(
+        'source_connections', lazy='dynamic', cascade='all, delete-orphan'))
 
     __table_args__ = (
         db.UniqueConstraint('user_id', 'provider', name='uq_source_connection_user_provider'),

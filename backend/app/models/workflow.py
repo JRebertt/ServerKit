@@ -29,7 +29,9 @@ class Workflow(JsonColumnMixin, TimestampMixin, db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # Relationships
-    user = db.relationship('User', backref=db.backref('workflows', lazy='dynamic'))
+    # cascade: user_id is NOT NULL — a user's workflows die with the account.
+    user = db.relationship('User', backref=db.backref(
+        'workflows', lazy='dynamic', cascade='all, delete-orphan'))
     executions = db.relationship('WorkflowExecution', backref='workflow', lazy='dynamic', cascade='all, delete-orphan')
 
     def to_dict(self):

@@ -194,7 +194,10 @@ class DeploymentDiff(JsonColumnMixin, db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    deployment = db.relationship('Deployment', foreign_keys=[deployment_id], backref='diff')
+    # cascade: deployment_id is NOT NULL — retention pruning (and app purge)
+    # deletes Deployment rows, which must take their diff along.
+    deployment = db.relationship('Deployment', foreign_keys=[deployment_id],
+                                 backref=db.backref('diff', cascade='all, delete-orphan'))
 
     def to_dict(self):
         return {

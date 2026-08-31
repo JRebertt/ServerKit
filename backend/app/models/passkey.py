@@ -29,7 +29,9 @@ class PasskeyCredential(JsonColumnMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_used_at = db.Column(db.DateTime, nullable=True)
 
-    user = db.relationship('User', backref=db.backref('passkeys', lazy='dynamic'))
+    # cascade: user_id is NOT NULL — passkeys die with the account.
+    user = db.relationship('User', backref=db.backref(
+        'passkeys', lazy='dynamic', cascade='all, delete-orphan'))
 
     def get_transports(self):
         return self._json_read('transports', [])

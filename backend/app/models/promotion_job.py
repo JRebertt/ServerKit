@@ -40,10 +40,14 @@ class PromotionJob(JsonColumnMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
+    # cascade: both site FKs are NOT NULL — a promotion record cannot outlive
+    # either endpoint, so deleting a site takes its job history along.
     source_site = db.relationship('WordPressSite', foreign_keys=[source_site_id],
-                                  backref=db.backref('promotions_as_source', lazy='dynamic'))
+                                  backref=db.backref('promotions_as_source', lazy='dynamic',
+                                                     cascade='all, delete-orphan'))
     target_site = db.relationship('WordPressSite', foreign_keys=[target_site_id],
-                                  backref=db.backref('promotions_as_target', lazy='dynamic'))
+                                  backref=db.backref('promotions_as_target', lazy='dynamic',
+                                                     cascade='all, delete-orphan'))
     user = db.relationship('User', backref=db.backref('promotion_jobs', lazy='dynamic'))
     pre_promotion_snapshot = db.relationship('DatabaseSnapshot', foreign_keys=[pre_promotion_snapshot_id])
 

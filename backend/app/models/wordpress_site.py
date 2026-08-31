@@ -113,17 +113,21 @@ class WordPressSite(JsonColumnMixin, TimestampMixin, db.Model):
     vulnerabilities = db.relationship('WordPressVulnerability', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     update_runs = db.relationship('WordPressUpdateRun', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     reports = db.relationship('WordPressReport', backref='site', lazy='dynamic', cascade='all, delete-orphan')
+    # cascade on both: the site FKs are NOT NULL, so a sync job cannot outlive
+    # either endpoint — deleting a site takes its job history along.
     sync_jobs_as_source = db.relationship(
         'SyncJob',
         foreign_keys='SyncJob.source_site_id',
         backref='source_site',
-        lazy='dynamic'
+        lazy='dynamic',
+        cascade='all, delete-orphan'
     )
     sync_jobs_as_target = db.relationship(
         'SyncJob',
         foreign_keys='SyncJob.target_site_id',
         backref='target_site',
-        lazy='dynamic'
+        lazy='dynamic',
+        cascade='all, delete-orphan'
     )
 
     def to_dict(self, include_environments=False, include_snapshots=False):
