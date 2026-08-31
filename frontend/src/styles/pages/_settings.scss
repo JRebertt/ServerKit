@@ -1012,6 +1012,10 @@
                 }
             }
 
+            &.running {
+                color: $text-secondary;
+            }
+
             &.error {
                 color: $danger;
 
@@ -1029,6 +1033,49 @@
                         color: $accent-hover;
                     }
                 }
+            }
+        }
+
+        .update-confirm {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: $space-2;
+            margin-top: $space-3;
+            font-size: $font-size-xs;
+            color: $warning;
+
+            span {
+                max-width: 46ch;
+                text-align: start;
+            }
+        }
+
+        .update-capability-note {
+            margin-top: $space-2;
+            font-size: $font-size-xs;
+            color: $text-muted;
+        }
+
+        .update-progress {
+            .spinning {
+                animation: spin 1s linear infinite;
+            }
+
+            .update-log {
+                margin-top: $space-3;
+                max-height: 200px;
+                overflow: auto;
+                padding: $space-3;
+                background: $bg-elevated;
+                border: 1px solid $border-subtle;
+                border-radius: $radius-md;
+                font-size: $font-size-xs;
+                text-align: start;
+                white-space: pre-wrap;
+                word-break: break-word;
+                color: $text-secondary;
             }
         }
     }

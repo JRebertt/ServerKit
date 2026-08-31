@@ -121,6 +121,17 @@ export async function checkUpdate() {
     return this.request('/system/check-update');
 }
 
+export async function getPanelUpdateStatus() {
+    return this.request('/system/update');
+}
+
+export async function startPanelUpdate() {
+    return this.request('/system/update', {
+        method: 'POST',
+        body: { confirm: true }
+    });
+}
+
 export async function getSystemProcesses() {
     return this.request('/system/processes');
 }

@@ -668,6 +668,7 @@ Regenerate (backend/):
 - `GET /system/services`
 - `GET /system/time`
 - `GET /system/timezones`
+- `GET /system/update`
 - `GET /system/version`
 - `GET /telemetry/event-types`
 - `GET /telemetry/events`
@@ -1217,6 +1218,7 @@ Regenerate (backend/):
 - `POST /sso/saml/callback`
 - `POST /support-bundle`
 - `POST /system/disk/reclaim`
+- `POST /system/update`
 - `POST /telemetry/events/test`
 - `POST /templates/apps/{app_id}/update`
 - `POST /templates/local`

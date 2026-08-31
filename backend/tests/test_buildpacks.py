@@ -175,6 +175,40 @@ def test_generate_dockerfile_node_build_keeps_dev_dependencies():
     assert df.index('RUN npm install\n') < df.index('RUN npm run build')
 
 
+def test_detect_vite_defaults_to_serve_not_preview(tmp_path):
+    """`vite preview` host-checks against preview.allowedHosts and blocks
+    every domain the panel proxy forwards -- the default start command must
+    be a host-agnostic static server, and the generator must preinstall it
+    (the repo never declares serve)."""
+    (tmp_path / 'package.json').write_text(json.dumps({
+        'name': 'v', 'scripts': {'build': 'vite build'},
+        'devDependencies': {'vite': '^6.0.0'},
+    }), encoding='utf-8')
+
+    plan = BuildpackService.detect(str(tmp_path))
+    assert plan['framework'] == 'vite'
+    assert plan['start_command'].startswith('serve ')
+    assert 'preview' not in plan['start_command']
+
+    df = BuildpackService.generate_dockerfile(plan)
+    assert 'RUN npm install -g serve' in df
+
+
+def test_detect_vite_repo_start_script_wins(tmp_path):
+    """A repo-authored start script is the author's contract -- keep it,
+    and don't preinstall serve for a command that doesn't use it."""
+    (tmp_path / 'package.json').write_text(json.dumps({
+        'name': 'v', 'scripts': {'build': 'vite build',
+                                 'start': 'node server.mjs'},
+        'devDependencies': {'vite': '^6.0.0'},
+    }), encoding='utf-8')
+
+    plan = BuildpackService.detect(str(tmp_path))
+    assert plan['start_command'] == 'node server.mjs'
+    assert 'RUN npm install -g serve' not in \
+        BuildpackService.generate_dockerfile(plan)
+
+
 def test_generate_dockerfile_node_without_build_omits_dev():
     plan = {
         'builder': 'nixpacks', 'language': 'node', 'framework': 'express',
