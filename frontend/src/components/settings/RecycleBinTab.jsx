@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Trash2, Undo2, RefreshCw } from 'lucide-react';
+import { Trash2, Undo2 } from 'lucide-react';
 import api from '@/services/api';
 import { useToast } from '@/contexts/ToastContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -228,18 +228,6 @@ export default function RecycleBinTab() {
 
     return (
         <div className="settings-section recyclebin">
-            <div className="settings-section__head">
-                <div>
-                    <h2>{t('app.recycleBinTab.recycleBin', 'Recycle bin')}</h2>
-                    <p className="settings-section__hint">
-                        {t('app.recycleBinTab.deletedRecordsAreKeptFor', 'Deleted records are kept for')} {retentionDays} {t('app.recycleBinTab.daysSoTheyCanBePut', 'days so they can be put back. Restoring returns the record itself — it does not re-apply configuration that was torn down at delete time (a domain’s vhost, for example).')}
-                    </p>
-                </div>
-                <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                    <RefreshCw size={15} /> {t('common.actions.refresh', 'Refresh')}
-                </Button>
-            </div>
-
             {loading ? (
                 <EmptyState loading loadingVariant="table" title={t('app.recycleBinTab.loadingDeletedRecords', 'Loading deleted records…')} />
             ) : items.length === 0 ? (
@@ -250,9 +238,6 @@ export default function RecycleBinTab() {
                 />
             ) : (
                 <>
-                    {/* The section's h2 above stays put — it heads the
-                        retention explanation as much as the table, so the
-                        picker sits with the table it actually belongs to. */}
                     <GridViewPicker
                         views={chrome.views}
                         label="items"
