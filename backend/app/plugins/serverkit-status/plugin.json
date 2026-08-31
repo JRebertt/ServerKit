@@ -2,7 +2,7 @@
   "name": "serverkit-status",
   "display_name": "Status Pages",
   "version": "1.0.0",
-  "description": "Public status pages backed by uptime monitors, with the management UI as a tab in the Observability group. Installing the extension serves the public /status/<slug> and /status/badge/<slug> pages too.",
+  "description": "Public status pages backed by uptime monitors, with the management UI as a tab in the Observability group. The public /status/<slug> page itself stays core.",
   "author": "ServerKit",
   "license": "MIT",
   "category": "monitoring",

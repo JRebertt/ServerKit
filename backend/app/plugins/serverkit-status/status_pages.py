@@ -64,7 +64,7 @@ def update_page(page_id):
     user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
-    data = request.get_json()
+    data = request.get_json() or {}
     page = StatusPageService.update_page(page_id, data)
     if not page:
         return jsonify({'error': 'Not found'}), 404
@@ -99,7 +99,7 @@ def create_component(page_id):
     user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
-    data = request.get_json()
+    data = request.get_json() or {}
     try:
         comp = StatusPageService.create_component(page_id, data)
         return jsonify(comp.to_dict()), 201
@@ -113,7 +113,7 @@ def update_component(comp_id):
     user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
-    data = request.get_json()
+    data = request.get_json() or {}
     comp = StatusPageService.update_component(comp_id, data)
     if not comp:
         return jsonify({'error': 'Not found'}), 404
@@ -182,7 +182,7 @@ def update_incident(incident_id):
     user = get_current_user()
     if not user or not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
-    data = request.get_json()
+    data = request.get_json() or {}
     incident = StatusPageService.update_incident(incident_id, data)
     if not incident:
         return jsonify({'error': 'Not found'}), 404
