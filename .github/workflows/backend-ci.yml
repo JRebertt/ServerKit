@@ -127,3 +127,33 @@ jobs:
         env:
           SERVERKIT_REAL_BINARIES: '1'
         run: python -m pytest tests -m real_binaries -v
+
+  # The @docker_builds leg: generated buildpack Dockerfiles meet the REAL
+  # docker daemon — detect() -> generate_dockerfile() -> `docker build` ->
+  # `docker run` -> HTTP probe, per stack. Same lesson as real-binaries:
+  # test_buildpacks.py asserts on Dockerfile TEXT, which cannot see a bug
+  # that only fails at build or boot time (the `npm install --omit=dev ||
+  # npm install` dead fallback exited 0 and shipped `vite: not found` to a
+  # user's deploy). The tests skip themselves everywhere unless
+  # SERVERKIT_DOCKER_BUILDS=1, so the shards above never pull images.
+  docker-builds:
+    name: docker builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+      - name: Run docker-builds tests
+        working-directory: backend
+        env:
+          SERVERKIT_DOCKER_BUILDS: '1'
+        run: python -m pytest tests -m docker_builds -v

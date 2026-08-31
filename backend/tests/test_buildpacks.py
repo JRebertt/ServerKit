@@ -59,6 +59,19 @@ def test_detect_python_flask(tmp_path):
     assert plan['build_command'].startswith('pip install')
 
 
+def test_detect_python_installs_invented_server(tmp_path):
+    """When the buildpack invents a gunicorn/uvicorn start command, the build
+    must install that server -- a repo that never asked for it won't declare
+    it, and the container would die at boot with `gunicorn: not found`."""
+    (tmp_path / 'requirements.txt').write_text('Flask==3.0\n', encoding='utf-8')
+    (tmp_path / 'app.py').write_text('app = None\n', encoding='utf-8')
+
+    plan = BuildpackService.detect(str(tmp_path))
+
+    assert plan['start_command'].startswith('gunicorn')
+    assert 'pip install --no-cache-dir gunicorn' in plan['build_command']
+
+
 def test_detect_python_version_from_pyproject(tmp_path):
     (tmp_path / 'pyproject.toml').write_text(
         '[project]\nname="x"\nrequires-python = ">=3.12"\n', encoding='utf-8')
@@ -141,6 +154,35 @@ def test_generate_dockerfile_node():
     assert 'npm run build' in df
     assert 'EXPOSE 3000' in df
     assert 'server.js' in df
+
+
+def test_generate_dockerfile_node_build_keeps_dev_dependencies():
+    """A build step needs devDependencies (vite, tsc, ...).
+
+    `npm install --omit=dev` exits 0, so an `|| npm install` fallback never
+    fires and `npm run build` dies with `vite: not found`.
+    """
+    plan = {
+        'builder': 'nixpacks', 'language': 'node', 'framework': 'vite',
+        'versions': {'node': '24'}, 'build_command': 'npm run build',
+        'start_command': 'vite preview --host --port 4173', 'port': 4173,
+    }
+    df = BuildpackService.generate_dockerfile(plan)
+    assert '--omit=dev' not in df
+    assert 'RUN npm install\n' in df
+    # Locally installed CLIs are only reachable via node_modules/.bin.
+    assert 'ENV PATH=/app/node_modules/.bin:$PATH' in df
+    assert df.index('RUN npm install\n') < df.index('RUN npm run build')
+
+
+def test_generate_dockerfile_node_without_build_omits_dev():
+    plan = {
+        'builder': 'nixpacks', 'language': 'node', 'framework': 'express',
+        'versions': {'node': '20'}, 'start_command': 'node server.js',
+        'port': 3000,
+    }
+    df = BuildpackService.generate_dockerfile(plan)
+    assert 'RUN npm install --omit=dev || npm install' in df
 
 
 def test_generate_dockerfile_python():

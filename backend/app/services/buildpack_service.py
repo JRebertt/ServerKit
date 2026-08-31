@@ -211,6 +211,15 @@ class BuildpackService:
         elif 'Pipfile' in files:
             plan['build_command'] = 'pip install --no-cache-dir pipenv && pipenv install --system --deploy'
 
+        # The start command above may name a server the buildpack chose
+        # itself (gunicorn/uvicorn) -- a repo that never asked for it won't
+        # declare it, and the container would die at boot with
+        # `gunicorn: not found`. Installing it is a no-op when the repo
+        # already pins it.
+        server_pkg = (plan['start_command'] or '').split(' ', 1)[0]
+        if server_pkg in ('gunicorn', 'uvicorn') and plan.get('build_command'):
+            plan['build_command'] += f' && pip install --no-cache-dir {server_pkg}'
+
         plan['notes'].append(
             f"Detected Python{f' ({framework})' if framework else ''}; "
             f"using Python {plan['versions']['python']}."
@@ -513,10 +522,20 @@ class BuildpackService:
             f'# syntax=docker/dockerfile:1',
             f'FROM node:{version}-slim',
             'WORKDIR /app',
+            # Locally installed CLIs (vite, next, nest, ...) live in
+            # node_modules/.bin, which is not on PATH for RUN/CMD.
+            'ENV PATH=/app/node_modules/.bin:$PATH',
             'COPY package*.json ./',
-            'RUN npm install --omit=dev || npm install',
-            'COPY . .',
         ]
+        if build:
+            # Build tooling (vite, tsc, webpack) is almost always a
+            # devDependency, and so is the server for preview-style start
+            # commands -- install the full dependency set. `--omit=dev`
+            # exits 0, so a `|| npm install` fallback would never fire.
+            lines.append('RUN npm install')
+        else:
+            lines.append('RUN npm install --omit=dev || npm install')
+        lines.append('COPY . .')
         if build:
             lines.append(f'RUN {build}')
         lines += [
