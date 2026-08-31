@@ -5,35 +5,31 @@ import api from '../services/api';
 import {
     OverviewTab,
     FirewallTab,
-    Fail2banTab,
     SSHKeysTab,
     IPListsTab,
-    ScannerTab,
-    QuarantineTab,
     IntegrityTab,
     AuditTab,
-    VulnerabilityTab,
-    AutoUpdatesTab,
     EventsTab,
     SecurityConfigTab,
 } from '../components/security';
 import EmptyState from '../components/EmptyState';
 import { useTranslation } from 'react-i18next';
 
-const VALID_TABS = ['overview', 'firewall', 'fail2ban', 'ssh-keys', 'ip-lists', 'scanner', 'quarantine', 'integrity', 'audit', 'vulnerability', 'updates', 'events', 'settings'];
+// Core tabs only. The install-gated tools (fail2ban, malware scanner,
+// quarantine, vulnerability scan, auto-updates) are security extensions now:
+// they contribute their own tabs + group routes, which mount beside these and
+// win over the /security/:tab fallback when installed.
+const VALID_TABS = ['overview', 'firewall', 'ssh-keys', 'ip-lists', 'integrity', 'audit', 'events', 'settings'];
 
 const Security = () => {
     const { t } = useTranslation();
     const { isAdmin } = useAuth();
     const [activeTab, setActiveTab] = useTabParam('/security', VALID_TABS);
     const [status, setStatus] = useState(null);
-    const [clamav, setClamav] = useState(null);
-    const [clamavLoading, setClamavLoading] = useState(true);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         loadStatus();
-        loadClamav();
     }, []);
 
     async function loadStatus() {
@@ -47,21 +43,10 @@ const Security = () => {
         }
     }
 
-    async function loadClamav() {
-        try {
-            const data = await api.getClamAVStatus();
-            setClamav(data);
-        } catch (err) {
-            console.error('Failed to load ClamAV status:', err);
-        } finally {
-            setClamavLoading(false);
-        }
-    }
-
-    // Re-pull both status feeds — passed to the Overview so a one-click fix
-    // (install ClamAV, enable integrity, …) reflects in the posture immediately.
+    // Re-pull the status feed — passed to the Overview so a one-click fix
+    // (enable integrity, …) reflects in the posture immediately.
     async function reload() {
-        await Promise.all([loadStatus(), loadClamav()]);
+        await loadStatus();
     }
 
     if (loading) {
@@ -75,17 +60,12 @@ const Security = () => {
     return (
         <div className="sk-tabgroup__inner security-page">
             <div className="tab-content">
-                {activeTab === 'overview' && <OverviewTab status={status} clamavStatus={clamav} clamavLoading={clamavLoading} onRefresh={reload} onNavigateTab={setActiveTab} />}
+                {activeTab === 'overview' && <OverviewTab status={status} onRefresh={reload} onNavigateTab={setActiveTab} />}
                 {activeTab === 'firewall' && <FirewallTab />}
-                {activeTab === 'fail2ban' && <Fail2banTab />}
                 {activeTab === 'ssh-keys' && <SSHKeysTab />}
                 {activeTab === 'ip-lists' && <IPListsTab />}
-                {activeTab === 'scanner' && <ScannerTab />}
-                {activeTab === 'quarantine' && <QuarantineTab />}
                 {activeTab === 'integrity' && <IntegrityTab />}
                 {activeTab === 'audit' && <AuditTab />}
-                {activeTab === 'vulnerability' && <VulnerabilityTab />}
-                {activeTab === 'updates' && <AutoUpdatesTab />}
                 {activeTab === 'events' && <EventsTab />}
                 {activeTab === 'settings' && <SecurityConfigTab />}
             </div>

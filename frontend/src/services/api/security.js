@@ -1,5 +1,7 @@
-// Firewall, fail2ban, SSL certificates, ClamAV, file integrity,
-// SSH keys, IP lists, security audit, Lynis, auto-updates
+// Firewall, SSL certificates, file integrity, SSH keys, IP lists and the
+// security audit — the core security surfaces. The install-gated tool
+// clients (ClamAV/YARA/quarantine, fail2ban, Lynis, auto-updates) moved into
+// their security extensions with their tabs (plan 47 Ph3b-4).
 
 // Firewall endpoints
 export async function getFirewallStatus() {
@@ -179,109 +181,6 @@ export async function updateSecurityConfig(config) {
     });
 }
 
-export async function getClamAVStatus() {
-    return this.request('/security/clamav/status');
-}
-
-export async function installClamAV() {
-    return this.request('/security/clamav/install', { method: 'POST' });
-}
-
-export async function updateVirusDefinitions() {
-    return this.request('/security/clamav/update', { method: 'POST' });
-}
-
-export async function startClamAV() {
-    return this.request('/security/clamav/start', { method: 'POST' });
-}
-
-export async function scanFile(path) {
-    return this.request('/security/scan/file', {
-        method: 'POST',
-        body: { path }
-    });
-}
-
-export async function scanDirectory(path, recursive = true) {
-    return this.request('/security/scan/directory', {
-        method: 'POST',
-        body: { path, recursive }
-    });
-}
-
-export async function getScanStatus() {
-    return this.request('/security/scan/status');
-}
-
-export async function cancelScan() {
-    return this.request('/security/scan/cancel', { method: 'POST' });
-}
-
-export async function getScanHistory(limit = 50) {
-    return this.request(`/security/scan/history?limit=${limit}`);
-}
-
-export async function runQuickScan() {
-    return this.request('/security/scan/quick', { method: 'POST' });
-}
-
-export async function runFullScan() {
-    return this.request('/security/scan/full', { method: 'POST' });
-}
-
-export async function scanApp(appId) {
-    // Job-backed malware scan (YARA + ClamAV) of an app's docroot → { job_id }
-    return this.request(`/security/scan/app/${appId}`, { method: 'POST' });
-}
-
-export async function scanPathJob(path) {
-    return this.request('/security/scan/job', {
-        method: 'POST',
-        body: { path }
-    });
-}
-
-// YARA web-shell rules
-export async function getYaraRules() {
-    return this.request('/security/yara/rules');
-}
-
-export async function uploadYaraRule(filename, content) {
-    return this.request('/security/yara/rules', {
-        method: 'POST',
-        body: { filename, content }
-    });
-}
-
-export async function deleteYaraRule(filename) {
-    return this.request(`/security/yara/rules/${encodeURIComponent(filename)}`, {
-        method: 'DELETE'
-    });
-}
-
-export async function getQuarantinedFiles() {
-    return this.request('/security/quarantine');
-}
-
-export async function quarantineFile(path) {
-    return this.request('/security/quarantine', {
-        method: 'POST',
-        body: { path }
-    });
-}
-
-export async function deleteQuarantinedFile(filename) {
-    return this.request(`/security/quarantine/${encodeURIComponent(filename)}`, {
-        method: 'DELETE'
-    });
-}
-
-export async function restoreQuarantinedFile(filename) {
-    return this.request(`/security/quarantine/${encodeURIComponent(filename)}/restore`, {
-        method: 'POST'
-    });
-}
-
 export async function initializeIntegrityDatabase(paths = null) {
     return this.request('/security/integrity/initialize', {
         method: 'POST',
@@ -300,38 +199,6 @@ export async function getFailedLogins(hours = 24) {
 export async function getSecurityEvents(limit = 100) {
     return this.request(`/security/events?limit=${limit}`);
 }
-
-// Fail2ban endpoints
-export async function getFail2banStatus() {
-    return this.request('/security/fail2ban/status');
-}
-
-export async function installFail2ban() {
-    return this.request('/security/fail2ban/install', { method: 'POST' });
-}
-
-export async function getFail2banJailStatus(jail) {
-    return this.request(`/security/fail2ban/jails/${jail}`);
-}
-
-export async function getAllFail2banBans() {
-    return this.request('/security/fail2ban/bans');
-}
-
-export async function fail2banUnban(ip, jail = null) {
-    return this.request('/security/fail2ban/unban', {
-        method: 'POST',
-        body: { ip, jail }
-    });
-}
-
-export async function fail2banBan(ip, jail = 'sshd') {
-    return this.request('/security/fail2ban/ban', {
-        method: 'POST',
-        body: { ip, jail }
-    });
-}
-
 // SSH Key endpoints
 export async function getSSHKeys(user = 'root') {
     return this.request(`/security/ssh-keys?user=${user}`);
@@ -371,38 +238,4 @@ export async function removeFromIPList(ip, listType) {
 // Security Audit endpoints
 export async function generateSecurityAudit() {
     return this.request('/security/audit');
-}
-
-// Lynis (Vulnerability Scanning) endpoints
-export async function getLynisStatus() {
-    return this.request('/security/lynis/status');
-}
-
-export async function installLynis() {
-    return this.request('/security/lynis/install', { method: 'POST' });
-}
-
-export async function runLynisScan() {
-    return this.request('/security/lynis/scan', { method: 'POST' });
-}
-
-export async function getLynisScanStatus() {
-    return this.request('/security/lynis/scan/status');
-}
-
-// Auto Updates endpoints
-export async function getAutoUpdatesStatus() {
-    return this.request('/security/auto-updates/status');
-}
-
-export async function installAutoUpdates() {
-    return this.request('/security/auto-updates/install', { method: 'POST' });
-}
-
-export async function enableAutoUpdates() {
-    return this.request('/security/auto-updates/enable', { method: 'POST' });
-}
-
-export async function disableAutoUpdates() {
-    return this.request('/security/auto-updates/disable', { method: 'POST' });
 }

@@ -19,6 +19,30 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 The `dev` branch is well ahead of the last `main` release. The headline work
 awaiting a stable release:
 
+### Changed
+
+- **The security suite is now five installable extensions.** ClamAV/YARA
+  malware scanning and quarantine (`serverkit-clamav`), Fail2ban management
+  (`serverkit-fail2ban`), Lynis host audits (`serverkit-lynis`), automatic
+  security updates (`serverkit-auto-updates`) and container image CVE/SBOM
+  scanning (`serverkit-image-scan`) left the core panel for standalone
+  extensions installed from the Marketplace. Installed, they mount the same
+  `/api/v1/security/...` routes and the same Security-page tabs as before —
+  nothing about the surface changes. Not installed, a fresh panel's Security
+  page is a lean baseline (overview, firewall, SSH keys, IP lists, file
+  integrity, audit, events, settings) with no install nags. Panels upgrading
+  with the host tool already present get the matching extension installed
+  automatically once its registry entry is live. The setup wizard now asks
+  how much security tooling to install (minimal / recommended / hardened).
+  The panel core keeps fail2ban status probing and the per-site jail
+  write-half, so Setup Health, the security audit and per-site brute-force
+  jails work with or without the extensions.
+
+- **Email Server and Cloudflare Zone Ops frontends moved into their
+  extensions** (with their own API clients), the final in-tree step before
+  those extensions move to standalone repos. Core keeps the DNS-provider
+  connections and the Settings → Connections relay tile.
+
 ### Fixed
 
 - **Adding a server to the fleet works again on Docker installs.** The panel

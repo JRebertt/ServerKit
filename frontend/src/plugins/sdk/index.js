@@ -38,7 +38,7 @@
 // GET /api/v1/plugins/contributions. The backend mirror lives in
 // backend/app/utils/sdk.py — keep the two in lock-step (asserted by
 // backend/tests/test_sdk_contract.py).
-export const SDK_VERSION = '1.3.0';
+export const SDK_VERSION = '1.4.0';
 
 export { api, default as defaultApi } from '../../services/api';
 
@@ -174,3 +174,25 @@ export {
     GIT_PROVIDERS, detectProvider, RepoProviderStrip,
 } from '../../components/git/GitProviders';
 export { default as ProtectionPanel } from '../../components/backups/ProtectionPanel';
+
+// List-page chrome (1.4.0, plan 52 Phase 2 — the email/cloudflare-ops frontend
+// relocations proved these out). The full table kit a relocated list page
+// needs: the DataTable footer/toolbar pieces, the saved-view chrome from
+// ds/grid, the standalone-page layout, and the two table hooks. Same modules
+// core pages use — generic re-exports, no extension special-casing.
+export {
+    DataTableFooter, ListToolbar, SearchField, SortChipBar,
+} from '../../components/ds';
+export {
+    useTableChrome, GridViewPicker, GridChips, GridFilterButton,
+    GridToolsMenu, GridFilterDrawer,
+} from '../../components/ds/grid';
+export {
+    statusKind, statusVariant, statusDotClass, statusLabel,
+} from '../../components/ds/status';
+export { default as PageLayout } from '../../layouts/PageLayout';
+export { useTableSort } from '../../hooks/useTableSort';
+export { useColumnVisibility } from '../../hooks/useColumnVisibility';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
+export { PageLoader } from '../../components/PageLoader';
+export { copyToClipboard } from '../../utils/clipboard';

@@ -38,6 +38,13 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
     const [installing, setInstalling] = useState(false);
     const [installState, setInstallState] = useState({}); // slug -> 'installing'|'done'|'error'
 
+    // Security posture (plan 47 Ph5). Levels come catalog-resolved from the
+    // backend — a level only lists extensions that are installable right now,
+    // so this section renders honestly even before every security extension
+    // is published. 'minimal' is the lean default.
+    const [postures, setPostures] = useState({});
+    const [securityPosture, setSecurityPosture] = useState('minimal');
+
     useEffect(() => {
         let active = true;
         setRecsLoading(true);
@@ -46,6 +53,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                 if (!active) return;
                 const recs = res?.recommendations || [];
                 setRecommendations(recs);
+                setPostures(res?.security_postures || {});
                 // Default: everything checked ("lean" = uncheck what you don't want)
                 setChecked(new Set(recs.filter((r) => !r.installed).map((r) => r.slug)));
             })
@@ -70,19 +78,22 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
     }
 
     async function handleFinish() {
-        // Install the checked (not-already-installed) extensions, source-aware,
-        // one at a time with per-item progress. Fail-soft: an install failure is
-        // surfaced but never blocks completing onboarding.
-        const toInstall = recommendations.filter(
-            (r) => checked.has(r.slug) && !r.installed
-        );
+        // Install the checked (not-already-installed) extensions plus the
+        // chosen security posture's extensions, source-aware, one at a time
+        // with per-item progress. Fail-soft: an install failure is surfaced
+        // but never blocks completing onboarding.
+        const postureExts = (postures[securityPosture] || []);
+        const seen = new Set(recommendations.map((r) => r.slug));
+        const queue = recommendations
+            .filter((r) => checked.has(r.slug) && !r.installed)
+            .concat(postureExts.filter((r) => !r.installed && !seen.has(r.slug)));
         const installedSlugs = recommendations
             .filter((r) => r.installed && checked.has(r.slug))
             .map((r) => r.slug);
 
-        if (toInstall.length > 0) {
+        if (queue.length > 0) {
             setInstalling(true);
-            for (const rec of toInstall) {
+            for (const rec of queue) {
                 setInstallState((s) => ({ ...s, [rec.slug]: 'installing' }));
                 try {
                     if (rec.source === 'registry') {
@@ -98,7 +109,7 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
             }
         }
 
-        await onFinish(installedSlugs, sidebarPreset);
+        await onFinish(installedSlugs, sidebarPreset, securityPosture);
     }
 
     function formatSpecs() {
@@ -195,6 +206,47 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
                         <span className="summary-value">
                             {twoFactorEnabled ? 'Enabled' : 'Off — you can turn it on in Settings'}
                         </span>
+                    </div>
+
+                    {/* Security posture (plan 47 Ph5): how much tooling to
+                        install now. Only levels that resolve at least one
+                        installable extension differ from "minimal"; each card
+                        names exactly what it would install. */}
+                    <p className="recommendation-hint">
+                        {t('app.setupStepSummary.howMuchSecurityTooling', 'How much security tooling should we install? Everything here is an extension — add or remove any of it later from the Marketplace.')}
+                    </p>
+                    <div className="summary-preset-list">
+                        {[
+                            { key: 'minimal', label: t('app.setupStepSummary.postureMinimal', 'Minimal'), desc: t('app.setupStepSummary.postureMinimalDesc', 'The lean default: firewall, SSH keys, IP lists, integrity and audit — nothing extra installed.') },
+                            { key: 'recommended', label: t('app.setupStepSummary.postureRecommended', 'Recommended'), desc: t('app.setupStepSummary.postureRecommendedDesc', 'Adds brute-force protection and automatic security updates.') },
+                            { key: 'hardened', label: t('app.setupStepSummary.postureHardened', 'Hardened'), desc: t('app.setupStepSummary.postureHardenedDesc', 'Adds malware scanning, host audits, container image scanning and crowd-sourced IP blocking.') },
+                        ].map((level) => {
+                            const exts = postures[level.key] || [];
+                            return (
+                                <button
+                                    type="button"
+                                    key={level.key}
+                                    className={`summary-preset-card${securityPosture === level.key ? ' active' : ''}`}
+                                    onClick={() => setSecurityPosture(level.key)}
+                                    aria-pressed={securityPosture === level.key}
+                                    disabled={installing}
+                                >
+                                    <span className="summary-preset-card__head">
+                                        <span className="summary-preset-card__label">{level.label}</span>
+                                        {securityPosture === level.key && <Check size={14} />}
+                                    </span>
+                                    <span className="summary-preset-card__desc">
+                                        {level.desc}
+                                        {level.key !== 'minimal' && exts.length > 0 && (
+                                            <> {'— '}{exts.map((e) => e.display_name).join(', ')}</>
+                                        )}
+                                        {level.key !== 'minimal' && exts.length === 0 && (
+                                            <> {t('app.setupStepSummary.postureNotYetAvailable', '— not yet available from the extension registry; pick it later from the Marketplace.')}</>
+                                        )}
+                                    </span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 

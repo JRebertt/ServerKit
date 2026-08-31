@@ -272,40 +272,12 @@ export async function testFTPConnection(host = 'localhost', port = 21, username 
     });
 }
 
-// Git Server endpoints
-export async function getGitServerStatus() {
-    return this.request('/git/status');
-}
-
-export async function getGitRequirements() {
-    return this.request('/git/requirements');
-}
-
-export async function installGit(data) {
-    return this.request('/git/install', {
-        method: 'POST',
-        body: data
-    });
-}
-
-export async function uninstallGit(removeData = false) {
-    return this.request('/git/uninstall', {
-        method: 'POST',
-        body: { removeData }
-    });
-}
-
-export async function startGit() {
-    return this.request('/git/start', { method: 'POST' });
-}
-
-export async function stopGit() {
-    return this.request('/git/stop', { method: 'POST' });
-}
-
-export async function restartGit() {
-    return this.request('/git/restart', { method: 'POST' });
-}
+// The Gitea self-host surface (server lifecycle + repo browsing) moved into
+// the serverkit-git extension with the Git page (plan 52 Phase 6) - its own
+// client lives there. Core keeps the webhook + deployment endpoints below
+// (they ARE the deploy pipeline) and three fail-soft Gitea aliases the
+// app-creation repo pickers probe; those return 404 when the extension is
+// absent and the pickers already degrade to "not installed".
 
 // Git Webhooks
 export async function getWebhooks() {
@@ -344,57 +316,6 @@ export async function getGitWebhookLogs(webhookId, limit = 50) {
 
 export async function testWebhook(webhookId) {
     return this.request(`/git/webhooks/${webhookId}/test`, { method: 'POST' });
-}
-
-// Git Repositories
-export async function getRepositories(limit = 50) {
-    return this.request(`/git/repos?limit=${limit}`);
-}
-
-export async function getRepository(owner, repo) {
-    return this.request(`/git/repos/${owner}/${repo}`);
-}
-
-export async function getRepoStats(owner, repo) {
-    return this.request(`/git/repos/${owner}/${repo}/stats`);
-}
-
-export async function getBranches(owner, repo) {
-    return this.request(`/git/repos/${owner}/${repo}/branches`);
-}
-
-export async function getBranch(owner, repo, branch) {
-    return this.request(`/git/repos/${owner}/${repo}/branches/${branch}`);
-}
-
-export async function getCommits(owner, repo, branch = null, page = 1, limit = 30) {
-    let url = `/git/repos/${owner}/${repo}/commits?page=${page}&limit=${limit}`;
-    if (branch) url += `&branch=${branch}`;
-    return this.request(url);
-}
-
-export async function getCommit(owner, repo, sha) {
-    return this.request(`/git/repos/${owner}/${repo}/commits/${sha}`);
-}
-
-export async function getRepoFiles(owner, repo, ref = 'main', path = '') {
-    let url = `/git/repos/${owner}/${repo}/contents?ref=${ref}`;
-    if (path) url += `&path=${path}`;
-    return this.request(url);
-}
-
-export async function getFileContent(owner, repo, filepath, ref = 'main') {
-    return this.request(`/git/repos/${owner}/${repo}/contents/${filepath}?ref=${ref}`);
-}
-
-export async function getRepoReadme(owner, repo, ref = null) {
-    let url = `/git/repos/${owner}/${repo}/readme`;
-    if (ref) url += `?ref=${ref}`;
-    return this.request(url);
-}
-
-export async function getGiteaVersion() {
-    return this.request('/git/version');
 }
 
 // Self-documenting aliases for the local Gitea endpoints used by repo pickers.

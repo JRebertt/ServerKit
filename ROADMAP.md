@@ -628,8 +628,8 @@ happen live, and debug failures entirely from the UI.
 - [x] Explicit install consent for unsigned, unreviewed or third-party extension code
 - [x] Signed extension releases — all downloadable first-party artifacts publish detached ed25519 signatures, the canonical and bundled indexes carry them, and registry CI re-downloads and verifies the exact bytes against the pinned publisher key
 - [x] The WordPress flagship extracted to its own repo and installed from the Marketplace like any other extension
-- [ ] The remaining built-ins extracted to standalone repos
-- [ ] Security suite (Fail2ban, ClamAV, Lynis, auto-updates, image scanning) as installable extensions for a leaner default panel
+- [x] Security suite (Fail2ban, ClamAV, Lynis, auto-updates, image scanning) as installable extensions for a leaner default panel — the security omnibus is split, a fresh panel's Security page is a lean zero-host-package baseline, each tool is its own extension repo mounting the same routes and tabs when installed, upgraded panels with the host tool present get the extension back automatically, and the setup wizard asks how much security tooling to install
+- [x] The remaining built-ins extracted to standalone repos — localkit, email, cloudflare-ops and git (Gitea half; the deploy pipeline stays core) each have a standalone repo with the proven build/release pipeline; the in-tree copies stay bundled until each repo's first signed release lands in the registry, then the final cutover removes them
 
 ## Game Server Hosting (new extension family)
 

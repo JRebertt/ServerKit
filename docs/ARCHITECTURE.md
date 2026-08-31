@@ -295,6 +295,20 @@ Source lives in this repo under `builtin-extensions/`:
 > schema stays core forever — the **core data seam** (plan 52 D1, see
 > EXTENSIONS.md "Data models & policy").
 
+> **The security suite left core the same way** (plan 47 Ph3b-4 / plan 55
+> Phase 3): `serverkit-clamav` (ClamAV+YARA scanning, quarantine),
+> `serverkit-fail2ban` (management surface — status probing + the per-site
+> jail write-half stay core on `Fail2banJailService`), `serverkit-lynis`,
+> `serverkit-auto-updates`, and the headless `serverkit-image-scan`
+> (CVE/SBOM; `image_vulnerability_scans`/`sbom_artifacts` stay core tables).
+> Each mounts its routes back at the `/api/v1/security` prefix and
+> contributes tabs into the Security tab group (`groupId="security"`), so an
+> installed extension is indistinguishable from the pre-split page. The core
+> Security page keeps only the zero-host-package baseline: overview,
+> firewall, SSH keys, IP lists, integrity, audit, events, settings.
+> Upgrade parity: `extension_migration.run_registry_auto_install()` installs
+> each from the registry once when the matching host tool is present.
+
 ### Standalone extension repos
 
 These have their own repos and install from the registry as versioned,

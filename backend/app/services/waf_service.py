@@ -1,6 +1,6 @@
 """Per-application WAF management (ModSecurity v3 + OWASP Core Rule Set).
 
-Mirrors :class:`~app.services.image_scanner_service.ImageScannerService`:
+Mirrors the serverkit-image-scan extension's ImageScannerService:
 classmethods that shell out to install an external tool and return
 ``{'success': ...}`` dicts, degrading gracefully when the host lacks
 ModSecurity. The rule/snippet renderers are pure functions so they are

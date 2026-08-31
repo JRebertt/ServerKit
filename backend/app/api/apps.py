@@ -12,7 +12,7 @@ from sqlalchemy.orm import joinedload
 from app import db
 from app.api._query import apply_query, QueryParseError
 from app.models import Application, User
-from app.utils.slug import slugify
+from app.utils.slug import app_name_clash_error, slugify
 from app.services.build_service import BuildService
 from app.services.docker_service import DockerService
 from app.services.git_service import GitService
@@ -840,8 +840,10 @@ def create_app_from_repository():
     # NOT query_active: a tombstone keeps reserving its name (and, below, its
     # directory under APPS_DIR). Letting a new app take the name of one sitting
     # in the recycle bin would make the restore collide.
-    if Application.query.filter_by(name=name, server_id=None).first():
-        return jsonify({'error': f'An application named "{name}" already exists'}), 400
+    clash = app_name_clash_error(
+        Application.query.filter_by(name=name, server_id=None).first(), name)
+    if clash:
+        return jsonify({'error': clash}), 400
 
     try:
         app_path = _assert_managed_app_path(name)
@@ -1123,8 +1125,10 @@ def create_manual_app():
 
     # NOT query_active: a tombstone keeps reserving its name so a restore can't
     # collide with an app created in the meantime.
-    if Application.query.filter_by(name=name).first():
-        return jsonify({'error': f'An application named "{name}" already exists'}), 400
+    clash = app_name_clash_error(
+        Application.query.filter_by(name=name).first(), name)
+    if clash:
+        return jsonify({'error': clash}), 400
 
     from app.services.workspace_service import WorkspaceService
     ws_id = WorkspaceService.resolve_workspace_id(
@@ -1223,7 +1227,7 @@ def upload_app_archive():
         else:
             if existing:
                 os.remove(zippath)
-                return jsonify({'error': f'An application named "{name}" already exists'}), 400
+                return jsonify({'error': app_name_clash_error(existing, name)}), 400
             new_version = 1
 
         version_dir = extract_version(app_dir, zippath, new_version)

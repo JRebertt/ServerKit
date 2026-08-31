@@ -157,11 +157,10 @@ def test_disable_is_noop_when_no_jail_file():
 
 
 def test_get_status_shape_when_jail_absent():
-    sec = MagicMock()
-    sec.get_fail2ban_status.return_value = {'installed': True, 'service_running': False}
     with patch.object(F2B, 'available', return_value=True), \
             patch('app.services.fail2ban_jail_service.os.path.exists', return_value=False), \
-            patch('app.services.security_service.SecurityService', sec):
+            patch.object(F2B, 'get_fail2ban_status',
+                         return_value={'installed': True, 'service_running': False}):
         st = F2B.get_status(_app('myblog'))
     assert st['available'] is True
     assert st['enabled'] is False

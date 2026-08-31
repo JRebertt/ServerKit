@@ -121,8 +121,8 @@ export function AuthProvider({ children }) {
         return data;
     }
 
-    async function completeOnboarding(useCases, installedExtensions = [], sidebarPreset = null) {
-        await api.completeOnboarding(useCases, installedExtensions);
+    async function completeOnboarding(useCases, installedExtensions = [], sidebarPreset = null, securityPosture = 'minimal') {
+        await api.completeOnboarding(useCases, installedExtensions, securityPosture);
         // Tailor the initial sidebar so a fresh install opens focused instead of
         // showing every item. The Summary step passes an explicit profile (which
         // it pre-selects from the use cases and the user may override); fall back

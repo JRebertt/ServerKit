@@ -1,6 +1,8 @@
 import { statusKind } from '@/components/ds/status';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { useContributions } from '@/plugins/contributions';
 import { Button } from '@/components/ui/button';
 import { Pill, ScoreGauge, KpiBand, MetricCard } from '@/components/ds';
 import { useTranslation } from 'react-i18next';
@@ -15,13 +17,11 @@ import {
     Radar,
 } from 'lucide-react';
 
-const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-
 // Status glyph per check state — paired with the label so state never relies on
 // color alone (color-blind operators), per the product a11y bar.
 const STATE_ICON = { pass: CheckCircle2, warn: AlertTriangle, unknown: Circle };
 
-const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigateTab }) => {
+const OverviewTab = ({ status, onRefresh, onNavigateTab }) => {
     const { t } = useTranslation();
     // One action runs at a time; `busyKey` names it so only that row spins and
     // the rest disable (no double-submits against the same daemon).
@@ -31,7 +31,12 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
     const alerts = status?.recent_alerts || {};
     const integrity = status?.file_integrity || {};
     const integrityChanges = alerts.integrity_changes || 0;
-    const scanRunning = status?.scan_status === 'running';
+
+    // Do any installed extensions contribute Security tabs? When none do, the
+    // footer offers the Marketplace instead of hardcoding per-tool nag rows —
+    // the plan 47 Ph3e degradation: core posture stays core-only.
+    const { tabs: contributedTabs } = useContributions();
+    const hasSecurityExtensions = (contributedTabs || []).some((tab) => tab.group === 'security');
 
     async function runFix(key, fn) {
         setBusyKey(key);
@@ -46,33 +51,12 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
         }
     }
 
-    // Posture checks — real boolean signals from this tab's props. Each failing
+    // Posture checks — real boolean signals from this tab's props, core-owned
+    // features only (malware scanning / fail2ban / lynis / auto-updates render
+    // their own state in their extensions' tabs when installed). Each failing
     // check carries a `fix`: a server action (re-pulls status on success) or a
-    // `nav` jump to the tab that resolves it. Checks that can't be evaluated yet
-    // (ClamAV still loading) stay 'unknown' and are excluded from the score.
+    // `nav` jump to the tab that resolves it.
     const checks = [
-        {
-            key: 'clamav-install',
-            labelKey: 'app.overviewTab.clamavAntivirusInstalled', label: 'ClamAV antivirus installed',
-            state: clamavLoading ? 'unknown' : (clamavStatus?.installed ? 'pass' : 'warn'),
-            detail: clamavLoading ? 'checking…' : (clamavStatus?.installed ? 'installed' : 'not installed'),
-            fix: !clamavLoading && !clamavStatus?.installed
-                ? { labelKey: 'app.overviewTab.installClamav', label: 'Install ClamAV', run: () => api.installClamAV() }
-                : null,
-        },
-        {
-            key: 'clamav-service',
-            labelKey: 'app.overviewTab.clamavServiceRunning', label: 'ClamAV service running',
-            state: clamavLoading || !clamavStatus?.installed
-                ? 'unknown'
-                : (clamavStatus?.service_running ? 'pass' : 'warn'),
-            detail: clamavLoading
-                ? 'checking…'
-                : (!clamavStatus?.installed ? 'n/a' : (clamavStatus?.service_running ? 'running' : 'stopped')),
-            fix: !clamavLoading && clamavStatus?.installed && !clamavStatus?.service_running
-                ? { labelKey: 'app.overviewTab.startService', label: 'Start service', run: () => api.startClamAV() }
-                : null,
-        },
         {
             key: 'integrity-enabled',
             labelKey: 'app.overviewTab.fileIntegrityMonitoringEnabled', label: 'File integrity monitoring enabled',
@@ -128,10 +112,9 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
     const kpis = [
         { key: 'alerts', icon: Siren, value: alerts.total || 0, labelKey: 'app.overviewTab.alerts24h', label: 'Alerts · 24h', tone: alerts.total > 0 ? 'amber' : 'green' },
         { key: 'malware', icon: Bug, value: alerts.malware_detections || 0, labelKey: 'app.overviewTab.malware', label: 'Malware', tone: alerts.malware_detections > 0 ? 'red' : 'green' },
-        { key: 'scan', icon: Radar, value: capitalize(status?.scan_status) || 'Idle', labelKey: 'app.overviewTab.scan', label: 'Scan', tone: scanRunning ? 'cyan' : 'accent' },
+        { key: 'integrity', icon: Radar, value: integrityChanges, labelKey: 'app.overviewTab.integrityChanges', label: 'Integrity · 24h', tone: integrityChanges > 0 ? 'amber' : 'green' },
     ];
 
-    const defsUpdated = clamavStatus?.last_update ? new Date(clamavStatus.last_update).toLocaleDateString() : null;
     const busy = busyKey !== null;
 
     return (
@@ -209,19 +192,11 @@ const OverviewTab = ({ status, clamavStatus, clamavLoading, onRefresh, onNavigat
                     </div>
 
                     <p className="sec-hint sec-posture__foot">
-                        {clamavStatus?.installed && (
+                        {!hasSecurityExtensions && (
                             <>
-                                {t('app.overviewTab.virusDefinitions', 'Virus definitions')} {defsUpdated ? `updated ${defsUpdated}` : 'status unknown'}
-                                {' · '}
-                                <Button
-                                    variant="link"
-                                    size="sm"
-                                    className="sec-posture__inline"
-                                    onClick={() => runFix('defs', () => api.updateVirusDefinitions())}
-                                    disabled={busy}
-                                >
-                                    {busyKey === 'defs' ? 'Updating…' : 'Update definitions'}
-                                </Button>
+                                {t('app.overviewTab.moreSecurityTools', 'More security tools — malware scanning, brute-force protection, vulnerability scans, auto-updates — are available as extensions in the')}
+                                {' '}
+                                <Link to="/marketplace">{t('app.overviewTab.marketplaceLink', 'Marketplace')}</Link>
                                 {'. '}
                             </>
                         )}

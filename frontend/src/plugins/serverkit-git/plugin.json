@@ -9,7 +9,8 @@
   "homepage": "https://github.com/jhd3197/ServerKit",
   "permissions": [
     "docker",
-    "filesystem"
+    "filesystem",
+    "shell"
   ],
   "contributions": {
     "nav": [
@@ -42,5 +43,8 @@
         "keywords": "git repos deploy extension plugin"
       }
     ]
-  }
+  },
+  "entry_point": "gitea:gitea_bp",
+  "url_prefix": "/api/v1/git",
+  "min_panel_version": "1.9.11"
 }

@@ -778,37 +778,13 @@ export async function testUserNotification() {
     });
 }
 
-// Email Server
-export async function getEmailStatus() { return this.request('/email/status'); }
-export async function installEmailServer(data = {}) { return this.request('/email/install', { method: 'POST', body: JSON.stringify(data) }); }
-export async function controlEmailService(component, action) { return this.request(`/email/service/${component}/${action}`, { method: 'POST' }); }
-
-// Email Domains
-export async function getEmailDomains() { return this.request('/email/domains'); }
-export async function addEmailDomain(data) { return this.request('/email/domains', { method: 'POST', body: JSON.stringify(data) }); }
-export async function getEmailDomain(domainId) { return this.request(`/email/domains/${domainId}`); }
-export async function deleteEmailDomain(domainId) { return this.request(`/email/domains/${domainId}`, { method: 'DELETE' }); }
-export async function verifyEmailDNS(domainId) { return this.request(`/email/domains/${domainId}/verify-dns`, { method: 'POST' }); }
-export async function deployEmailDNS(domainId) { return this.request(`/email/domains/${domainId}/deploy-dns`, { method: 'POST' }); }
-
-// Email Accounts
-export async function getEmailAccounts(domainId) { return this.request(`/email/domains/${domainId}/accounts`); }
-export async function createEmailAccount(domainId, data) { return this.request(`/email/domains/${domainId}/accounts`, { method: 'POST', body: JSON.stringify(data) }); }
-export async function getEmailAccount(accountId) { return this.request(`/email/accounts/${accountId}`); }
-export async function updateEmailAccount(accountId, data) { return this.request(`/email/accounts/${accountId}`, { method: 'PUT', body: JSON.stringify(data) }); }
-export async function deleteEmailAccount(accountId) { return this.request(`/email/accounts/${accountId}`, { method: 'DELETE' }); }
-export async function changeEmailPassword(accountId, password) { return this.request(`/email/accounts/${accountId}/password`, { method: 'POST', body: JSON.stringify({ password }) }); }
-
-// Email Aliases
-export async function getEmailAliases(domainId) { return this.request(`/email/domains/${domainId}/aliases`); }
-export async function createEmailAlias(domainId, data) { return this.request(`/email/domains/${domainId}/aliases`, { method: 'POST', body: JSON.stringify(data) }); }
-export async function deleteEmailAlias(aliasId) { return this.request(`/email/aliases/${aliasId}`, { method: 'DELETE' }); }
-
-// Email Forwarding
-export async function getEmailForwarding(accountId) { return this.request(`/email/accounts/${accountId}/forwarding`); }
-export async function createEmailForwarding(accountId, data) { return this.request(`/email/accounts/${accountId}/forwarding`, { method: 'POST', body: JSON.stringify(data) }); }
-export async function updateEmailForwarding(ruleId, data) { return this.request(`/email/forwarding/${ruleId}`, { method: 'PUT', body: JSON.stringify(data) }); }
-export async function deleteEmailForwarding(ruleId) { return this.request(`/email/forwarding/${ruleId}`, { method: 'DELETE' }); }
+// Email Server management moved into the serverkit-email extension
+// (builtin-extensions/serverkit-email/frontend/services/email.js) with the
+// Email page — plan 52 Phase 2. Core keeps only the two email-adjacent
+// surfaces that core Settings → Connections renders: the DNS-provider
+// connections below (served by the core dns_providers blueprint, which owns
+// the historical /email/dns-providers prefix) and the outbound relay tile
+// (served by the extension's API; the tile degrades when it is absent).
 
 // DNS Providers
 export async function getEmailDNSProviders() { return this.request('/email/dns-providers'); }
@@ -822,23 +798,6 @@ export async function getEmailRelay() { return this.request('/email/relay'); }
 export async function updateEmailRelay(data) { return this.request('/email/relay', { method: 'PUT', body: JSON.stringify(data) }); }
 export async function testEmailRelay(data) { return this.request('/email/relay/test', { method: 'POST', body: JSON.stringify(data) }); }
 export async function disableEmailRelay() { return this.request('/email/relay', { method: 'DELETE' }); }
-
-// SpamAssassin
-export async function getSpamConfig() { return this.request('/email/spam/config'); }
-export async function updateSpamConfig(data) { return this.request('/email/spam/config', { method: 'PUT', body: JSON.stringify(data) }); }
-export async function updateSpamRules() { return this.request('/email/spam/update-rules', { method: 'POST' }); }
-
-// Roundcube Webmail
-export async function getWebmailStatus() { return this.request('/email/webmail/status'); }
-export async function installWebmail(data = {}) { return this.request('/email/webmail/install', { method: 'POST', body: JSON.stringify(data) }); }
-export async function controlWebmail(action) { return this.request(`/email/webmail/service/${action}`, { method: 'POST' }); }
-export async function configureWebmailProxy(domain) { return this.request('/email/webmail/configure-proxy', { method: 'POST', body: JSON.stringify({ domain }) }); }
-
-// Mail Queue & Logs
-export async function getMailQueue() { return this.request('/email/queue'); }
-export async function flushMailQueue() { return this.request('/email/queue/flush', { method: 'POST' }); }
-export async function deleteMailQueueItem(queueId) { return this.request(`/email/queue/${queueId}`, { method: 'DELETE' }); }
-export async function getMailLogs(lines = 100) { return this.request(`/email/logs?lines=${lines}`); }
 
 // Performance endpoints
 export async function getCacheStats() {

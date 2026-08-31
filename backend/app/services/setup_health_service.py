@@ -442,8 +442,8 @@ class SetupHealthService:
         if not cls._manages_host_firewall():
             return None
         try:
-            from app.services.security_service import SecurityService
-            status = SecurityService.get_fail2ban_status() or {}
+            from app.services.fail2ban_jail_service import Fail2banJailService
+            status = Fail2banJailService.get_fail2ban_status() or {}
         except Exception:  # noqa: BLE001
             return None
 

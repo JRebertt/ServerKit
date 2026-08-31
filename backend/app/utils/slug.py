@@ -119,3 +119,26 @@ def validate_app_name(name, min_length=3, max_length=63,
     if reserved and name.lower() in {r.lower() for r in reserved}:
         return False, f'Name "{name}" is reserved'
     return True, None
+
+
+def app_name_clash_error(existing, name, suffix=''):
+    """Message for a taken application name, or ``None`` when it is free.
+
+    A soft-deleted app deliberately keeps reserving its name (a restore must
+    never collide), but "already exists" sends the operator hunting for an app
+    that is not in any list — so a tombstone names the Recycle Bin instead.
+
+    Args:
+        existing: The Application row holding the name (may be a tombstone),
+            or ``None``.
+        name: The requested name, echoed into the message.
+        suffix: Optional clause appended to the live-app message, e.g.
+            ``' on this target server'``.
+    """
+    if existing is None:
+        return None
+    if getattr(existing, 'deleted_at', None):
+        return (f'An application named "{name}" is in the Recycle Bin — '
+                'restore it, or purge it from Settings → Recycle Bin to '
+                'reuse the name')
+    return f'An application named "{name}" already exists{suffix}'

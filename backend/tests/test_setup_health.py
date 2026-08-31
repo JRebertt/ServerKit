@@ -213,8 +213,8 @@ def fake_firewall(monkeypatch, **status):
 
 
 def fake_fail2ban(monkeypatch, **status):
-    from app.services.security_service import SecurityService
-    monkeypatch.setattr(SecurityService, 'get_fail2ban_status',
+    from app.services.fail2ban_jail_service import Fail2banJailService
+    monkeypatch.setattr(Fail2banJailService, 'get_fail2ban_status',
                         classmethod(lambda cls: status))
 
 

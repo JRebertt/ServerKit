@@ -1,10 +1,20 @@
-// Re-exports the existing host Git page through the extension system.
-// The extension owns the canonical /git route; the host keeps the page
-// component as implementation detail until the Git UI is fully split.
+// Git UI, contributed through the extension system. The full page lives in
+// this extension now (pages/Git.jsx + styles/git.scss + its own Gitea API
+// client) — plan 52 Phase 6. Imports go through 'serverkit-sdk' so the same
+// source works baked in-tree (the panel's build-time glob) and as a
+// runtime-ESM bundle once the extension leaves the tree.
 //
-// After install, this file lives at frontend/src/plugins/serverkit-git/
-// so the relative import resolves against the host's pages directory.
-import GitPage from '../../pages/Git';
+// Two halves, one page: the Gitea self-host surface calls this extension's
+// backend (/api/v1/git status/lifecycle/repos, mounted when installed); the
+// webhooks + deployments tabs call the CORE deploy-pipeline endpoints, which
+// exist on every panel.
+//
+// The SCSS side-effect import compiles the page styles through this
+// extension's own module graph — the host's main.scss no longer carries a
+// _git partial.
+import './styles/git.scss';
+
+import GitPage from './pages/Git';
 
 export function GitExtensionPage() {
     return <GitPage basePath="/git" />;

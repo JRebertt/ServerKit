@@ -330,6 +330,17 @@ def create_app(config_name=None):
             import logging
             logging.getLogger(__name__).warning(f'Extension auto-install: {e}')
 
+        # Upgrade parity for the extracted security suite (plan 47 Ph3b-4):
+        # a panel that was actually using fail2ban/clamav/lynis/auto-updates/
+        # image scanning gets the matching registry extension once its entry
+        # is published. Fail-soft, retries per boot until then. Best-effort.
+        try:
+            from app.services.extension_migration import run_registry_auto_install
+            run_registry_auto_install()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f'Security-suite auto-install: {e}')
+
         # One-shot: re-acquire the now-extracted backend for converted builtins
         # that first shipped frontend-only (plan 47 Phase 2), so an upgraded panel
         # that installed them frontend-only doesn't lose the API. Best-effort.
@@ -420,8 +431,9 @@ def create_app(config_name=None):
             FleetDoctorService.register_jobs()
             from app.services.file_integrity_service import FileIntegrityService
             FileIntegrityService.register_jobs()
-            from app.services.malware_scan_service import MalwareScanService
-            MalwareScanService.register_jobs()
+            # security.malware_scan / security.lynis_scan / security.image_scan
+            # handlers register via their extensions' manifest `jobs` key
+            # (serverkit-clamav / serverkit-lynis / serverkit-image-scan).
             from app.services.bandwidth_service import BandwidthService
             BandwidthService.register_jobs()
             start_job_system(app, seed=seed_builtin_schedules)
