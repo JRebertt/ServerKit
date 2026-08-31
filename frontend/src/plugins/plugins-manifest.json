@@ -1,12 +1,3 @@
 {
-  "plugins": [
-    {
-      "name": "serverkit-cloudflare-ops",
-      "slug": "serverkit-cloudflare-ops",
-      "display_name": "Cloudflare Zone Ops",
-      "version": "1.0.0",
-      "frontend_entry": "",
-      "path": "serverkit-cloudflare-ops"
-    }
-  ]
+  "plugins": []
 }

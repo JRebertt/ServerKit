@@ -10,6 +10,14 @@ imported ``requests`` module (the generic helper uses ``requests.request``).
 """
 import pytest
 
+# The zone-ops backend lives in the standalone serverkit-cloudflare-ops repo
+# since the plan 52 Ph2 cutover; every test here runs against the extension
+# mounted from the sibling checkout (module skips when it is absent).
+@pytest.fixture(autouse=True)
+def _mounted_cf(cf_extension):
+    yield
+
+
 
 class _Resp:
     def __init__(self, js, status=200):

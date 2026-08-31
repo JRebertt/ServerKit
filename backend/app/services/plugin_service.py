@@ -72,7 +72,7 @@ BUILTIN_EXTENSIONS_DIR = os.environ.get(
 # onboarding via RECOMMENDED_EXTENSIONS_BY_USE_CASE. Its uninstall-marker
 # semantics are preserved (the settings key machinery below is untouched), so
 # a user who uninstalled WP before the extraction is never re-seeded.
-FLAGSHIP_SLUGS = ['serverkit-cloudflare-ops']
+FLAGSHIP_SLUGS = []  # cloudflare-ops left the tree (plan 52 Ph2 cutover); machinery kept for future flagships
 _FLAGSHIP_UNINSTALLED_KEY = 'extensions.flagship_uninstalled'
 
 # Wizard-optional flagships (plan 47): offered — not force-installed — during

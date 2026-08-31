@@ -1,7 +1,8 @@
-"""Prove the Email extraction (Phase 4, #35).
+"""Prove the Email extraction (Phase 4, #35; standalone repo since plan 52 Ph2).
 
-A core panel no longer carries the mail-server API; installing the serverkit-email
-builtin registers `/api/v1/email` and its routes respond (which also exercises the
+A core panel no longer carries the mail-server API; installing serverkit-email
+(now a standalone repo — mounted from the sibling checkout, skip when absent)
+registers `/api/v1/email` and its routes respond (which also exercises the
 extension's relative-import rewiring). Uninstall removes it again.
 """
 import sys
@@ -10,6 +11,7 @@ import pytest
 
 import app as app_pkg
 from app.models.plugin import InstalledPlugin
+from tests.conftest import sibling_extension_dir
 from app.services import plugin_service
 
 # Installs plugins, and plugin_service hot-loads their blueprints onto the
@@ -62,12 +64,27 @@ def install_dirs(tmp_path, monkeypatch):
             del sys.modules[name]
 
 
-def test_install_email_extension_registers_routes(app, client, auth_headers, install_dirs):
-    # The real builtin folder is discovered from the repo's builtin-extensions/.
-    available = {e['slug'] for e in plugin_service.list_builtin_extensions()}
-    assert SLUG in available, 'serverkit-email builtin folder should exist'
+def _install_email_from_sibling(monkeypatch):
+    src = sibling_extension_dir(SLUG)
+    if not src:
+        pytest.skip('serverkit-email checkout not available '
+                    '(set SERVERKIT_EMAIL_DIR to its checkout)')
+    # The sibling repo pins min_panel_version to the first SDK-1.4.0 release;
+    # the working tree may still carry the previous version string.
+    from app.utils import version as version_mod
+    monkeypatch.setattr(version_mod, 'get_panel_version', lambda: '1.9.11')
+    monkeypatch.setattr(plugin_service, 'get_panel_version',
+                        lambda: '1.9.11', raising=False)
+    return plugin_service.install_from_path(src, force=True)
 
-    plugin = plugin_service.install_builtin_extension('serverkit-email')
+
+def test_email_is_no_longer_a_builtin(app):
+    available = {e['slug'] for e in plugin_service.list_builtin_extensions()}
+    assert SLUG not in available, 'serverkit-email left the tree (plan 52 Ph2)'
+
+
+def test_install_email_extension_registers_routes(app, client, auth_headers, install_dirs, monkeypatch):
+    plugin = _install_email_from_sibling(monkeypatch)
     assert plugin.status == InstalledPlugin.STATUS_ACTIVE
     assert plugin.has_backend is True
     assert plugin.url_prefix == '/api/v1/email'
@@ -79,7 +96,7 @@ def test_install_email_extension_registers_routes(app, client, auth_headers, ins
     assert resp.status_code not in (404, 503), resp.status_code
 
 
-def test_uninstall_removes_email_plugin(app, install_dirs):
-    plugin = plugin_service.install_builtin_extension('serverkit-email')
+def test_uninstall_removes_email_plugin(app, install_dirs, monkeypatch):
+    plugin = _install_email_from_sibling(monkeypatch)
     assert plugin_service.uninstall_plugin(plugin.id) is True
     assert InstalledPlugin.query.filter_by(slug=SLUG).first() is None
