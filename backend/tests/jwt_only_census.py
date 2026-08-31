@@ -38,6 +38,16 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKEND = os.path.dirname(HERE)
 API_DIR = os.path.join(BACKEND, 'app', 'api')
+# Extension routes are the same authenticated surface as core routes, and were
+# invisible here until 2026-08-31: the serverkit-status blueprint carried 15
+# bare-@jwt_required() routes that this census never saw, so the ratchet could
+# not object when a review suggested converting them wholesale. Plugin routes
+# are scanned too now. Only the live copy under app/plugins/ is counted --
+# builtin-extensions/ is the same code a second time on disk (the drift guard
+# in test_builtin_extension_drift.py pins them equal), and counting both would
+# double every extension route.
+PLUGIN_DIR = os.path.join(BACKEND, 'app', 'plugins')
+SCAN_DIRS = (API_DIR, PLUGIN_DIR)
 CEILING_FILE = os.path.join(HERE, 'JWT_ONLY_CEILING')
 
 SKIP_DIRS = {'__pycache__'}
@@ -72,15 +82,16 @@ def count_file(path):
 
 def census():
     found = {}
-    for dirpath, dirnames, filenames in os.walk(API_DIR):
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
-        for name in sorted(filenames):
-            if not name.endswith('.py'):
-                continue
-            path = os.path.join(dirpath, name)
-            hits = count_file(path)
-            if hits:
-                found[_rel(path)] = hits
+    for root in SCAN_DIRS:
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+            for name in sorted(filenames):
+                if not name.endswith('.py'):
+                    continue
+                path = os.path.join(dirpath, name)
+                hits = count_file(path)
+                if hits:
+                    found[_rel(path)] = hits
     return found
 
 

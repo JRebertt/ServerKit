@@ -129,6 +129,28 @@ outside one. `backend/tests/test_route_authz_static.py` (coverage),
 `test_route_authz_sweep.py` (enforcement) and `test_auth_decorator_boundaries.py`
 (one boundary) all fail the build otherwise. See AGENTS.md for the allowlists.
 
+**`@jwt_required()` + an inline `is_admin` check is a valid explicit decision —
+do NOT sweep it to rbac decorators.** `test_route_authz_static.py` counts
+inspecting `.is_admin` / `.is_developer` as an inline role check
+(`ATTRIBUTE_GATES`), so those routes already satisfy default-deny. They are
+also the majority: ~91 routes across 21 files use exactly that shape.
+
+The reason it is not a free refactor: every rbac decorator authenticates via
+`auth_required()`, which accepts an `X-API-Key` as well as a JWT. Converting a
+route therefore **grants API-key callers access to it** — an expansion of the
+authenticated surface, not a cleanup. The recorded decision (2026-08-19,
+closing plan 76) stands:
+
+> JWT-only is the deliberate default. A route becomes API-key capable one at a
+> time, when an API-key use case exists for it, in a commit that says so —
+> never as a mechanical sweep.
+
+`backend/tests/jwt_only_census.py` ratchets the population (`JWT_ONLY_CEILING`)
+over `app/api` **and** `app/plugins`: it may shrink as routes are deliberately
+converted, and may not grow — a NEW route picks a policy decorator rather than
+bare `@jwt_required()`. Automated reviewers (Copilot) suggest this conversion
+routinely; decline it unless the commit can name the API-key use case.
+
 ## Key Environment Variables
 
 | Variable | Purpose |

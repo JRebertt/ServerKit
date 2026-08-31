@@ -215,6 +215,42 @@ authorization decision — `@jwt_required()` alone is never sufficient
 When in doubt: admin-only for panel-wide resources, `@developer_required` for
 operational actions, the file's own inline ownership helper for user data.
 
+#### Do not sweep `@jwt_required()` + inline `is_admin` to rbac decorators
+
+An existing route shaped like this **already satisfies default-deny** —
+`test_route_authz_static.py` counts inspecting `.is_admin` / `.is_developer` as
+an inline role check (`ATTRIBUTE_GATES`):
+
+```python
+@bp.route('/<int:page_id>', methods=['PUT'])
+@jwt_required()
+def update_page(page_id):
+    user = get_current_user()
+    if not user or not user.is_admin:
+        return jsonify({'error': 'Admin access required'}), 403
+```
+
+It is also the majority shape: ~91 routes across 21 files (audited 2026-08-31).
+
+Converting one to `@admin_required` is **not** a refactor. Every rbac decorator
+authenticates through `auth_required()`, which accepts an `X-API-Key`, so the
+conversion *grants API-key callers access to that route*. The decision recorded
+when plan 76 closed (2026-08-19) still governs:
+
+> JWT-only is the deliberate default. A route becomes API-key capable one at a
+> time, when an API-key use case exists for it, in a commit that says so —
+> never as a mechanical sweep.
+
+`backend/tests/jwt_only_census.py` ratchets the population (`JWT_ONLY_CEILING`,
+scanning `app/api` **and** `app/plugins`): it may shrink through deliberate
+conversions and may not grow, so a NEW route must pick a policy decorator
+instead of bare `@jwt_required()`.
+
+The rule above ("do not stack `@jwt_required()` outside a gate") is about not
+having *both*. It is not an instruction to convert routes that have neither.
+Automated reviewers suggest this conversion routinely — decline it unless the
+commit can name the API-key use case.
+
 ## Key Environment Variables
 
 | Variable | Purpose |
