@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../../services/api';
 import {
     Github, FileText, HelpCircle, MessageSquare, Bug, Check, Download, CheckCircle,
-    RefreshCw, ExternalLink, Star, X
+    RefreshCw, ExternalLink, Star, X, AlertTriangle
 } from 'lucide-react';
 import ServerKitLogo from '../ServerKitLogo';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,17 @@ const AboutTab = () => {
     const [showStarPrompt, setShowStarPrompt] = useState(() => {
         return localStorage.getItem(STAR_PROMPT_KEY) !== 'true';
     });
+    // One-click self-update. updatePhase: null (idle) | 'confirm' | 'starting'
+    // | 'running' | 'restarting' | 'done' | 'failed' | 'timeout'
+    const [updateStatus, setUpdateStatus] = useState(null);
+    const [updatePhase, setUpdatePhase] = useState(null);
+    const [updateLogTail, setUpdateLogTail] = useState('');
+    const [updatedVersion, setUpdatedVersion] = useState(null);
+    const [updateError, setUpdateError] = useState(null);
+    const cancelledRef = useRef(false);
     const register = useSettingFocus();
+
+    useEffect(() => () => { cancelledRef.current = true; }, []);
 
     useEffect(() => {
         const fetchVersion = async () => {
@@ -43,10 +53,74 @@ const AboutTab = () => {
         try {
             const data = await api.checkUpdate();
             setUpdateInfo(data);
+            if (data.update_available) {
+                // Admin-only capability probe — a 403 just hides the button.
+                try {
+                    setUpdateStatus(await api.getPanelUpdateStatus());
+                } catch {
+                    setUpdateStatus(null);
+                }
+            }
         } catch (error) {
             setUpdateInfo({ error: 'Failed to check for updates' });
         }
         setCheckingUpdate(false);
+    };
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const runUpdate = async () => {
+        const startVersion = version;
+        setUpdatePhase('starting');
+        setUpdateError(null);
+        setUpdateLogTail('');
+        try {
+            await api.startPanelUpdate();
+        } catch (error) {
+            setUpdatePhase('failed');
+            setUpdateError(error?.message || t('app.aboutTab.updateStartFailed', 'Failed to start the update'));
+            return;
+        }
+        setUpdatePhase('running');
+        const started = Date.now();
+        let notRunningPolls = 0;
+        while (!cancelledRef.current && Date.now() - started < 15 * 60 * 1000) {
+            await sleep(3000);
+            if (cancelledRef.current) return;
+            try {
+                const st = await api.getPanelUpdateStatus();
+                if (st.log?.tail) setUpdateLogTail(st.log.tail);
+                if (st.version && st.version !== startVersion) {
+                    // The backend that answered is already the new version.
+                    setUpdatedVersion(st.version);
+                    setUpdatePhase('done');
+                    return;
+                }
+                if (st.running) {
+                    notRunningPolls = 0;
+                    setUpdatePhase('running');
+                } else {
+                    // Grace for the transient unit not being visible yet;
+                    // after that, same-version + not-running means it ended
+                    // without switching (rollback or early failure).
+                    notRunningPolls += 1;
+                    if (st.log?.outcome === 'rolled_back') {
+                        setUpdatePhase('failed');
+                        setUpdateError(t('app.aboutTab.updateRolledBack', 'The update failed and was rolled back — the previous version is still running.'));
+                        return;
+                    }
+                    if (notRunningPolls >= 5) {
+                        setUpdatePhase('failed');
+                        setUpdateError(t('app.aboutTab.updateDidNotComplete', 'The update ended without changing the version. Check the update log on the server.'));
+                        return;
+                    }
+                }
+            } catch {
+                // The panel restarts mid-update — unreachable is expected.
+                setUpdatePhase('restarting');
+            }
+        }
+        if (!cancelledRef.current) setUpdatePhase('timeout');
     };
 
     return (
@@ -86,18 +160,80 @@ const AboutTab = () => {
                             <button type="button" className="btn-link" onClick={checkForUpdate}>{t('common.actions.retry', 'Retry')}</button>
                         </div>
                     ) : updateInfo.update_available ? (
-                        <div className="update-status available">
-                            <Download size={16} />
-                            <span>{t('app.aboutTab.updateAvailable', 'Update available:')} <strong>v{updateInfo.latest_version}</strong></span>
-                            <a
-                                href={updateInfo.release_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="btn btn-accent btn-sm"
-                            >
-                                {t('app.aboutTab.viewRelease', 'View Release')} <ExternalLink size={12} />
-                            </a>
-                        </div>
+                        updatePhase === null || updatePhase === 'confirm' ? (
+                            <>
+                                <div className="update-status available">
+                                    <Download size={16} />
+                                    <span>{t('app.aboutTab.updateAvailable', 'Update available:')} <strong>v{updateInfo.latest_version}</strong></span>
+                                    <a
+                                        href={updateInfo.release_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={updateStatus?.capability?.supported ? 'btn btn-secondary btn-sm' : 'btn btn-accent btn-sm'}
+                                    >
+                                        {t('app.aboutTab.viewRelease', 'View Release')} <ExternalLink size={12} />
+                                    </a>
+                                    {updateStatus?.capability?.supported && updatePhase === null && (
+                                        <Button
+                                            size="sm"
+                                            onClick={() => setUpdatePhase('confirm')}
+                                            disabled={updateStatus?.running}
+                                        >
+                                            <Download size={12} /> {t('app.aboutTab.updateNow', 'Update Now')}
+                                        </Button>
+                                    )}
+                                </div>
+                                {updatePhase === 'confirm' && (
+                                    <div className="update-confirm">
+                                        <AlertTriangle size={14} />
+                                        <span>{t('app.aboutTab.updateConfirm', 'This updates ServerKit and briefly restarts the panel. Hosted apps stay online. If the new version fails to start, it rolls back automatically.')}</span>
+                                        <Button size="sm" onClick={runUpdate}>
+                                            {t('app.aboutTab.updateNow', 'Update Now')}
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={() => setUpdatePhase(null)}>
+                                            {t('common.actions.cancel', 'Cancel')}
+                                        </Button>
+                                    </div>
+                                )}
+                                {updateStatus && !updateStatus.capability?.supported && updateStatus.capability?.reason && (
+                                    <p className="update-capability-note">{updateStatus.capability.reason}</p>
+                                )}
+                            </>
+                        ) : (
+                            <div className="update-progress">
+                                {updatePhase === 'done' ? (
+                                    <div className="update-status current">
+                                        <CheckCircle size={16} />
+                                        <span>{t('app.aboutTab.updateComplete', 'Updated to')} <strong>v{updatedVersion}</strong></span>
+                                        <Button size="sm" onClick={() => window.location.reload()}>
+                                            <RefreshCw size={12} /> {t('app.aboutTab.reloadPanel', 'Reload Panel')}
+                                        </Button>
+                                    </div>
+                                ) : updatePhase === 'failed' ? (
+                                    <div className="update-status error">
+                                        <AlertTriangle size={16} />
+                                        <span>{updateError}</span>
+                                    </div>
+                                ) : updatePhase === 'timeout' ? (
+                                    <div className="update-status error">
+                                        <AlertTriangle size={16} />
+                                        <span>{t('app.aboutTab.updateTimeout', 'The update is taking longer than expected. Check the update log on the server before retrying.')}</span>
+                                    </div>
+                                ) : (
+                                    <div className="update-status running">
+                                        <RefreshCw size={16} className="spinning" />
+                                        <span>
+                                            {updatePhase === 'restarting'
+                                                ? t('app.aboutTab.updateRestarting', 'Restarting the panel…')
+                                                : t('app.aboutTab.updateRunning', 'Updating ServerKit…')}
+                                        </span>
+                                    </div>
+                                )}
+                                {updateLogTail && updatePhase !== 'done' && (
+                                    <pre className="update-log">{updateLogTail.trim().split('\n').slice(-12).join('\n')}</pre>
+                                )}
+                            </div>
+                        )
                     ) : (
                         <div className="update-status current">
                             <CheckCircle size={16} />

@@ -104,6 +104,42 @@ def check_update():
     return jsonify(result), 200
 
 
+@system_bp.route('/update', methods=['GET'])
+@admin_required
+def get_panel_update_status():
+    """Self-update capability + live progress (poll target for the UI).
+
+    Stateless by design: the update restarts this very process, so the answer
+    is rebuilt each call from the transient unit's state and the updater's own
+    log file (see panel_update_service).
+    """
+    from app.services import panel_update_service as svc
+    try:
+        return jsonify(svc.get_status()), 200
+    except Exception as exc:  # noqa: BLE001 - reported, not swallowed
+        return unexpected_response(exc)
+
+
+@system_bp.route('/update', methods=['POST'])
+@admin_required
+def start_panel_update():
+    """Launch scripts/update.sh detached from the panel's own systemd unit.
+
+    Body must carry ``{"confirm": true}`` — this restarts the panel backend.
+    """
+    data = request.get_json(silent=True) or {}
+    if data.get('confirm') is not True:
+        raise ValidationError('Confirmation required: pass {"confirm": true}.')
+
+    user = get_current_user()
+    from app.services import panel_update_service as svc
+    result = svc.start_update()
+    _audit('panel.update', user.id, target_type='host', target_id='panel',
+           details={'unit': result['unit'],
+                    'from_version': get_panel_version()})
+    return jsonify(result), 202
+
+
 @system_bp.route('/metrics', methods=['GET'])
 @jwt_required()
 def get_metrics():
