@@ -242,8 +242,8 @@ when plan 76 closed (2026-08-19) still governs:
 > never as a mechanical sweep.
 
 `backend/tests/jwt_only_census.py` ratchets the population (`JWT_ONLY_CEILING`,
-scanning `app/api` **and** `app/plugins`): it may shrink through deliberate
-conversions and may not grow, so a NEW route must pick a policy decorator
+scanning `app/api` **and** the git-tracked `builtin-extensions/` sources): it
+may shrink through deliberate conversions and may not grow, so a NEW route must pick a policy decorator
 instead of bare `@jwt_required()`.
 
 The rule above ("do not stack `@jwt_required()` outside a gate") is about not

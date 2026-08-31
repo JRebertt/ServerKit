@@ -146,8 +146,8 @@ closing plan 76) stands:
 > never as a mechanical sweep.
 
 `backend/tests/jwt_only_census.py` ratchets the population (`JWT_ONLY_CEILING`)
-over `app/api` **and** `app/plugins`: it may shrink as routes are deliberately
-converted, and may not grow — a NEW route picks a policy decorator rather than
+over `app/api` **and** the git-tracked `builtin-extensions/` sources: it may
+shrink as routes are deliberately converted, and may not grow — a NEW route picks a policy decorator rather than
 bare `@jwt_required()`. Automated reviewers (Copilot) suggest this conversion
 routinely; decline it unless the commit can name the API-key use case.
 

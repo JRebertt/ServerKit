@@ -33,6 +33,7 @@ Usage (from ``backend/``)::
 
 import ast
 import os
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -40,14 +41,24 @@ BACKEND = os.path.dirname(HERE)
 API_DIR = os.path.join(BACKEND, 'app', 'api')
 # Extension routes are the same authenticated surface as core routes, and were
 # invisible here until 2026-08-31: the serverkit-status blueprint carried 15
-# bare-@jwt_required() routes that this census never saw, so the ratchet could
-# not object when a review suggested converting them wholesale. Plugin routes
-# are scanned too now. Only the live copy under app/plugins/ is counted --
-# builtin-extensions/ is the same code a second time on disk (the drift guard
-# in test_builtin_extension_drift.py pins them equal), and counting both would
-# double every extension route.
-PLUGIN_DIR = os.path.join(BACKEND, 'app', 'plugins')
-SCAN_DIRS = (API_DIR, PLUGIN_DIR)
+# bare-@jwt_required() routes this census never saw, so the ratchet could not
+# object when a review proposed converting them wholesale.
+#
+# They are counted from builtin-extensions/ (the SOURCE), not app/plugins/ (the
+# live copy the loader imports). The two are pinned equal by
+# test_builtin_extension_drift.py, so either would give the same answer on a
+# clean checkout -- but app/plugins/ is mostly GITIGNORED, so counting it makes
+# the number depend on which extensions a given box happens to have installed.
+# That is not hypothetical: it shipped a ceiling of 611 from a dev box where CI
+# measured 591.
+#
+# For the same reason the population is filtered to git-TRACKED files: a stale
+# ignored directory left behind by an extraction (cloudflare-ops, git, localkit
+# after plan 52) still sits on some working copies and would otherwise be
+# counted. Without git (release tarball, Docker build) the tree has no such
+# leftovers and the unfiltered walk agrees.
+EXT_DIR = os.path.join(BACKEND, os.pardir, 'builtin-extensions')
+SCAN_DIRS = (API_DIR, EXT_DIR)
 CEILING_FILE = os.path.join(HERE, 'JWT_ONLY_CEILING')
 
 SKIP_DIRS = {'__pycache__'}
@@ -80,8 +91,33 @@ def count_file(path):
     return sorted(found)
 
 
+REPO = os.path.dirname(BACKEND)
+
+
+def _repo_rel(path):
+    return os.path.relpath(path, REPO).replace(os.sep, '/')
+
+
+def _tracked_files():
+    """Repo-relative paths git tracks, or None when git cannot answer.
+
+    Run from the repo ROOT, not backend/: `git ls-files` only lists paths under
+    its working directory, so from backend/ the builtin-extensions entries are
+    absent and every extension file would be filtered out as "untracked".
+    """
+    try:
+        proc = subprocess.run(['git', 'ls-files'], cwd=REPO,
+                              capture_output=True, text=True)
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+
+
 def census():
     found = {}
+    tracked = _tracked_files()
     for root in SCAN_DIRS:
         for dirpath, dirnames, filenames in os.walk(root):
             dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
@@ -89,9 +125,12 @@ def census():
                 if not name.endswith('.py'):
                     continue
                 path = os.path.join(dirpath, name)
+                if tracked is not None and _repo_rel(path) not in tracked:
+                    continue
+                rel = _rel(path)
                 hits = count_file(path)
                 if hits:
-                    found[_rel(path)] = hits
+                    found[rel] = hits
     return found
 
 
