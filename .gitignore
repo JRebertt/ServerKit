@@ -195,16 +195,23 @@ backend/app/plugins/serverkit-email/
 backend/app/plugins/serverkit-ftp/
 backend/app/plugins/serverkit-gpu/
 backend/app/plugins/serverkit-gui/
+backend/app/plugins/serverkit-git/
+backend/app/plugins/serverkit-localkit/
+backend/app/plugins/serverkit-cloudflare-ops/
 backend/app/plugins/serverkit-k8s/
 backend/app/plugins/serverkit-mail/
 backend/app/plugins/serverkit-remote-access/
-backend/app/plugins/serverkit-status/
+# serverkit-status is deliberately NOT ignored: it is the tracked live copy
+# that keeps test_builtin_extension_drift non-vacuous on a fresh clone.
+# (serverkit-email held this role until it left the tree in plan 52.)
 backend/app/plugins/serverkit-tramo/
 backend/app/plugins/serverkit-wordpress/
 frontend/src/plugins/serverkit-analytics/
 frontend/src/plugins/serverkit-crowdsec/
 frontend/src/plugins/serverkit-dns-server/
 frontend/src/plugins/serverkit-email/
+frontend/src/plugins/serverkit-git/
+frontend/src/plugins/serverkit-cloudflare-ops/
 frontend/src/plugins/serverkit-gpu/
 frontend/src/plugins/serverkit-gui/
 frontend/src/plugins/serverkit-k8s/

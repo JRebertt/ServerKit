@@ -611,20 +611,57 @@ activate_backend_venv() {
     fi
 }
 
+# Hash of requirements.txt, or empty if it cannot be read. Uses the venv's own
+# python so there is no dependency on sha256sum/shasum being installed.
+backend_requirements_hash() {
+    local py="$1"
+    "$py" - "$BACKEND_DIR/requirements.txt" <<'PY' 2>/dev/null
+import hashlib, sys
+try:
+    with open(sys.argv[1], 'rb') as fh:
+        print(hashlib.sha256(fh.read()).hexdigest())
+except OSError:
+    pass
+PY
+}
+
 ensure_backend_packages() {
-    if python_command_works "$(backend_python)" && "$(backend_python)" - <<'PY' >/dev/null 2>&1
+    local py marker want have
+    py="$(backend_python)"
+    marker="$BACKEND_VENV_DIR/.requirements-sha256"
+
+    # Two independent reasons to install. The import probe catches a venv that
+    # is missing or broken; the hash catches the case it cannot see -- a NEW
+    # requirement added since the last install, where all four probe imports
+    # still succeed and the app dies on the fifth. That was a recurring
+    # session-derailer: a dependency lands, dev.sh reports nothing, and the
+    # backend boots straight into ModuleNotFoundError.
+    if python_command_works "$py" && "$py" - <<'PY' >/dev/null 2>&1
 import dotenv
 import flask
 import flask_socketio
 import sqlalchemy
 PY
     then
-        return 0
+        want="$(backend_requirements_hash "$py")"
+        have=""
+        [ -f "$marker" ] && have="$(cat "$marker" 2>/dev/null)"
+        # An unreadable requirements.txt yields an empty hash; treat that as
+        # "cannot tell" and leave a working venv alone rather than reinstalling
+        # on every start.
+        if [ -z "$want" ] || [ "$want" = "$have" ]; then
+            return 0
+        fi
+        echo -e "${YELLOW}requirements.txt changed since the last install; syncing...${NC}"
     fi
 
     echo -e "${YELLOW}Installing backend Python dependencies in WSL venv...${NC}"
-    "$(backend_python)" -m pip install --upgrade pip
-    "$(backend_python)" -m pip install -r "$BACKEND_DIR/requirements.txt"
+    "$py" -m pip install --upgrade pip
+    "$py" -m pip install -r "$BACKEND_DIR/requirements.txt"
+
+    # Only stamp after a successful install, so a failed one retries next time.
+    want="$(backend_requirements_hash "$py")"
+    [ -n "$want" ] && printf '%s\n' "$want" > "$marker"
 }
 
 start_backend_process() {

@@ -845,6 +845,11 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
         if (isRepo) {
             try {
                 const repo = template.repo || {};
+                // Forward the build inputs the template already declares. The
+                // endpoint has always accepted these; the drawer just never sent
+                // them, so a repo template's build_command/start_command were
+                // decorative and anything without a `start` script in its
+                // package.json built an image that could not boot.
                 const result = await api.createAppFromRepository({
                     name: appName,
                     template_id: template.id,
@@ -853,6 +858,9 @@ const InstallModal = ({ template, onClose, onSuccess, renderIcon }) => {
                     app_type: repo.app_type || 'auto',
                     build_method: repo.build_method || 'auto',
                     port: repo.port ? Number(repo.port) : null,
+                    dockerfile_path: repo.dockerfile_path || null,
+                    custom_build_cmd: repo.build_command || null,
+                    custom_start_cmd: repo.start_command || null,
                     auto_deploy: true,
                     ingress_plane: 'nginx',
                 });

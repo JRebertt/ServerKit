@@ -28,7 +28,19 @@ def ensure_loadable():
 
 
 def load(module_name):
-    """Import a module from the extension backend (e.g. ``'cloudflare_service'``)."""
+    """Import a module from the extension backend (e.g. ``'cloudflare_service'``).
+
+    Resolution order (plan 52 Ph2 cutover): a copy-installed extension first
+    (the registry install lands under the normal ``app.plugins`` path), then
+    the builtin registration (pre-cutover trees), then the historical core
+    location. Callers get ImportError when the extension truly is absent —
+    every caller is behind the extension's own routes, so absence is a 404
+    before this ever raises.
+    """
+    try:
+        return importlib.import_module(f'{PKG}.{module_name}')
+    except ImportError:
+        pass
     if ensure_loadable():
         try:
             return importlib.import_module(f'{PKG}.{module_name}')

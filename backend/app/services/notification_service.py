@@ -10,6 +10,7 @@ Handles sending notifications to various channels:
 """
 
 import os
+import html
 import json
 import requests
 import smtplib
@@ -333,22 +334,33 @@ class NotificationService:
             return {'success': True, 'message': 'No alerts to send'}
 
         try:
-            # Build message
-            lines = [f"<b>🔔 ServerKit Alert</b>", f"<i>Host: {cls.get_hostname()}</i>", ""]
+            # parse_mode='HTML' means Telegram parses the body as markup, so every
+            # interpolated value has to be escaped. Unescaped, an alert message as
+            # ordinary as "Disk usage > 90% on /var & /tmp" makes the API reject
+            # the request with "can't parse entities" and the whole notification
+            # is dropped -- exactly when something is already wrong. Only the
+            # literal tags below are markup; everything substituted in is data.
+            def esc(value):
+                return html.escape(str(value), quote=False)
+
+            lines = [f"<b>🔔 ServerKit Alert</b>", f"<i>Host: {esc(cls.get_hostname())}</i>", ""]
 
             for alert in alerts:
                 severity = alert.get('severity', 'info')
                 color_info = cls.SEVERITY_COLORS.get(severity, cls.SEVERITY_COLORS['info'])
 
-                lines.append(f"{color_info['emoji']} <b>{severity.upper()}: {alert.get('type', 'Alert').upper()}</b>")
-                lines.append(alert.get('message', 'No message'))
+                lines.append(
+                    f"{color_info['emoji']} <b>{esc(severity.upper())}: "
+                    f"{esc(alert.get('type', 'Alert').upper())}</b>"
+                )
+                lines.append(esc(alert.get('message', 'No message')))
 
                 if 'value' in alert or 'threshold' in alert:
                     details = []
                     if 'value' in alert:
-                        details.append(f"Current: {alert['value']}")
+                        details.append(f"Current: {esc(alert['value'])}")
                     if 'threshold' in alert:
-                        details.append(f"Threshold: {alert['threshold']}")
+                        details.append(f"Threshold: {esc(alert['threshold'])}")
                     lines.append(f"<code>{' | '.join(details)}</code>")
 
                 lines.append("")

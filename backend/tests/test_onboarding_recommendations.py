@@ -117,20 +117,24 @@ def test_finalize_setup_flagships_marks_uninstalled_when_absent(app, monkeypatch
 
 
 def test_finalize_setup_flagships_keeps_installed(app, monkeypatch):
-    """An INSTALLED wizard-optional flagship is never marked uninstalled."""
-    monkeypatch.setattr(ps, 'WIZARD_OPTIONAL_FLAGSHIP_SLUGS', ['serverkit-cloudflare-ops'])
+    """An INSTALLED wizard-optional flagship is never marked uninstalled.
+
+    FLAGSHIP_SLUGS is empty since the cloudflare-ops cutover (plan 52 Ph2),
+    so the machinery is proven with a fabricated installed row."""
+    monkeypatch.setattr(ps, 'WIZARD_OPTIONAL_FLAGSHIP_SLUGS', ['serverkit-demo-opt'])
     with app.app_context():
-        # the flagship seeder keeps cloudflare-ops installed under TESTING
-        assert InstalledPlugin.query.filter_by(slug='serverkit-cloudflare-ops').first()
+        db.session.add(InstalledPlugin(
+            name='serverkit-demo-opt', display_name='Demo', slug='serverkit-demo-opt',
+            version='1.0.0', status=InstalledPlugin.STATUS_ACTIVE))
+        db.session.commit()
         ps.finalize_setup_flagships()
-        assert 'serverkit-cloudflare-ops' not in ps._flagship_uninstalled_set()
+        assert 'serverkit-demo-opt' not in ps._flagship_uninstalled_set()
 
 
 def test_wordpress_not_seeded_post_extraction(app):
-    """Plan 52 Phase 5: WordPress is a registry extension now — the boot-time
-    flagship seeder never installs it (fresh OR completed setup), while the
-    remaining in-tree flagship (cloudflare-ops) still seeds. The wizard offers
-    WP through the use-case map instead (proven above)."""
+    """Plan 52 Phase 5 + Ph2 cutover: WordPress AND cloudflare-ops are
+    registry extensions now — the boot-time flagship seeder (an empty list)
+    installs neither. The wizard offers them through the catalog instead."""
     with app.app_context():
         InstalledPlugin.query.filter_by(slug='serverkit-wordpress').delete()
         db.session.commit()
@@ -140,7 +144,7 @@ def test_wordpress_not_seeded_post_extraction(app):
             assert InstalledPlugin.query.filter_by(
                 slug='serverkit-wordpress').first() is None
             assert InstalledPlugin.query.filter_by(
-                slug='serverkit-cloudflare-ops').first() is not None
+                slug='serverkit-cloudflare-ops').first() is None
         finally:
             app.config['TESTING'] = True
 
