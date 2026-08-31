@@ -59,6 +59,19 @@ def test_detect_python_flask(tmp_path):
     assert plan['build_command'].startswith('pip install')
 
 
+def test_detect_python_installs_invented_server(tmp_path):
+    """When the buildpack invents a gunicorn/uvicorn start command, the build
+    must install that server -- a repo that never asked for it won't declare
+    it, and the container would die at boot with `gunicorn: not found`."""
+    (tmp_path / 'requirements.txt').write_text('Flask==3.0\n', encoding='utf-8')
+    (tmp_path / 'app.py').write_text('app = None\n', encoding='utf-8')
+
+    plan = BuildpackService.detect(str(tmp_path))
+
+    assert plan['start_command'].startswith('gunicorn')
+    assert 'pip install --no-cache-dir gunicorn' in plan['build_command']
+
+
 def test_detect_python_version_from_pyproject(tmp_path):
     (tmp_path / 'pyproject.toml').write_text(
         '[project]\nname="x"\nrequires-python = ">=3.12"\n', encoding='utf-8')

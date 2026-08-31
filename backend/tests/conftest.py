@@ -120,6 +120,17 @@ def pytest_configure(config):
         '`SERVERKIT_REAL_BINARIES=1 pytest tests -m real_binaries` on Linux '
         '(WSL works) or in CI\'s real-binaries job.',
     )
+    config.addinivalue_line(
+        'markers',
+        'docker_builds: run generated buildpack Dockerfiles through the REAL '
+        'docker daemon (build + boot + HTTP probe) — the leg that catches '
+        'generation bugs which only fail at build or boot time (the '
+        '`--omit=dev` dead fallback that shipped `vite: not found`). Pulls '
+        'images and builds containers, so it additionally skips unless '
+        'SERVERKIT_DOCKER_BUILDS=1: select with '
+        '`SERVERKIT_DOCKER_BUILDS=1 pytest tests -m docker_builds` on any OS '
+        'with a running docker daemon.',
+    )
 
 
 @pytest.fixture(autouse=True)

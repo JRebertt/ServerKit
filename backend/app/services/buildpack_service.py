@@ -211,6 +211,15 @@ class BuildpackService:
         elif 'Pipfile' in files:
             plan['build_command'] = 'pip install --no-cache-dir pipenv && pipenv install --system --deploy'
 
+        # The start command above may name a server the buildpack chose
+        # itself (gunicorn/uvicorn) -- a repo that never asked for it won't
+        # declare it, and the container would die at boot with
+        # `gunicorn: not found`. Installing it is a no-op when the repo
+        # already pins it.
+        server_pkg = (plan['start_command'] or '').split(' ', 1)[0]
+        if server_pkg in ('gunicorn', 'uvicorn') and plan.get('build_command'):
+            plan['build_command'] += f' && pip install --no-cache-dir {server_pkg}'
+
         plan['notes'].append(
             f"Detected Python{f' ({framework})' if framework else ''}; "
             f"using Python {plan['versions']['python']}."
