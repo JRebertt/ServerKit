@@ -83,10 +83,14 @@ const SetupStepSummary = ({ accountInfo, useCases, twoFactorEnabled, onFinish })
         // with per-item progress. Fail-soft: an install failure is surfaced
         // but never blocks completing onboarding.
         const postureExts = (postures[securityPosture] || []);
-        const seen = new Set(recommendations.map((r) => r.slug));
+        // Posture extensions install regardless of the recommendation
+        // checkboxes — the posture choice is the authorization. Overlapping
+        // slugs are dropped from the recommendations half, not the posture
+        // half, so unchecking a recommendation can't veto the posture.
+        const postureSlugs = new Set(postureExts.map((r) => r.slug));
         const queue = recommendations
-            .filter((r) => checked.has(r.slug) && !r.installed)
-            .concat(postureExts.filter((r) => !r.installed && !seen.has(r.slug)));
+            .filter((r) => checked.has(r.slug) && !r.installed && !postureSlugs.has(r.slug))
+            .concat(postureExts.filter((r) => !r.installed));
         const installedSlugs = recommendations
             .filter((r) => r.installed && checked.has(r.slug))
             .map((r) => r.slug);

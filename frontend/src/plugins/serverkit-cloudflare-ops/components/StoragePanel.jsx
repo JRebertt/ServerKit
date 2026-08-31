@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 function StorageSection({
     title,
+    emptyHint,
     items,
     error,
     placeholder,
@@ -58,7 +59,7 @@ function StorageSection({
                     </div>
 
                     {items.length === 0 ? (
-                        <p className="cf-storage__hint">{`No ${title.toLowerCase()} yet.`}</p>
+                        <p className="cf-storage__hint">{emptyHint}</p>
                     ) : (
                         <ul className="cf-storage__list">
                             {items.map((item) => {
@@ -227,6 +228,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
         <div className="cf-storage">
             <StorageSection
                 title={t('app.storagePanel.r2Buckets', 'R2 buckets')}
+                emptyHint={t('app.storagePanel.noR2BucketsYet', 'No R2 buckets yet.')}
                 items={data.r2 || []}
                 error={errors.r2}
                 placeholder="my-bucket"
@@ -240,6 +242,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
 
             <StorageSection
                 title={t('app.storagePanel.kvNamespaces', 'KV namespaces')}
+                emptyHint={t('app.storagePanel.noKvNamespacesYet', 'No KV namespaces yet.')}
                 items={data.kv || []}
                 error={errors.kv}
                 placeholder="my-namespace"
@@ -252,6 +255,7 @@ export default function StoragePanel({ zoneId, isAdmin }) {
 
             <StorageSection
                 title={t('app.storagePanel.d1Databases', 'D1 databases')}
+                emptyHint={t('app.storagePanel.noD1DatabasesYet', 'No D1 databases yet.')}
                 items={data.d1 || []}
                 error={errors.d1}
                 placeholder="my-database"
