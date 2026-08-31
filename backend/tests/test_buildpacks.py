@@ -143,6 +143,35 @@ def test_generate_dockerfile_node():
     assert 'server.js' in df
 
 
+def test_generate_dockerfile_node_build_keeps_dev_dependencies():
+    """A build step needs devDependencies (vite, tsc, ...).
+
+    `npm install --omit=dev` exits 0, so an `|| npm install` fallback never
+    fires and `npm run build` dies with `vite: not found`.
+    """
+    plan = {
+        'builder': 'nixpacks', 'language': 'node', 'framework': 'vite',
+        'versions': {'node': '24'}, 'build_command': 'npm run build',
+        'start_command': 'vite preview --host --port 4173', 'port': 4173,
+    }
+    df = BuildpackService.generate_dockerfile(plan)
+    assert '--omit=dev' not in df
+    assert 'RUN npm install\n' in df
+    # Locally installed CLIs are only reachable via node_modules/.bin.
+    assert 'ENV PATH=/app/node_modules/.bin:$PATH' in df
+    assert df.index('RUN npm install\n') < df.index('RUN npm run build')
+
+
+def test_generate_dockerfile_node_without_build_omits_dev():
+    plan = {
+        'builder': 'nixpacks', 'language': 'node', 'framework': 'express',
+        'versions': {'node': '20'}, 'start_command': 'node server.js',
+        'port': 3000,
+    }
+    df = BuildpackService.generate_dockerfile(plan)
+    assert 'RUN npm install --omit=dev || npm install' in df
+
+
 def test_generate_dockerfile_python():
     plan = {
         'builder': 'nixpacks', 'language': 'python', 'framework': 'flask',
