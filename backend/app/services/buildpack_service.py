@@ -170,7 +170,13 @@ class BuildpackService:
             plan['start_command'] = scripts.get('start') or 'node .output/server/index.mjs'
         elif 'vite' in deps:
             framework, port = 'vite', 4173
-            plan['start_command'] = scripts.get('start') or 'vite preview --host --port 4173'
+            # NOT `vite preview`: preview host-checks the request against
+            # `preview.allowedHosts` and blocks any domain the repo's vite
+            # config doesn't list -- dead on arrival behind the panel's
+            # proxy. `serve -s` does SPA fallback, no host check; the
+            # generator preinstalls it when the start command needs it.
+            plan['start_command'] = (scripts.get('start')
+                                     or 'serve -s dist -l tcp://0.0.0.0:4173')
         elif 'express' in deps or 'fastify' in deps or 'koa' in deps:
             framework, port = ('express' if 'express' in deps else 'node'), 3000
             plan['start_command'] = scripts.get('start') or 'node index.js'
@@ -538,6 +544,10 @@ class BuildpackService:
         lines.append('COPY . .')
         if build:
             lines.append(f'RUN {build}')
+        if start.split(' ', 1)[0] == 'serve':
+            # The buildpack chose `serve` itself (vite default) -- the repo
+            # won't declare it, so preinstall it globally.
+            lines.append('RUN npm install -g serve')
         lines += [
             'ENV NODE_ENV=production',
             f'EXPOSE {port}',

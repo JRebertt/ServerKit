@@ -106,6 +106,24 @@ def _deploy_and_probe(repo_path, expect_language, expect_framework=None,
                         break
                 except (OSError, AssertionError):
                     time.sleep(1)
+            if body is not None:
+                # Behind the panel's proxy the request carries the app's
+                # DOMAIN as Host, not 127.0.0.1 -- a server that host-checks
+                # (vite preview's preview.allowedHosts) answers localhost
+                # probes fine and blocks every real visitor. Every generated
+                # container must serve regardless of Host.
+                req = urllib.request.Request(
+                    url, headers={'Host': 'app.example.com'})
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    assert resp.status == 200, (
+                        'container refused a foreign Host header -- it would '
+                        'block every request forwarded by the panel proxy'
+                    )
+                    foreign_body = resp.read().decode('utf-8', 'replace')
+                assert 'not allowed' not in foreign_body.lower(), (
+                    'container host-blocked the proxied domain: '
+                    + foreign_body[:300]
+                )
             if body is None:
                 logs = subprocess.run(
                     ['docker', 'logs', tag],
@@ -124,10 +142,11 @@ def _deploy_and_probe(repo_path, expect_language, expect_framework=None,
                        capture_output=True, timeout=60)
 
 
-def test_node_vite_build_and_preview(tmp_path):
-    """The gods-eye-view regression: vite is a devDependency, the build
-    command needs it at build time and the preview start command needs it
-    (via node_modules/.bin on PATH) at run time."""
+def test_node_vite_build_and_serve(tmp_path):
+    """The gods-eye-view regressions: vite is a devDependency the build
+    needs at build time, and the container must answer requests for the
+    app's real domain -- `vite preview` host-blocked everything the panel
+    proxy forwarded (the helper's foreign-Host probe pins that)."""
     _write(tmp_path, {
         'package.json': json.dumps({
             'name': 'vite-smoke', 'version': '0.1.0', 'private': True,
@@ -146,6 +165,7 @@ def test_node_vite_build_and_preview(tmp_path):
     })
     plan, body = _deploy_and_probe(tmp_path, 'node', 'vite')
     assert plan['build_command'] == 'npm run build'
+    assert plan['start_command'].startswith('serve ')
     assert 'vite-smoke' in body
 
 
