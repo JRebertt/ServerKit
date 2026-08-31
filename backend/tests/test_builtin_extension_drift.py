@@ -13,11 +13,11 @@ Written while drift is **zero** (21 file pairs). That is the point — this lock
 in a clean invariant rather than repairing a dirty one, and it only stays cheap
 while that is true.
 
-Scope note: only pairs present on BOTH sides are compared. Several extensions
-legitimately have one side only — cloudflare-ops and localkit ship source with
-no materialised live copy, serverkit-git uses a different layout — and most live
-copies are gitignored, so a fresh clone sees fewer pairs than a dev machine.
-`test_drift_check_is_not_vacuous` stops that from quietly reducing to nothing.
+Scope note: only pairs present on BOTH sides are compared. Some extensions
+legitimately have one side only, and most live copies are gitignored, so a
+fresh clone sees fewer pairs than a dev machine. serverkit-status is the one
+live copy git tracks, so a fresh clone always has at least one comparable
+pair; `test_drift_check_is_not_vacuous` stops that reducing to nothing.
 
 That machine-dependence is also why the test-count ratchet runs collection with
 `SERVERKIT_CLEAN_COLLECT=1` — see `CLEAN_COLLECT` below.
@@ -149,15 +149,16 @@ def test_drift_check_is_not_vacuous():
     """Guard the guard.
 
     Most live copies are gitignored, so a fresh clone sees far fewer pairs than
-    a dev machine. serverkit-email's live copy predates that ignore rule and is
-    tracked, so at least one extension must always be comparable. Without this,
-    a reorganisation could silently reduce the parametrised test above to zero
-    cases and it would still report green.
+    a dev machine. serverkit-status's live copy is deliberately tracked (see the
+    note in .gitignore), so at least one extension must always be comparable.
+    Without this, a reorganisation could silently reduce the parametrised test
+    above to zero cases and it would still report green -- which is exactly what
+    happened when serverkit-email, the previous anchor, left the tree in plan 52.
     """
     assert PAIRS, (
         'No extension had both a builtin-extensions/<ext>/backend and an '
         'app/plugins/<ext> copy, so the drift check compared nothing. Either '
-        'the layout moved or the tracked serverkit-email copy is gone.'
+        'the layout moved or the tracked serverkit-status copy is gone.'
     )
 
 

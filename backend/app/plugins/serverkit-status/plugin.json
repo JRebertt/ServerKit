@@ -1,0 +1,42 @@
+{
+  "name": "serverkit-status",
+  "display_name": "Status Pages",
+  "version": "1.0.0",
+  "description": "Public status pages backed by uptime monitors, with the management UI as a tab in the Observability group. Installing the extension serves the public /status/<slug> and /status/badge/<slug> pages too.",
+  "author": "ServerKit",
+  "license": "MIT",
+  "category": "monitoring",
+  "homepage": "https://github.com/jhd3197/ServerKit",
+  "permissions": [],
+  "entry_point": "status_pages:status_pages_bp",
+  "url_prefix": "/api/v1/status",
+  "icon": "<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20\"/><path d=\"M2 12h20\"/>",
+  "contributions": {
+    "tabs": [
+      {
+        "group": "monitoring",
+        "to": "/status-pages",
+        "label": "Status Pages",
+        "icon": "<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20\"/><path d=\"M2 12h20\"/>"
+      }
+    ],
+    "routes": [
+      {
+        "path": "status-pages",
+        "component": "StatusPagesPage",
+        "group": "monitoring"
+      }
+    ],
+    "page_titles": {
+      "/status-pages": "Status Pages"
+    },
+    "command_palette": [
+      {
+        "label": "Status Pages",
+        "path": "/status-pages",
+        "category": "Pages",
+        "keywords": "uptime incidents public status"
+      }
+    ]
+  }
+}
