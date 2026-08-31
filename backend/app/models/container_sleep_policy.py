@@ -17,7 +17,10 @@ class ContainerSleepPolicy(db.Model):
     asleep = db.Column(db.Boolean, default=False, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    application = db.relationship('Application', backref=db.backref('sleep_policy', uselist=False))
+    # cascade: application_id is NOT NULL, so a real delete of the app (Recycle
+    # Bin purge) must take this row with it — the default null-out IntegrityErrors.
+    application = db.relationship('Application', backref=db.backref(
+        'sleep_policy', uselist=False, cascade='all, delete-orphan'))
 
     def to_dict(self):
         return {

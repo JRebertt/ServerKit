@@ -157,6 +157,36 @@ def test_purge_is_what_removes_the_volumes(app, dead_app, monkeypatch):
     assert calls and calls[0].get('volumes') is True
 
 
+def test_purge_takes_the_one_to_one_policy_rows_with_it(app, dead_app, monkeypatch):
+    """Field report: purging an app that had an auto-scale policy died with
+    `IntegrityError: NOT NULL constraint failed: container_scale_policies
+    .application_id`. Without a delete cascade SQLAlchemy's default on parent
+    delete is to NULL the child FK — and these one-to-one rows declare the FK
+    NOT NULL, so the purge itself crashed. The policy rows must ride along."""
+    from app.services import docker_service
+    monkeypatch.setattr(docker_service.DockerService, 'compose_down',
+                        classmethod(lambda cls, path, **kw: {'success': True}))
+    monkeypatch.setattr(application_restore.CronService, 'clear_application',
+                        classmethod(lambda cls, _id: 0))
+
+    from app.models.container_scale_policy import ContainerScalePolicy
+    from app.models.container_sleep_policy import ContainerSleepPolicy
+
+    with app.app_context():
+        db.session.add(ContainerScalePolicy(application_id=dead_app.id))
+        db.session.add(ContainerSleepPolicy(application_id=dead_app.id))
+        db.session.commit()
+
+        ok, warning = recycle_bin_service.purge('application', dead_app.id)
+        assert ok
+        assert warning is None, warning
+        assert Application.query.get(dead_app.id) is None
+        assert ContainerScalePolicy.query.filter_by(
+            application_id=dead_app.id).first() is None
+        assert ContainerSleepPolicy.query.filter_by(
+            application_id=dead_app.id).first() is None
+
+
 def test_purge_honours_an_explicit_remove_data_false(app, dead_app, monkeypatch):
     """Database engines default to preserving their volumes — losing the data is
     the only irreversible part of that uninstall."""

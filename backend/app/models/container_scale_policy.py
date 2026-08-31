@@ -23,7 +23,10 @@ class ContainerScalePolicy(db.Model):
     last_scaled_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    application = db.relationship('Application', backref=db.backref('scale_policy', uselist=False))
+    # cascade: application_id is NOT NULL, so a real delete of the app (Recycle
+    # Bin purge) must take this row with it — the default null-out IntegrityErrors.
+    application = db.relationship('Application', backref=db.backref(
+        'scale_policy', uselist=False, cascade='all, delete-orphan'))
 
     def to_dict(self):
         return {

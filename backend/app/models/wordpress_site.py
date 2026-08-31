@@ -100,7 +100,10 @@ class WordPressSite(JsonColumnMixin, TimestampMixin, db.Model):
     # Timestamps
 
     # Relationships
-    application = db.relationship('Application', backref=db.backref('wp_site', uselist=False))
+    # cascade: application_id is NOT NULL, so a real delete of the app (Recycle
+    # Bin purge) must take this row with it — the default null-out IntegrityErrors.
+    application = db.relationship('Application', backref=db.backref(
+        'wp_site', uselist=False, cascade='all, delete-orphan'))
     environments = db.relationship(
         'WordPressSite',
         backref=db.backref('production_site', remote_side=[id]),
