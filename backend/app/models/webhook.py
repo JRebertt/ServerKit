@@ -172,7 +172,10 @@ class GitDeployment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    app = db.relationship('Application', backref=db.backref('git_deployments', lazy='dynamic'))
+    # cascade: app_id is NOT NULL — purge must delete, not null out. (GitWebhook
+    # above keeps a plain backref: its app_id is nullable.)
+    app = db.relationship('Application', backref=db.backref(
+        'git_deployments', lazy='dynamic', cascade='all, delete-orphan'))
     webhook = db.relationship('GitWebhook', backref=db.backref('deployments', lazy='dynamic'))
 
     def to_dict(self):

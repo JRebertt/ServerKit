@@ -59,7 +59,10 @@ class Deployment(JsonColumnMixin, db.Model):
     extra_data = db.Column(db.Text, default='{}')
 
     # Relationships
-    app = db.relationship('Application', backref=db.backref('deployments', lazy='dynamic'))
+    # cascade: app_id is NOT NULL, so a real delete of the app (Recycle Bin
+    # purge) must take the history with it — the default null-out IntegrityErrors.
+    app = db.relationship('Application', backref=db.backref(
+        'deployments', lazy='dynamic', cascade='all, delete-orphan'))
     deployer = db.relationship('User', backref=db.backref('user_deployments', lazy='dynamic'))
 
     def get_metadata(self):

@@ -58,8 +58,13 @@ class DeploymentSnapshot(JsonColumnMixin, db.Model):
     # deployment.py (another agent owns those). The Application gains a
     # ``config_snapshots`` collection; the Deployment gains ``config_snapshots``
     # too via a distinct backref.
+    # cascade: application_id is NOT NULL, so a real delete of the app (Recycle
+    # Bin purge) must take the snapshots too — the default null-out IntegrityErrors.
+    # (deployment_id below is nullable, so the Deployment side needs no cascade.)
     application = db.relationship(
-        'Application', backref=db.backref('config_snapshots', lazy='dynamic')
+        'Application',
+        backref=db.backref('config_snapshots', lazy='dynamic',
+                           cascade='all, delete-orphan')
     )
     deployment = db.relationship(
         'Deployment', backref=db.backref('config_snapshots', lazy='dynamic')

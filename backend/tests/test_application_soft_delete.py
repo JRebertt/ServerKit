@@ -171,10 +171,12 @@ def test_purge_takes_the_one_to_one_policy_rows_with_it(app, dead_app, monkeypat
 
     from app.models.container_scale_policy import ContainerScalePolicy
     from app.models.container_sleep_policy import ContainerSleepPolicy
+    from app.models.deployment import Deployment
 
     with app.app_context():
         db.session.add(ContainerScalePolicy(application_id=dead_app.id))
         db.session.add(ContainerSleepPolicy(application_id=dead_app.id))
+        db.session.add(Deployment(app_id=dead_app.id, version=1))
         db.session.commit()
 
         ok, warning = recycle_bin_service.purge('application', dead_app.id)
@@ -185,6 +187,29 @@ def test_purge_takes_the_one_to_one_policy_rows_with_it(app, dead_app, monkeypat
             application_id=dead_app.id).first() is None
         assert ContainerSleepPolicy.query.filter_by(
             application_id=dead_app.id).first() is None
+        assert Deployment.query.filter_by(app_id=dead_app.id).first() is None
+
+
+def test_every_not_null_child_of_application_cascades_deletes(app):
+    """The invariant behind the purge crash, pinned for FUTURE models too: any
+    one-to-many from Application whose child FK is NOT NULL must carry a delete
+    cascade, because SQLAlchemy's default on parent delete is to NULL the child
+    FK — which the NOT NULL constraint turns into an IntegrityError at purge."""
+    from sqlalchemy import inspect as sa_inspect
+
+    with app.app_context():
+        offenders = []
+        for rel in sa_inspect(Application).relationships:
+            if rel.direction.name != 'ONETOMANY' or rel.viewonly:
+                continue
+            fk_cols = [c for c in rel.remote_side if c.foreign_keys]
+            if not fk_cols or all(c.nullable for c in fk_cols):
+                continue
+            if 'delete' not in rel.cascade:
+                offenders.append(str(rel))
+        assert not offenders, (
+            'NOT NULL children of Application without a delete cascade '
+            f'(purge would IntegrityError): {offenders}')
 
 
 def test_purge_honours_an_explicit_remove_data_false(app, dead_app, monkeypatch):
