@@ -15,7 +15,7 @@ class RegistrarConnection(JsonColumnMixin, TimestampMixin, db.Model):
     __tablename__ = 'registrar_connections'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     provider = db.Column(db.String(40), nullable=False)      # 'godaddy'
     name = db.Column(db.String(120), nullable=True)          # user-facing label
     api_key_encrypted = db.Column(db.Text, nullable=True)

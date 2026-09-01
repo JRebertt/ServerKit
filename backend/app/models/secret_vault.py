@@ -13,7 +13,7 @@ class SecretVault(TimestampMixin, db.Model):
     name = db.Column(db.String(200), nullable=False, unique=True)
     slug = db.Column(db.String(220), nullable=False, unique=True, index=True)
     description = db.Column(db.Text, nullable=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     # Workspace scoping (#33): a vault belongs to a workspace. Backfilled to the
     # Default workspace by migration 021; new rows are stamped on create.
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)

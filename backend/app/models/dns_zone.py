@@ -19,7 +19,7 @@ class DNSZone(JsonColumnMixin, TimestampMixin, db.Model):
     # whose API token manages this zone. Supersedes the inline token in
     # provider_config_json; nullable so manual zones and not-yet-migrated rows work.
     dns_provider_config_id = db.Column(
-        db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True)
+        db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True, index=True)
 
     status = db.Column(db.String(32), default='active')
     last_sync_at = db.Column(db.DateTime)
@@ -54,7 +54,7 @@ class DNSRecord(SerializableMixin, TimestampMixin, db.Model):
     __tablename__ = 'dns_records'
 
     id = db.Column(db.Integer, primary_key=True)
-    zone_id = db.Column(db.Integer, db.ForeignKey('dns_zones.id'), nullable=False)
+    zone_id = db.Column(db.Integer, db.ForeignKey('dns_zones.id'), nullable=False, index=True)
 
     record_type = db.Column(db.String(10), nullable=False)  # A, AAAA, CNAME, MX, TXT, SRV, CAA
     name = db.Column(db.String(256), nullable=False)

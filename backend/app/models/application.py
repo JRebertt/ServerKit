@@ -114,14 +114,14 @@ class Application(JsonColumnMixin, TimestampMixin, SoftDeleteMixin, db.Model):
 
     # Environment linking
     environment_type = db.Column(db.String(20), default='standalone')  # 'production', 'development', 'staging', 'standalone'
-    linked_app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True)
+    linked_app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True, index=True)
     shared_config = db.Column(db.Text, nullable=True)  # JSON string for shared resources
 
     # Metadata
     last_deployed_at = db.Column(db.DateTime, nullable=True)
 
     # Foreign keys
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=True, index=True)
     # Workspace scoping (#33). Nullable: existing rows are backfilled to a default
     # workspace by migration 015; new rows are stamped on create.

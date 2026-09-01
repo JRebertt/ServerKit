@@ -27,7 +27,7 @@ class GitWebhook(TimestampMixin, db.Model):
     auto_sync = db.Column(db.Boolean, default=True)
 
     # Deployment configuration
-    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True)
+    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True, index=True)
     deploy_on_push = db.Column(db.Boolean, default=False)
     pre_deploy_script = db.Column(db.Text, nullable=True)
     post_deploy_script = db.Column(db.Text, nullable=True)
@@ -81,7 +81,7 @@ class WebhookLog(db.Model):
     __tablename__ = 'webhook_logs'
 
     id = db.Column(db.Integer, primary_key=True)
-    webhook_id = db.Column(db.Integer, db.ForeignKey('git_webhooks.id'), nullable=True)
+    webhook_id = db.Column(db.Integer, db.ForeignKey('git_webhooks.id'), nullable=True, index=True)
 
     # Event info
     source = db.Column(db.String(50), nullable=False)  # 'github', 'gitlab', 'bitbucket'
@@ -137,8 +137,8 @@ class GitDeployment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Links
-    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False)
-    webhook_id = db.Column(db.Integer, db.ForeignKey('git_webhooks.id'), nullable=True)
+    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False, index=True)
+    webhook_id = db.Column(db.Integer, db.ForeignKey('git_webhooks.id'), nullable=True, index=True)
 
     # Deployment info
     version = db.Column(db.Integer, nullable=False)  # Auto-increment per app

@@ -26,7 +26,7 @@ class Workflow(JsonColumnMixin, TimestampMixin, db.Model):
     # Metadata
 
     # Foreign keys
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
 
     # Relationships
     user = db.relationship('User', backref=db.backref('workflows', lazy='dynamic'))
@@ -60,7 +60,7 @@ class WorkflowExecution(JsonColumnMixin, db.Model):
     __tablename__ = 'workflow_executions'
 
     id = db.Column(db.Integer, primary_key=True)
-    workflow_id = db.Column(db.Integer, db.ForeignKey('workflows.id'), nullable=False)
+    workflow_id = db.Column(db.Integer, db.ForeignKey('workflows.id'), nullable=False, index=True)
     status = db.Column(db.String(20), default='running')  # running, success, failed, cancelled
     trigger_type = db.Column(db.String(50))
     context = db.Column(db.Text, nullable=True)  # JSON data passed between steps
@@ -89,7 +89,7 @@ class WorkflowLog(db.Model):
     __tablename__ = 'workflow_logs'
 
     id = db.Column(db.Integer, primary_key=True)
-    execution_id = db.Column(db.Integer, db.ForeignKey('workflow_executions.id'), nullable=False)
+    execution_id = db.Column(db.Integer, db.ForeignKey('workflow_executions.id'), nullable=False, index=True)
     level = db.Column(db.String(10), default='INFO')  # INFO, WARNING, ERROR, DEBUG
     message = db.Column(db.Text, nullable=False)
     node_id = db.Column(db.String(100), nullable=True)  # ID of the node that generated the log

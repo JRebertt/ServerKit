@@ -28,6 +28,6 @@ class CfOpsChange(SerializableMixin, db.Model):
     target = db.Column(db.String(256))
     result = db.Column(db.String(16), nullable=False, default='ok')
     error = db.Column(db.Text)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 

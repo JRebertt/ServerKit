@@ -58,7 +58,7 @@ class InstalledPlugin(JsonColumnMixin, db.Model):
     # Has backend blueprint
     has_backend = db.Column(db.Boolean, default=False)
 
-    installed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    installed_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     installed_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

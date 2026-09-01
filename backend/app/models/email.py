@@ -20,7 +20,7 @@ class EmailDomain(TimestampMixin, db.Model):
     dmarc_record = db.Column(db.String(500))
 
     # DNS provider linkage
-    dns_provider_id = db.Column(db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True)
+    dns_provider_id = db.Column(db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True, index=True)
     dns_zone_id = db.Column(db.String(255))
 
 
@@ -56,7 +56,7 @@ class EmailAccount(TimestampMixin, db.Model):
     email = db.Column(db.String(255), unique=True, nullable=False, index=True)
     username = db.Column(db.String(255), nullable=False)
     password_hash = db.Column(db.String(500), nullable=False)
-    domain_id = db.Column(db.Integer, db.ForeignKey('email_domains.id'), nullable=False)
+    domain_id = db.Column(db.Integer, db.ForeignKey('email_domains.id'), nullable=False, index=True)
     quota_mb = db.Column(db.Integer, default=1024)
     quota_used_mb = db.Column(db.Integer, default=0)
     is_active = db.Column(db.Boolean, default=True)
@@ -88,7 +88,7 @@ class EmailAlias(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     source = db.Column(db.String(255), nullable=False, index=True)
     destination = db.Column(db.String(255), nullable=False)
-    domain_id = db.Column(db.Integer, db.ForeignKey('email_domains.id'), nullable=False)
+    domain_id = db.Column(db.Integer, db.ForeignKey('email_domains.id'), nullable=False, index=True)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -111,7 +111,7 @@ class EmailForwardingRule(db.Model):
     __tablename__ = 'email_forwarding_rules'
 
     id = db.Column(db.Integer, primary_key=True)
-    account_id = db.Column(db.Integer, db.ForeignKey('email_accounts.id'), nullable=False)
+    account_id = db.Column(db.Integer, db.ForeignKey('email_accounts.id'), nullable=False, index=True)
     destination = db.Column(db.String(255), nullable=False)
     keep_copy = db.Column(db.Boolean, default=True)
     is_active = db.Column(db.Boolean, default=True)

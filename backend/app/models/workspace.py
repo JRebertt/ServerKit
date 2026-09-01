@@ -34,7 +34,7 @@ class Workspace(JsonColumnMixin, TimestampMixin, db.Model):
     # Billing
     billing_notes = db.Column(db.Text)
 
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
 
     members = db.relationship('WorkspaceMember', backref='workspace', lazy='dynamic')
     api_keys = db.relationship('WorkspaceApiKey', backref='workspace', lazy='dynamic')
@@ -74,8 +74,8 @@ class WorkspaceMember(db.Model):
     __tablename__ = 'workspace_members'
 
     id = db.Column(db.Integer, primary_key=True)
-    workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
 
     ROLE_OWNER = 'owner'
     ROLE_ADMIN = 'admin'
@@ -108,14 +108,14 @@ class WorkspaceApiKey(JsonColumnMixin, db.Model):
     __tablename__ = 'workspace_api_keys'
 
     id = db.Column(db.Integer, primary_key=True)
-    workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=False)
+    workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=False, index=True)
     name = db.Column(db.String(128), nullable=False)
     key_hash = db.Column(db.String(256), nullable=False)
     key_prefix = db.Column(db.String(16))
     scopes_json = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
     expires_at = db.Column(db.DateTime, nullable=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_used_at = db.Column(db.DateTime)
 
@@ -157,7 +157,7 @@ class ResourceGrant(db.Model):
     resource_type = db.Column(db.String(32), nullable=False)   # 'application'
     resource_id = db.Column(db.Integer, nullable=False, index=True)
     role = db.Column(db.String(16), default='editor')          # reserved for view/edit
-    granted_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    granted_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     __table_args__ = (

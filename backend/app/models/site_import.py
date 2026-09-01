@@ -44,7 +44,7 @@ class SiteImport(JsonColumnMixin, db.Model):
     current_step = db.Column(db.String(60), nullable=True)
     error = db.Column(db.Text, nullable=True)
 
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow,
                            onupdate=datetime.utcnow)

@@ -18,9 +18,9 @@ class PromotionJob(JsonColumnMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Source and target sites
-    source_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False)
-    target_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    source_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+    target_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
 
     # Promotion details
     promotion_type = db.Column(db.String(20), nullable=False)  # code, database, files, full
@@ -28,7 +28,7 @@ class PromotionJob(JsonColumnMixin, db.Model):
 
     # Status tracking
     status = db.Column(db.String(20), default='pending')  # pending, running, completed, failed, rolled_back
-    pre_promotion_snapshot_id = db.Column(db.Integer, db.ForeignKey('database_snapshots.id'), nullable=True)
+    pre_promotion_snapshot_id = db.Column(db.Integer, db.ForeignKey('database_snapshots.id'), nullable=True, index=True)
     error_message = db.Column(db.Text)
 
     # Timing

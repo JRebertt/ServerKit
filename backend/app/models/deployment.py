@@ -19,7 +19,7 @@ class Deployment(JsonColumnMixin, db.Model):
     __tablename__ = 'deployments'
 
     id = db.Column(db.Integer, primary_key=True)
-    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False)
+    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False, index=True)
 
     # Version info
     version = db.Column(db.Integer, nullable=False)  # Sequential version number per app
@@ -38,7 +38,7 @@ class Deployment(JsonColumnMixin, db.Model):
     container_id = db.Column(db.String(100), nullable=True)
 
     # Deployment details
-    deployed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    deployed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     deploy_trigger = db.Column(db.String(20), default='manual')  # manual, webhook, rollback
 
     # Build/deploy output
@@ -177,8 +177,8 @@ class DeploymentDiff(JsonColumnMixin, db.Model):
     __tablename__ = 'deployment_diffs'
 
     id = db.Column(db.Integer, primary_key=True)
-    deployment_id = db.Column(db.Integer, db.ForeignKey('deployments.id'), nullable=False)
-    previous_deployment_id = db.Column(db.Integer, db.ForeignKey('deployments.id'), nullable=True)
+    deployment_id = db.Column(db.Integer, db.ForeignKey('deployments.id'), nullable=False, index=True)
+    previous_deployment_id = db.Column(db.Integer, db.ForeignKey('deployments.id'), nullable=True, index=True)
 
     # Diff content (JSON)
     files_added = db.Column(db.Text, default='[]')

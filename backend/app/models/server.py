@@ -16,7 +16,7 @@ class ServerGroup(TimestampMixin, db.Model):
     description = db.Column(db.Text)
     color = db.Column(db.String(7), default='#6366f1')  # Hex color for UI
     icon = db.Column(db.String(50), default='server')  # Icon name
-    parent_id = db.Column(db.String(36), db.ForeignKey('server_groups.id'), nullable=True)
+    parent_id = db.Column(db.String(36), db.ForeignKey('server_groups.id'), nullable=True, index=True)
 
     # Fleet Management
     auto_upgrade = db.Column(db.Boolean, default=False)
@@ -169,7 +169,7 @@ class Server(TimestampMixin, JsonColumnMixin, db.Model):
     registration_token_hash = db.Column(db.String(256))
     registration_token_expires = db.Column(db.DateTime)
     registered_at = db.Column(db.DateTime)
-    registered_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    registered_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
 
     # Cached capability snapshot — written every time the agent reports
     # a Capabilities message, so the panel can render the full Overview
@@ -549,7 +549,7 @@ class ServerCommand(SerializableMixin, db.Model):
 
     id = uuid_pk()
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
 
     # Command details
     command_type = db.Column(db.String(50))  # docker:container:start, system:exec, etc.
@@ -629,9 +629,9 @@ class AgentRollout(TimestampMixin, db.Model):
     __tablename__ = 'agent_rollouts'
 
     id = uuid_pk()
-    version_id = db.Column(db.String(36), db.ForeignKey('agent_versions.id'), nullable=False)
-    group_id = db.Column(db.String(36), db.ForeignKey('server_groups.id'), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    version_id = db.Column(db.String(36), db.ForeignKey('agent_versions.id'), nullable=False, index=True)
+    group_id = db.Column(db.String(36), db.ForeignKey('server_groups.id'), nullable=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
 
     # Configuration
     batch_size = db.Column(db.Integer, default=5)

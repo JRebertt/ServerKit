@@ -274,6 +274,30 @@ def test_dangling_on_delete_fk_set_may_only_shrink(app):
             f'these entries are fixed — remove them from the set: {sorted(fixed)}')
 
 
+def test_every_fk_column_is_indexed(app):
+    """FK columns are born indexed — every join, per-parent listing, and the
+    cascade deletes applied by _delete_cascade_policy scan the whole table
+    without one. Declare index=True on the column (migration 096 covers
+    existing installs). PK and single-column-unique FKs are already served."""
+    with app.app_context():
+        offenders = []
+        seen = set()
+        for mapper in db.Model.registry.mappers:
+            table = mapper.local_table
+            if table is None or table.name in seen:
+                continue
+            seen.add(table.name)
+            leading = {list(ix.columns)[0].key
+                       for ix in table.indexes if list(ix.columns)}
+            for c in table.columns:
+                if not c.foreign_keys or c.primary_key or c.unique:
+                    continue
+                if c.key not in leading:
+                    offenders.append(f'{table.name}.{c.key}')
+        assert not offenders, (
+            f'FK columns without an index — add index=True: {sorted(offenders)}')
+
+
 def test_deleting_a_workspace_with_projects_is_refused(app):
     """The Workspace.projects entry in DELIBERATELY_UNCASCADED is only honest
     while delete_workspace refuses instead of 500ing."""

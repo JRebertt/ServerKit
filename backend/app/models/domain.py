@@ -25,7 +25,7 @@ class Domain(TimestampMixin, SoftDeleteMixin, db.Model):
     # Metadata
 
     # Foreign keys
-    application_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False)
+    application_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False, index=True)
 
     def to_dict(self):
         return {

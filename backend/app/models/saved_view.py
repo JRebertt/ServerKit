@@ -15,7 +15,7 @@ class SavedView(TimestampMixin, SoftDeleteMixin, db.Model):
     __tablename__ = 'saved_views'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     page = db.Column(db.String(80), nullable=False)
     name = db.Column(db.String(120), nullable=False)
     # URL-safe handle so a view can be linked: /domains?view=ssl-expiring-soon.

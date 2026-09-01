@@ -10,7 +10,7 @@ class DdnsHost(db.Model):
     __tablename__ = 'ddns_hosts'
 
     id = db.Column(db.Integer, primary_key=True)
-    zone_id = db.Column(db.Integer, db.ForeignKey('dns_zones.id'), nullable=False)
+    zone_id = db.Column(db.Integer, db.ForeignKey('dns_zones.id'), nullable=False, index=True)
     # Record name within the zone: '@' for the apex, or e.g. 'home' for
     # home.example.com. Matches DNSRecord.name.
     record_name = db.Column(db.String(256), nullable=False, default='@')

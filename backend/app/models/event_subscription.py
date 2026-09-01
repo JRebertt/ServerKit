@@ -11,7 +11,7 @@ class EventSubscription(TimestampMixin, JsonColumnMixin, db.Model):
     __tablename__ = 'event_subscriptions'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
     url = db.Column(db.String(2048), nullable=False)
     secret = db.Column(db.String(256), nullable=True)
@@ -86,7 +86,7 @@ class EventDelivery(JsonColumnMixin, db.Model):
     __tablename__ = 'event_deliveries'
 
     id = db.Column(db.Integer, primary_key=True)
-    subscription_id = db.Column(db.Integer, db.ForeignKey('event_subscriptions.id'), nullable=False)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('event_subscriptions.id'), nullable=False, index=True)
     event_type = db.Column(db.String(100), nullable=False)
     payload = db.Column(db.Text, nullable=True)  # JSON
     status = db.Column(db.String(20), default='pending')  # pending | success | failed

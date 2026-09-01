@@ -21,6 +21,7 @@ class SiteBandwidthDaily(db.Model):
         db.Integer,
         db.ForeignKey('applications.id', ondelete='CASCADE'),
         nullable=True,
+        index=True,
     )
     domain = db.Column(db.String(255), nullable=False, index=True)
     day = db.Column(db.Date, nullable=False, index=True)

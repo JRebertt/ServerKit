@@ -21,7 +21,7 @@ class LoginLink(db.Model):
     )
     created_by_id = db.Column(
         db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'),
-        nullable=True,
+        nullable=True, index=True,
     )
     expires_at = db.Column(db.DateTime, nullable=False)
     used_at = db.Column(db.DateTime, nullable=True)

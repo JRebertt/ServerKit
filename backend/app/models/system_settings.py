@@ -13,7 +13,7 @@ class SystemSettings(JsonColumnMixin, db.Model):
     value_type = db.Column(db.String(20), default='string')  # string, boolean, integer, json
     description = db.Column(db.String(500), nullable=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    updated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    updated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
 
     # Relationship to user who last updated
     updated_by_user = db.relationship('User', foreign_keys=[updated_by])

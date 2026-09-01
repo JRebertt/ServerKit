@@ -65,7 +65,7 @@ class PendingAgent(db.Model):
     last_seen_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
     claimed_at = db.Column(db.DateTime, nullable=True)
-    claimed_server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=True)
+    claimed_server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=True, index=True)
 
     # When claimed, we stash credentials here briefly (Fernet-encrypted) so the
     # next /poll call can deliver them to the agent. Cleared after retrieval.

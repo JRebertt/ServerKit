@@ -115,7 +115,7 @@ class SharedVariable(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(db.Integer, db.ForeignKey('shared_variable_groups.id'),
-                         nullable=False)
+                         nullable=False, index=True)
     key = db.Column(db.String(255), nullable=False)
     encrypted_value = db.Column(db.Text, nullable=False)
     is_secret = db.Column(db.Boolean, default=False)
@@ -166,7 +166,7 @@ class SharedVariableGroupAttachment(SerializableMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(db.Integer, db.ForeignKey('shared_variable_groups.id'),
-                         nullable=False)
+                         nullable=False, index=True)
     resource_type = db.Column(db.String(50), nullable=False)
     resource_id = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

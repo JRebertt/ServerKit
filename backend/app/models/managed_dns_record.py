@@ -19,7 +19,7 @@ class ManagedDnsRecord(SerializableMixin, TimestampMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     dns_provider_config_id = db.Column(
-        db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True)
+        db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True, index=True)
     provider = db.Column(db.String(64), nullable=False)              # cloudflare, ...
     provider_zone_id = db.Column(db.String(128), nullable=False, index=True)
     provider_record_id = db.Column(db.String(128), index=True)       # set once known
@@ -33,7 +33,7 @@ class ManagedDnsRecord(SerializableMixin, TimestampMixin, db.Model):
     # a default that could change live DNS behavior.
     proxied = db.Column(db.Boolean)
     source = db.Column(db.String(40))                                # zone|ddns|preset|wordpress|email
-    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True)
+    app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True, index=True)
 
 
     # Serialization comes from SerializableMixin; these columns stay out

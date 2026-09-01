@@ -57,7 +57,7 @@ class StatusComponent(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     # Nullable: a monitor can exist with no status page attached (migration 081).
-    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=True)
+    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=True, index=True)
     name = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text)
     group = db.Column(db.String(64))  # e.g., "Web Services", "APIs"
@@ -97,7 +97,7 @@ class StatusComponent(db.Model):
     # Optional binding to a managed WordPress site. When set, the component's
     # status is driven from the site's health checks (#26) rather than a network
     # probe, and a real uptime % accrues from the recorded HealthCheck rows.
-    wordpress_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=True)
+    wordpress_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=True, index=True)
 
     # Status
     STATUS_OPERATIONAL = 'operational'
@@ -170,7 +170,7 @@ class HealthCheck(SerializableMixin, db.Model):
     __tablename__ = 'health_checks'
 
     id = db.Column(db.Integer, primary_key=True)
-    component_id = db.Column(db.Integer, db.ForeignKey('status_components.id'), nullable=False)
+    component_id = db.Column(db.Integer, db.ForeignKey('status_components.id'), nullable=False, index=True)
     status = db.Column(db.String(16))  # up, down, degraded
     response_time = db.Column(db.Integer)  # ms
     status_code = db.Column(db.Integer)
@@ -186,10 +186,10 @@ class StatusIncident(TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     # Nullable: an incident auto-opened for a monitor that belongs to no status
     # page has no page either (migration 081).
-    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=True)
+    page_id = db.Column(db.Integer, db.ForeignKey('status_pages.id'), nullable=True, index=True)
     # Optional link to the component this incident is about. Set when an incident
     # is auto-opened from a health check, so it can be auto-resolved on recovery (#26).
-    component_id = db.Column(db.Integer, db.ForeignKey('status_components.id'), nullable=True)
+    component_id = db.Column(db.Integer, db.ForeignKey('status_components.id'), nullable=True, index=True)
     title = db.Column(db.String(256), nullable=False)
     status = db.Column(db.String(32), default='investigating')  # investigating, identified, monitoring, resolved
     impact = db.Column(db.String(32), default='minor')  # none, minor, major, critical
@@ -228,7 +228,7 @@ class StatusIncidentUpdate(SerializableMixin, db.Model):
     __tablename__ = 'status_incident_updates'
 
     id = db.Column(db.Integer, primary_key=True)
-    incident_id = db.Column(db.Integer, db.ForeignKey('status_incidents.id'), nullable=False)
+    incident_id = db.Column(db.Integer, db.ForeignKey('status_incidents.id'), nullable=False, index=True)
     status = db.Column(db.String(32))
     body = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

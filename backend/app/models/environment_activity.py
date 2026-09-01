@@ -16,8 +16,8 @@ class EnvironmentActivity(JsonColumnMixin, db.Model):
     __tablename__ = 'environment_activities'
 
     id = db.Column(db.Integer, primary_key=True)
-    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
 
     # Action details
     action = db.Column(db.String(50), nullable=False)  # create, deploy, promote, lock, unlock, destroy

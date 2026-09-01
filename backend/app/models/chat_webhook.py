@@ -42,7 +42,7 @@ class ChatWebhookConnection(TimestampMixin, JsonColumnMixin, db.Model):
     # True when created by the one-time import of legacy notifications.json config.
     imported = db.Column(db.Boolean, default=False)
 
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     last_tested_at = db.Column(db.DateTime)
     last_test_ok = db.Column(db.Boolean)
 

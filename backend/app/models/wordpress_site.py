@@ -50,7 +50,7 @@ class WordPressSite(JsonColumnMixin, TimestampMixin, db.Model):
 
     # Environment info
     is_production = db.Column(db.Boolean, default=True)
-    production_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=True)
+    production_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=True, index=True)
 
     # Sync settings (JSON)
     sync_config = db.Column(db.Text)  # schedule, search_replace, anonymize, etc.
