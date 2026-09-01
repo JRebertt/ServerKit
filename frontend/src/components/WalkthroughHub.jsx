@@ -10,6 +10,7 @@ import {
     ShieldCheck,
     Square,
     UserPlus,
+    WandSparkles,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +31,8 @@ const ICONS = {
     backup: Archive,
     server: Server,
     team: UserPlus,
+    guide: WandSparkles,
+    wordpress: Globe2,
 };
 
 // Recipes console — the prototype's guided-walkthrough surface: a library of
@@ -73,6 +76,9 @@ function RecipeLibrary({ walkthroughs, state, onStart, onStop, t }) {
                             })}
                             {completed && <Pill kind="green">{t('app.walkthroughs.completed', 'Completed')}</Pill>}
                             {active && <Pill kind="cyan">{progress.count}/{progress.total}</Pill>}
+                            {walkthrough.origin?.plugin && (
+                                <Pill kind="neutral">{walkthrough.origin.plugin.replace(/^serverkit-/, '')}</Pill>
+                            )}
                             {active && (
                                 <button
                                     type="button"
