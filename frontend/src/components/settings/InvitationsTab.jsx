@@ -13,6 +13,7 @@ import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import EmptyState from '../EmptyState';
 import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from 'react-i18next';
+import useFocusParam from '@/hooks/useFocusParam';
 
 // A pending invite whose window has closed still carries status 'pending' in
 // the database — the row only becomes 'expired' on screen. One accessor for
@@ -71,6 +72,10 @@ const InvitationsTab = () => {
     const [loading, setLoading] = useState(true);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [copied, setCopied] = useState(null);
+
+    useFocusParam('create', (target) => {
+        if (target === 'invitation') setShowInviteModal(true);
+    });
 
     // Lifted out of <DataTable> so a saved view can capture them. The storage
     // keys are the ones DataTable derived from storageKey="serverkit-table-
@@ -274,7 +279,7 @@ const InvitationsTab = () => {
     });
 
     return (
-        <div className="invitations-section">
+        <div className="invitations-section" data-walkthrough="invitations-section">
             {/* The view name replaces the old "Invitations" h4: it names the
                 section AND says which slice of it you are looking at. */}
             <GridViewPicker

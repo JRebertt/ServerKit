@@ -52,6 +52,7 @@
 
         &.is-cyan { color: var(--cyan); background: color-mix(in srgb, var(--cyan) 13%, transparent); }
         &.is-amber { color: var(--amber); background: color-mix(in srgb, var(--amber) 13%, transparent); }
+        &.is-green { color: var(--green); background: color-mix(in srgb, var(--green) 13%, transparent); }
     }
 
     &__card-name {
@@ -92,6 +93,41 @@
         @include focus-ring();
 
         &:hover { color: var(--red); background: var(--red-bg); }
+    }
+
+    &__more {
+        display: flex;
+        min-height: 78px;
+        align-items: center;
+        gap: 11px;
+        padding: 13px;
+        border: 1px dashed var(--border-soft);
+        border-radius: 11px;
+        background: transparent;
+        color: var(--text-dim);
+        font: inherit;
+        text-align: start;
+        cursor: pointer;
+        transition: border-color 130ms ease, background 130ms ease, color 130ms ease;
+        @include focus-ring();
+
+        &:hover {
+            border-color: var(--accent-dim);
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        > svg { flex: 0 0 auto; color: var(--accent); }
+
+        > span {
+            display: flex;
+            min-width: 0;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        strong { font-size: 12.5px; font-weight: 550; }
+        small { color: var(--text-faint); font-size: 10.5px; }
     }
 
     // Running recipe — step rail left, story right (prototype cp-split).

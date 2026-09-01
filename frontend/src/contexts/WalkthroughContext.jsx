@@ -54,9 +54,12 @@ export function WalkthroughProvider({ children }) {
     const [open, setOpen] = useState(false);
 
     const localizedWalkthroughs = useMemo(() => localizeWalkthroughs(t), [t]);
-    const availableWalkthroughs = useMemo(() => localizedWalkthroughs.filter((item) => (
-        !item.permission || hasPermission(item.permission.feature, item.permission.level)
-    )), [hasPermission, localizedWalkthroughs]);
+    const availableWalkthroughs = useMemo(() => localizedWalkthroughs.filter((item) => {
+        const required = item.permissions || (item.permission ? [item.permission] : []);
+        return required.every((permission) => (
+            hasPermission(permission.feature, permission.level)
+        ));
+    }), [hasPermission, localizedWalkthroughs]);
 
     const activeWalkthrough = localizedWalkthroughs.find(
         (walkthrough) => walkthrough.id === state.active_id,
@@ -129,10 +132,10 @@ export function WalkthroughProvider({ children }) {
                 ));
                 return;
             }
-            if (!currentStep?.signal) return;
-            if (event.detail?.type === currentStep.signal) {
-                completeStep(activeWalkthrough.id, currentStep.id);
-            }
+            const signaledStep = activeWalkthrough.steps.find(
+                (step) => step.signal === event.detail?.type,
+            );
+            if (signaledStep) completeStep(activeWalkthrough.id, signaledStep.id);
         };
         window.addEventListener('serverkit:walkthrough-signal', handleSignal);
         return () => window.removeEventListener('serverkit:walkthrough-signal', handleSignal);

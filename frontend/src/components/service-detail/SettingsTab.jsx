@@ -462,6 +462,12 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
     const [email, setEmail] = useState(() => localStorage.getItem('serverkit_ssl_email') || '');
 
     useEffect(() => {
+        window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+            detail: { type: 'service-domain-settings-opened' },
+        }));
+    }, []);
+
+    useEffect(() => {
         if (email) return undefined;
         let cancelled = false;
         api.getAcmeContact()
@@ -532,6 +538,9 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                 ssl_enabled: false,
             });
             toast.success(res.message || t('app.settingsTab.domainAttached', 'Domain attached'));
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'service-domain-attached' },
+            }));
             setDomainInput('');
             onUpdate();
         } catch (err) {
@@ -608,6 +617,9 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                 }
                 const updated = await api.getSSLHealth(primaryDomain);
                 setHealth(updated);
+                window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                    detail: { type: 'service-ssl-enabled' },
+                }));
                 onUpdate();
             } else {
                 toast.error(res.error || t('app.settingsTab.certificateRequestFailed', 'Certificate request failed'));
@@ -630,7 +642,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
     );
 
     return (
-        <div className="card settings-section svc-domain-panel">
+        <div className="card settings-section svc-domain-panel" data-walkthrough="service-domain-panel">
             <div className="app-info-grid">
                 <div className="app-info-item">
                     <span className="app-info-label">{t('app.settingsTab.primaryDomain', 'Primary Domain')}</span>
@@ -672,7 +684,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
             {!primaryDomain ? (
                 <div className="ssl-guide">
                     <p className="hint">{t('app.settingsTab.noDomainIsAttachedToThis', 'No domain is attached to this service yet. Add one to expose it on a public URL and enable HTTPS.')}</p>
-                    <form className="ssl-inline-attach" onSubmit={handleAttachDomain}>
+                    <form className="ssl-inline-attach" onSubmit={handleAttachDomain} data-walkthrough="service-domain-attach">
                         {contextLoading ? (
                             <p className="hint">{t('app.settingsTab.loadingAvailableDomains', 'Loading available domains…')}</p>
                         ) : (
@@ -742,7 +754,11 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                         </>
                     )}
                     <div className="app-detail-actions">
-                        <Button onClick={handleEnableSSL} disabled={issuing || (!issued && (!email.trim() || !email.includes('@')))}>
+                        <Button
+                            onClick={handleEnableSSL}
+                            disabled={issuing || (!issued && (!email.trim() || !email.includes('@')))}
+                            data-walkthrough="service-enable-ssl"
+                        >
                             {issued ? <Shield size={14} /> : <Lock size={14} />}
                             {issuing ? 'Requesting...' : issued ? 'Re-issue Certificate' : 'Enable SSL'}
                         </Button>

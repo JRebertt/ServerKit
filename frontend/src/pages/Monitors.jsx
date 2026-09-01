@@ -265,6 +265,9 @@ export default function Monitors() {
             }
             await api.createMonitor(payload);
             toast.success(t('app.monitors.monitoring', 'Monitoring {{name}}', { name: form.name }));
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'monitor-created' },
+            }));
             setFormOpen(false);
             load();
         } catch (err) {
@@ -290,6 +293,9 @@ export default function Monitors() {
             const check = res?.check;
             if (check?.status === 'up') toast.success(t('app.monitors.upIn', '{{name}}: up in {{duration}} ms', { name: monitor.name, duration: check.response_time ?? '—' }));
             else toast.warning(`${monitor.name}: ${check?.status || 'failed'}${check?.error ? ` — ${check.error}` : ''}`);
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'monitor-check-completed' },
+            }));
             load();
         } catch (err) {
             toast.error(err.message || t('app.monitors.checkFailed', 'Check failed'));
@@ -404,7 +410,13 @@ export default function Monitors() {
             hideable: false,
             render: (m) => (
                 <div className="mon-actions" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" onClick={() => onCheckNow(m)} title={t('app.monitors.checkNow', 'Check now')}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onCheckNow(m)}
+                        title={t('app.monitors.checkNow', 'Check now')}
+                        data-walkthrough="monitor-check-now"
+                    >
                         <RefreshCw size={14} />
                     </Button>
                     <Button
@@ -526,7 +538,7 @@ export default function Monitors() {
                 subtitle={t('app.monitors.probeAUrlHostOrPort', 'Probe a URL, host or port on a schedule')}
                 icon={<Radar size={18} />}
             >
-                <form className="mon-form" onSubmit={onSave}>
+                <form className="mon-form" onSubmit={onSave} data-walkthrough="monitor-form">
                     <div className="form-group">
                         <Label htmlFor="mon-name">{t('common.labels.name', 'Name')}</Label>
                         <Input
@@ -645,7 +657,7 @@ export default function Monitors() {
 
                     <div className="mon-form__actions">
                         <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>{t('common.actions.cancel', 'Cancel')}</Button>
-                        <Button type="submit" disabled={saving}>
+                        <Button type="submit" disabled={saving} data-walkthrough="monitor-submit">
                             {saving ? 'Adding…' : 'Add monitor'}
                         </Button>
                     </div>

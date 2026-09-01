@@ -26,6 +26,7 @@ import { useTopbarActions, useTopbarChrome } from '@/hooks/useTopbarActions';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useTranslation } from 'react-i18next';
+import useFocusParam from '../hooks/useFocusParam';
 
 // `backups` is kept as an alias so old /backups/backups links still resolve to
 // the archive, which now answers to `snapshots`.
@@ -147,6 +148,11 @@ const Backups = () => {
     const [selectedBackup, setSelectedBackup] = useState(null);
     const [uploadingBackup, setUploadingBackup] = useState(null);
     const [testingConnection, setTestingConnection] = useState(false);
+
+    useFocusParam('create', (target) => {
+        if (target === 'schedule') setShowScheduleModal(true);
+        if (target === 'backup') setShowBackupModal(true);
+    });
 
     // Backup form state
     const [backupForm, setBackupForm] = useState({
@@ -276,6 +282,9 @@ const Backups = () => {
                 await api.backupFiles(paths, backupForm.fileName || null);
                 toast.success(t('app.backups.fileBackupCreated', 'File backup created'));
             }
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'backup-created' },
+            }));
             setShowBackupModal(false);
             resetBackupForm();
             loadData();
@@ -344,6 +353,9 @@ const Backups = () => {
                 scheduleForm.uploadRemote
             );
             toast.success(t('app.backups.scheduleAdded', 'Schedule added'));
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'backup-schedule-created' },
+            }));
             setShowScheduleModal(false);
             resetScheduleForm();
             loadData();
@@ -1157,7 +1169,7 @@ const Backups = () => {
 
             {/* Create Backup Modal */}
             <Modal open={showBackupModal} onClose={() => setShowBackupModal(false)} title={t('app.backups.createBackup', 'Create Backup')}>
-                        <form onSubmit={handleCreateBackup}>
+                        <form onSubmit={handleCreateBackup} data-walkthrough="backup-create-form">
                                 <div className="form-group">
                                     <label>{t('app.backups.backupType', 'Backup Type')}</label>
                                     <select
@@ -1281,14 +1293,14 @@ const Backups = () => {
                                 <Button type="button" variant="outline" onClick={() => setShowBackupModal(false)}>
                                     {t('common.actions.cancel', 'Cancel')}
                                 </Button>
-                                <Button type="submit">{t('app.backups.createBackup', 'Create Backup')}</Button>
+                                <Button type="submit" data-walkthrough="backup-create-submit">{t('app.backups.createBackup', 'Create Backup')}</Button>
                             </div>
                         </form>
             </Modal>
 
             {/* Add Schedule Modal */}
             <Modal open={showScheduleModal} onClose={() => setShowScheduleModal(false)} title={t('app.backups.addBackupSchedule', 'Add Backup Schedule')}>
-                        <form onSubmit={handleAddSchedule}>
+                        <form onSubmit={handleAddSchedule} data-walkthrough="backup-schedule-form">
                                 <div className="form-group">
                                     <label>{t('app.backups.scheduleName', 'Schedule Name')}</label>
                                     <Input
@@ -1362,7 +1374,7 @@ const Backups = () => {
                                 <Button type="button" variant="outline" onClick={() => setShowScheduleModal(false)}>
                                     {t('common.actions.cancel', 'Cancel')}
                                 </Button>
-                                <Button type="submit">{t('app.backups.addSchedule', 'Add Schedule')}</Button>
+                                <Button type="submit" data-walkthrough="backup-schedule-submit">{t('app.backups.addSchedule', 'Add Schedule')}</Button>
                             </div>
                         </form>
             </Modal>

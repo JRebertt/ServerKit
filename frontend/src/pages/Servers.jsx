@@ -377,7 +377,7 @@ const Servers = () => {
     }
 
     return (
-        <div className="sk-tabgroup__inner servers-page">
+        <div className="sk-tabgroup__inner servers-page" data-walkthrough="server-list">
             {topbarChrome}
             <GridViewPicker
                 views={chrome.views}
@@ -588,6 +588,9 @@ const PairAgentForm = ({ groups, onClose, onClaimed }) => {
                 trust_fingerprint: true
             });
             toast.success(t('app.servers.agentPairedSuccessfully', 'Agent paired successfully'));
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'server-paired' },
+            }));
             onClaimed();
         } catch (err) {
             const status = err.status || err.response?.status;
@@ -748,6 +751,9 @@ const AddServerModal = ({ groups, onClose, onCreated }) => {
             });
             setRegistrationData(result);
             setStep(2);
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'server-connection-string-generated' },
+            }));
         } catch (err) {
             setError(err.message || 'Failed to create server');
         } finally {
@@ -798,7 +804,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
             className="server-setup-drawer"
         >
                 {step === 1 && (
-                    <div className="mode-switcher">
+                    <div className="mode-switcher" data-walkthrough="server-setup">
                         <button
                             type="button"
                             className={`mode-switcher__tab${mode === 'install' ? ' is-active' : ''}`}
@@ -832,7 +838,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
                         onClaimed={onCreated}
                     />
                 ) : step === 1 ? (
-                    <form className="server-setup-form" onSubmit={handleCreateServer}>
+                    <form className="server-setup-form" onSubmit={handleCreateServer} data-walkthrough="server-generate-connection">
                         <div className="server-setup-form__body">
                             {error && <div className="error-message">{error}</div>}
 
@@ -887,7 +893,12 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 
                             <ConnectionStringField
                                 value={connectionString}
-                                onCopy={() => copy(connectionString)}
+                                onCopy={() => {
+                                    copy(connectionString);
+                                    window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                                        detail: { type: 'server-connection-string-copied' },
+                                    }));
+                                }}
                             />
 
                             <details className="install-fallback">
@@ -937,7 +948,7 @@ Install-ServerKitAgent -Server "${window.location.origin}" -Token "${registratio
 const ConnectionStringField = ({ value, onCopy }) => {
     const { t } = useTranslation();
     return (
-        <div className="connection-string-field">
+        <div className="connection-string-field" data-walkthrough="server-connection-string">
             <div className="connection-string-field__header">
                 <KeyIcon />
                 <span>{t('app.servers.connectionString', 'Connection string')}</span>

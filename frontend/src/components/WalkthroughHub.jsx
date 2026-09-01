@@ -1,10 +1,15 @@
 import {
+    Archive,
     BookOpenCheck,
     Boxes,
     Check,
     Clock3,
+    Globe2,
+    Radar,
+    Server,
     ShieldCheck,
     Square,
+    UserPlus,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -17,7 +22,15 @@ import { getWalkthroughProgress } from '../services/walkthroughState';
 import Pill from './ds/Pill';
 import ShellDockTabs from './ShellDockTabs';
 
-const ICONS = { service: Boxes, security: ShieldCheck };
+const ICONS = {
+    service: Boxes,
+    security: ShieldCheck,
+    domain: Globe2,
+    monitor: Radar,
+    backup: Archive,
+    server: Server,
+    team: UserPlus,
+};
 
 // Recipes console — the prototype's guided-walkthrough surface: a library of
 // recipe cards, and for the running recipe a split view with the step rail on
@@ -25,9 +38,17 @@ const ICONS = { service: Boxes, security: ShieldCheck };
 // (auto-completion via routes/signals/checks, saved progress) is untouched;
 // only the shell changed from a floating card stack to the docked console.
 function RecipeLibrary({ walkthroughs, state, onStart, onStop, t }) {
+    const [showMore, setShowMore] = useState(false);
+    const primary = walkthroughs.filter((walkthrough) => !walkthrough.secondary);
+    const secondary = walkthroughs.filter((walkthrough) => walkthrough.secondary);
+    const visible = showMore ? [...primary, ...secondary] : [
+        ...primary,
+        ...secondary.filter((walkthrough) => state.progress?.[walkthrough.id]?.status === 'active'),
+    ];
+
     return (
         <div className="shell-recipes__grid">
-            {walkthroughs.map((walkthrough) => {
+            {visible.map((walkthrough) => {
                 const Icon = ICONS[walkthrough.icon] || BookOpenCheck;
                 const progress = getWalkthroughProgress(state, walkthrough);
                 const status = progress.entry?.status;
@@ -65,6 +86,26 @@ function RecipeLibrary({ walkthroughs, state, onStart, onStop, t }) {
                     </div>
                 );
             })}
+            {secondary.length > 0 && (
+                <button
+                    type="button"
+                    className="shell-recipes__more"
+                    onClick={() => setShowMore((current) => !current)}
+                    aria-expanded={showMore}
+                >
+                    <BookOpenCheck size={15} aria-hidden="true" />
+                    <span>
+                        <strong>{showMore
+                            ? t('app.walkthroughs.hideMoreGuides', 'Show fewer guides')
+                            : t('app.walkthroughs.moreGuides', 'More walkthroughs')}
+                        </strong>
+                        <small>{showMore
+                            ? t('app.walkthroughs.keepLibraryFocused', 'Keep the library focused on the essentials')
+                            : t('app.walkthroughs.moreGuidesCount', '{{count}} optional guides', { count: secondary.length })}
+                        </small>
+                    </span>
+                </button>
+            )}
         </div>
     );
 }
@@ -203,9 +244,11 @@ export default function WalkthroughHub() {
                             <h3 className="shell-recipes__step-heading">{viewStep.title}</h3>
                             <p className="shell-recipes__body">{viewStep.description}</p>
                             <footer className="shell-recipes__foot">
-                                <Button type="button" size="sm" onClick={runAction} disabled={checking}>
-                                    {checking ? t('common.checking', 'Checking…') : viewStep.action}
-                                </Button>
+                                {(viewStep.path || viewStep.check) && (
+                                    <Button type="button" size="sm" onClick={runAction} disabled={checking}>
+                                        {checking ? t('common.checking', 'Checking…') : viewStep.action}
+                                    </Button>
+                                )}
                                 {!viewStep.check && !isDone && (
                                     <Button type="button" variant="outline" size="sm" onClick={markDoneNext}>
                                         {isLast
