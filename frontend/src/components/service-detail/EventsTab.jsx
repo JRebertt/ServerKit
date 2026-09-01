@@ -402,7 +402,7 @@ const EventsTab = ({ appId }) => {
                                 <InfoItem label={t('app.eventsTab.commit', 'Commit')} value={deployDetail.deploy.commitSha} mono />
                             )}
                             {deployDetail.deploy.duration && (
-                                <InfoItem label={t('app.eventsTab.duration', 'Duration')} value={formatDuration(deployDetail.deploy.duration)} />
+                                <InfoItem label={t('common.labels.duration', 'Duration')} value={formatDuration(deployDetail.deploy.duration)} />
                             )}
                         </InfoList>
                         {deployDetail.deploy.logs ? (

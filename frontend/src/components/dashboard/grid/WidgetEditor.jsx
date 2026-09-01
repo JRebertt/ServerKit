@@ -292,7 +292,7 @@ export function WidgetEditor({
         >
             <div className="skwe-edit">
                 <div className="skwe-edit__cols">
-                    <section className="skwe-edit__preview" aria-label={t('app.widgetEditor.livePreview', 'Live preview')}>
+                    <section className="skwe-edit__preview" aria-label={t('common.labels.livePreview', 'Live preview')}>
                         <div className="skwe-edit__stage">
                             {/* Same chrome the board draws, driven by the same
                                 renderer — so "preview" costs no second
@@ -316,7 +316,7 @@ export function WidgetEditor({
 
                     <section className="skwe-edit__pane" aria-label={t('app.widgetEditor.widgetSettings', 'Widget settings')}>
                         <Group title={t('app.widgetEditor.widget', 'Widget')}>
-                            <Field label={t('app.widgetEditor.title', 'Title')}>
+                            <Field label={t('common.labels.title', 'Title')}>
                                 <input
                                     type="text"
                                     className="skwe-edit__field"

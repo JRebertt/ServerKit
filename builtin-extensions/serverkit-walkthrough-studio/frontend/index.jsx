@@ -150,7 +150,7 @@ function GuidePreview({ guide, issues, onRun, t }) {
     return (
         <aside className="wts-preview" data-walkthrough="studio-preview">
             <div className="wts-panel-heading">
-                <span>{t('walkthroughStudio.livePreview', 'Live preview')}</span>
+                <span>{t('common.labels.livePreview', 'Live preview')}</span>
                 <span className={`wts-validity${issues.length ? ' is-invalid' : ''}`}>
                     {issues.length
                         ? t('walkthroughStudio.issueCount', '{{count}} issues', { count: issues.length })
@@ -381,7 +381,7 @@ export function WalkthroughStudioPage() {
                 <Download size={14} /> {t('common.actions.export', 'Export')}
             </Button>
             <Button type="button" size="sm" onClick={saveGuide} disabled={saving || issues.length > 0} data-walkthrough="studio-publish">
-                <Save size={14} /> {saving ? t('common.saving', 'Saving…') : t('walkthroughStudio.publish', 'Publish')}
+                <Save size={14} /> {saving ? t('common.saving', 'Saving…') : t('common.actions.publish', 'Publish')}
             </Button>
         </>
     );
@@ -447,7 +447,7 @@ export function WalkthroughStudioPage() {
                             </label>
                         </div>
                         <div className="wts-form-grid">
-                            <Field label={t('walkthroughStudio.guideTitle', 'Title')}>
+                            <Field label={t('common.labels.title', 'Title')}>
                                 <input value={draft.title} onChange={(event) => updateGuide({ title: event.target.value })} />
                             </Field>
                             <Field label={t('walkthroughStudio.stableId', 'Stable id')} hint={t('walkthroughStudio.stableIdHint', 'Do not rename after publishing; progress uses this id.')}>
@@ -457,7 +457,7 @@ export function WalkthroughStudioPage() {
                                 <textarea rows="3" value={draft.description} onChange={(event) => updateGuide({ description: event.target.value })} />
                             </Field>
                             <div className="wts-form-grid__compact">
-                                <Field label={t('walkthroughStudio.duration', 'Duration')}>
+                                <Field label={t('common.labels.duration', 'Duration')}>
                                     <input value={draft.duration || ''} onChange={(event) => updateGuide({ duration: event.target.value })} />
                                 </Field>
                                 <Field label={t('walkthroughStudio.icon', 'Icon token')}>
@@ -504,8 +504,8 @@ export function WalkthroughStudioPage() {
                                 <div className="wts-step-editor">
                                     <div className="wts-step-editor__tools">
                                         <span>STEP {String(stepIndex + 1).padStart(2, '0')}</span>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => moveStep(-1)} disabled={stepIndex === 0} aria-label={t('walkthroughStudio.moveUp', 'Move up')}><ArrowUp size={14} /></Button>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => moveStep(1)} disabled={stepIndex === draft.steps.length - 1} aria-label={t('walkthroughStudio.moveDown', 'Move down')}><ArrowDown size={14} /></Button>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => moveStep(-1)} disabled={stepIndex === 0} aria-label={t('common.actions.moveUp', 'Move up')}><ArrowUp size={14} /></Button>
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => moveStep(1)} disabled={stepIndex === draft.steps.length - 1} aria-label={t('common.actions.moveDown', 'Move down')}><ArrowDown size={14} /></Button>
                                         <Button type="button" variant="ghost" size="icon" onClick={deleteStep} aria-label={t('common.actions.delete', 'Delete')}><Trash2 size={14} /></Button>
                                     </div>
                                     <div className="wts-form-grid">

@@ -195,7 +195,7 @@ const ProjectDetail = () => {
                             <div className="project-env-tab__controls">
                                 <button
                                     type="button"
-                                    title={t('app.projectDetail.moveUp', 'Move up')}
+                                    title={t('common.actions.moveUp', 'Move up')}
                                     aria-label={t('app.projectDetail.moveUp2', 'Move {{name}} up', { name: env.name })}
                                     disabled={index === 0}
                                     onClick={() => handleReorder(env.id, -1)}
@@ -204,7 +204,7 @@ const ProjectDetail = () => {
                                 </button>
                                 <button
                                     type="button"
-                                    title={t('app.projectDetail.moveDown', 'Move down')}
+                                    title={t('common.actions.moveDown', 'Move down')}
                                     aria-label={t('app.projectDetail.moveDown2', 'Move {{name}} down', { name: env.name })}
                                     disabled={index === environments.length - 1}
                                     onClick={() => handleReorder(env.id, 1)}

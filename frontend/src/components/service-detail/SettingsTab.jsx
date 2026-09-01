@@ -775,7 +775,7 @@ const DomainSslPanel = ({ app, domains, primaryDomain, onUpdate }) => {
                     <>
                         <div className="modal-body">
                             <p className="hint">
-                                {t('app.settingsTab.publish', 'Publish')} <strong>{app.name}</strong> {t('app.settingsTab.atAManagedSubdomainOf', 'at a managed subdomain of')}{' '}
+                                {t('common.actions.publish', 'Publish')} <strong>{app.name}</strong> {t('app.settingsTab.atAManagedSubdomainOf', 'at a managed subdomain of')}{' '}
                                 <code>{subdomainBase || subdomainModal.base_domain}</code>.
                             </p>
                             {subdomainBases.length > 1 && (
