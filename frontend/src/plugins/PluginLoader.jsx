@@ -25,7 +25,12 @@
  * stacking several pages into one view.
  */
 import { useMemo } from 'react';
-import { useContributions, resolveComponent, getPluginModule } from './contributions';
+import {
+    useContributions,
+    resolveComponent,
+    getPluginModule,
+    declaresBakedContributions,
+} from './contributions';
 
 const pluginModules = import.meta.glob('./*/index.{js,jsx}', { eager: true });
 
@@ -84,8 +89,15 @@ const PluginLoader = ({ api }) => {
         })
         .filter(Boolean);
 
+    // A plugin qualifies for the legacy auto-render only when neither the
+    // runtime envelope NOR its baked manifest declares contributions. The
+    // baked check matters for extensions bundled into the build but not
+    // installed on this panel: they contribute nothing at runtime, yet
+    // their module (and default export) is still in the bundle.
     const legacyWidgets = legacyPlugins
-        .filter(({ slug, Component }) => Component && !slugsWithDeclared.has(slug))
+        .filter(({ slug, Component }) => Component
+            && !slugsWithDeclared.has(slug)
+            && !declaresBakedContributions(slug))
         .map(({ slug, Component, Provider }) => {
             const node = <Component key={slug} api={api} />;
             return Provider
