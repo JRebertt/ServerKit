@@ -25,6 +25,9 @@ class ServerSurvey(JsonColumnMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=False, index=True)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    server = db.relationship('Server',
+                             backref=db.backref('surveys', lazy='dynamic'))
     catalog_version = db.Column(db.Integer, nullable=False, default=1)
     taken_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 

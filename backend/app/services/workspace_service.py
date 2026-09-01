@@ -239,6 +239,14 @@ class WorkspaceService:
         ws = Workspace.query.get(workspace_id)
         if not ws:
             return False
+        # Projects never ride a workspace delete (they carry environments and
+        # app groupings) — Workspace.projects is deliberately uncascaded, so
+        # without this refusal the delete would IntegrityError anyway.
+        project_count = ws.projects.count()
+        if project_count:
+            raise ValueError(
+                f'Workspace still contains {project_count} project(s) — '
+                'delete or move them first')
         WorkspaceApiKey.query.filter_by(workspace_id=workspace_id).delete()
         WorkspaceMember.query.filter_by(workspace_id=workspace_id).delete()
         db.session.delete(ws)

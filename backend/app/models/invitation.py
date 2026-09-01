@@ -26,7 +26,10 @@ class Invitation(JsonColumnMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    inviter = db.relationship('User', foreign_keys=[invited_by])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # pending invitations die with the inviter's account.
+    inviter = db.relationship('User', foreign_keys=[invited_by],
+                              backref=db.backref('sent_invitations', lazy='dynamic'))
     accepter = db.relationship('User', foreign_keys=[accepted_by])
 
     @property

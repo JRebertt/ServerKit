@@ -17,6 +17,11 @@ class EnvironmentVariable(TimestampMixin, JsonColumnMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     application_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # env vars hold SECRETS — SQLite can reuse a purged app id, so orphans here
+    # could silently attach to a future application.
+    application = db.relationship('Application',
+                                  backref=db.backref('env_variables', lazy='dynamic'))
     key = db.Column(db.String(255), nullable=False)
     encrypted_value = db.Column(db.Text, nullable=False)
     is_secret = db.Column(db.Boolean, default=False)  # Mark sensitive values
@@ -136,6 +141,9 @@ class EnvironmentVariableHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     env_variable_id = db.Column(db.Integer, nullable=False)  # Not FK to allow deleted vars
     application_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=False)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    application = db.relationship('Application',
+                                  backref=db.backref('env_variable_history', lazy='dynamic'))
     key = db.Column(db.String(255), nullable=False)
     action = db.Column(db.String(20), nullable=False)  # 'created', 'updated', 'deleted'
     old_value_hash = db.Column(db.String(64), nullable=True)  # SHA256 hash (not the actual value)

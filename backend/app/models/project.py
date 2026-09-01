@@ -17,6 +17,11 @@ class Project(JsonColumnMixin, TimestampMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=False, index=True)
+    # DELIBERATELY not cascaded (see _delete_cascade_policy): projects contain
+    # environments and app groupings — delete_workspace refuses while any
+    # remain instead of silently destroying them.
+    workspace = db.relationship('Workspace',
+                                backref=db.backref('projects', lazy='dynamic'))
     name = db.Column(db.String(128), nullable=False)
     slug = db.Column(db.String(128), nullable=False)
     description = db.Column(db.Text, nullable=True)

@@ -26,6 +26,9 @@ class ApplicationManifest(TimestampMixin, JsonColumnMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'), nullable=False, index=True)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    project = db.relationship('Project',
+                              backref=db.backref('manifests', lazy='dynamic'))
 
     raw_text = db.Column(db.Text, nullable=True)          # the manifest file as committed
     normalized_json = db.Column(db.Text, nullable=True)   # ManifestSpecService.normalize() output

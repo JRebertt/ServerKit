@@ -30,6 +30,9 @@ class FleetDoctorResult(JsonColumnMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     server_id = db.Column(db.String(36), db.ForeignKey('servers.id'),
                           nullable=False, index=True)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    server = db.relationship('Server',
+                             backref=db.backref('fleet_doctor_results', lazy='dynamic'))
     check_key = db.Column(db.String(160), nullable=False, index=True)
     status = db.Column(db.String(16), nullable=False, server_default='ok')
     title = db.Column(db.String(200), nullable=True)

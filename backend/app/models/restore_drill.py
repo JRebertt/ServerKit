@@ -21,6 +21,10 @@ class RestoreDrill(JsonColumnMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     policy_id = db.Column(db.Integer, db.ForeignKey('backup_policies.id'), nullable=False, index=True)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # drill history dies with its policy.
+    policy = db.relationship('BackupPolicy',
+                             backref=db.backref('restore_drills', lazy='dynamic'))
     # The run whose restore-point (chain endpoint) was drilled.
     run_id = db.Column(db.Integer, db.ForeignKey('backup_runs.id'), nullable=True, index=True)
     job_id = db.Column(db.String(36), nullable=True, index=True)

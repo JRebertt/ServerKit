@@ -35,6 +35,9 @@ DELIBERATELY_UNCASCADED = {
         'no code path deletes a CloudProvider row today; silently dropping '
         'the inventory of provisioned (billing!) VMs must stay a deliberate, '
         'guarded decision if one is ever added',
+    'Workspace.projects':
+        'projects contain environments and app groupings; delete_workspace '
+        'refuses (409) while any remain rather than silently destroying them',
 }
 
 

@@ -653,7 +653,9 @@ class AgentRollout(TimestampMixin, db.Model):
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
 
-    version = db.relationship('AgentVersion')
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    version = db.relationship('AgentVersion',
+                              backref=db.backref('rollouts', lazy='dynamic'))
 
     def to_dict(self):
         return {

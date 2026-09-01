@@ -25,7 +25,10 @@ class ApiKey(JsonColumnMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     revoked_at = db.Column(db.DateTime, nullable=True)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # a user's API keys die with the account.
+    user = db.relationship('User', foreign_keys=[user_id],
+                           backref=db.backref('api_keys', lazy='dynamic'))
 
     TIER_STANDARD = 'standard'
     TIER_ELEVATED = 'elevated'

@@ -233,34 +233,9 @@ def test_every_not_null_child_relationship_cascades_deletes(app):
 # app is the nightmare case). Known debt, frozen so it can only SHRINK: a new
 # model declares the parent-side relationship instead (the door then handles
 # its delete), or consciously adds itself here in the commit that explains why.
-KNOWN_DANGLING_ON_DELETE = {
-    'agent_rollouts.version_id -> agent_versions',
-    'ai_conversations.user_id -> users',
-    'ai_pending_actions.user_id -> users',
-    'api_keys.user_id -> users',
-    'application_manifests.project_id -> projects',
-    'application_preview_settings.application_id -> applications',
-    'application_previews.application_id -> applications',
-    'dashboard_boards.user_id -> users',
-    'ddns_hosts.zone_id -> dns_zones',
-    'environment_variable_history.application_id -> applications',
-    'environment_variables.application_id -> applications',
-    'event_subscriptions.user_id -> users',
-    'exposed_services.tunnel_id -> tunnels',
-    'fleet_doctor_results.server_id -> servers',
-    'invitations.invited_by -> users',
-    'login_links.user_id -> users',
-    'projects.workspace_id -> workspaces',
-    'proxy_stacks.server_id -> servers',
-    'queue_messages.group_id -> queue_groups',
-    'resource_grants.user_id -> users',
-    'restore_drills.policy_id -> backup_policies',
-    'server_surveys.server_id -> servers',
-    'tunnels.edge_server_id -> servers',
-    'tunnels.private_server_id -> servers',
-    'waf_policies.application_id -> applications',
-    'wordpress_site_plugins.wordpress_site_id -> wordpress_sites',
-}
+KNOWN_DANGLING_ON_DELETE = set()  # all 26 audited FKs now declare the
+# parent-side relationship (the door cascades them, or the parent's delete
+# path guards) — keep this EMPTY.
 
 
 def test_dangling_on_delete_fk_set_may_only_shrink(app):
@@ -297,6 +272,26 @@ def test_dangling_on_delete_fk_set_may_only_shrink(app):
         fixed = KNOWN_DANGLING_ON_DELETE - current
         assert not fixed, (
             f'these entries are fixed — remove them from the set: {sorted(fixed)}')
+
+
+def test_deleting_a_workspace_with_projects_is_refused(app):
+    """The Workspace.projects entry in DELIBERATELY_UNCASCADED is only honest
+    while delete_workspace refuses instead of 500ing."""
+    import pytest as _pytest
+
+    from app.models import Project
+    from app.models.workspace import Workspace
+    from app.services.workspace_service import WorkspaceService
+
+    with app.app_context():
+        ws = Workspace(name='doomed-ws', slug='doomed-ws')
+        db.session.add(ws)
+        db.session.commit()
+        db.session.add(Project(name='keeper', slug='keeper', workspace_id=ws.id))
+        db.session.commit()
+        with _pytest.raises(ValueError, match='still contains'):
+            WorkspaceService.delete_workspace(ws.id)
+        assert Workspace.query.get(ws.id) is not None
 
 
 def test_deleting_a_user_who_owns_applications_is_refused(app, client, auth_headers, dead_app):

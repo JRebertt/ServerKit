@@ -164,7 +164,9 @@ class ResourceGrant(db.Model):
         db.UniqueConstraint('user_id', 'resource_type', 'resource_id', name='uq_resource_grant'),
     )
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    user = db.relationship('User', foreign_keys=[user_id],
+                           backref=db.backref('resource_grants', lazy='dynamic'))
 
     def to_dict(self):
         return {

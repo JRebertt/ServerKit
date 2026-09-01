@@ -28,6 +28,8 @@ class ProxyStack(TimestampMixin, JsonColumnMixin, db.Model):
 
     # 1:1 with a server. Unique so get_or_create never creates duplicates;
     # indexed for the per-server lookup the API does on every request.
+    # Parent-side backref (below the column) lets the delete-cascade policy
+    # cover the NOT NULL FK: the stack record dies with its server.
     server_id = db.Column(
         db.String(36),
         db.ForeignKey('servers.id'),
@@ -35,6 +37,8 @@ class ProxyStack(TimestampMixin, JsonColumnMixin, db.Model):
         index=True,
         unique=True,
     )
+    server = db.relationship('Server',
+                             backref=db.backref('proxy_stack', uselist=False))
 
     proxy_type = db.Column(db.String(20), nullable=False, default=PROXY_NGINX)
     # stopped | running | error | unknown

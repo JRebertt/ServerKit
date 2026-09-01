@@ -23,7 +23,10 @@ class DdnsHost(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    zone = db.relationship('DNSZone')
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # a DDNS host is meaningless without its zone.
+    zone = db.relationship('DNSZone',
+                           backref=db.backref('ddns_hosts', lazy='dynamic'))
 
     @staticmethod
     def generate_token():

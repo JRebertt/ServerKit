@@ -94,6 +94,9 @@ class WordPressSitePlugin(SerializableMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     wordpress_site_id = db.Column(
         db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    site = db.relationship('WordPressSite',
+                           backref=db.backref('plugin_installs', lazy='dynamic'))
     custom_plugin_id = db.Column(
         db.Integer, db.ForeignKey('wordpress_custom_plugins.id'), nullable=False, index=True)
 

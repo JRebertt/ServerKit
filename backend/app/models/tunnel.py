@@ -37,8 +37,14 @@ class Tunnel(TimestampMixin, db.Model):
     last_error = db.Column(db.Text)
 
 
-    edge_server = db.relationship('Server', foreign_keys=[edge_server_id])
-    private_server = db.relationship('Server', foreign_keys=[private_server_id])
+    # Parent-side backrefs so the delete-cascade policy covers both NOT NULL
+    # FKs: a tunnel cannot outlive either of its endpoints.
+    edge_server = db.relationship(
+        'Server', foreign_keys=[edge_server_id],
+        backref=db.backref('tunnels_as_edge', lazy='dynamic'))
+    private_server = db.relationship(
+        'Server', foreign_keys=[private_server_id],
+        backref=db.backref('tunnels_as_private', lazy='dynamic'))
 
     def _prefix(self):
         return self.subnet.split('/')[-1] if self.subnet and '/' in self.subnet else '24'

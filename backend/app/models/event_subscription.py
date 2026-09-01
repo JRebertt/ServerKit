@@ -21,7 +21,9 @@ class EventSubscription(TimestampMixin, JsonColumnMixin, db.Model):
     retry_count = db.Column(db.Integer, default=3)
     timeout_seconds = db.Column(db.Integer, default=10)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    user = db.relationship('User', foreign_keys=[user_id],
+                           backref=db.backref('event_subscriptions', lazy='dynamic'))
     deliveries = db.relationship('EventDelivery', back_populates='subscription',
                                  lazy='dynamic', cascade='all, delete-orphan')
 
