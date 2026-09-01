@@ -20,10 +20,9 @@ from unittest.mock import patch
 
 import pytest
 
-from app import db
-from app.api.apps import _has_local_compose_project
-from app.models import Application, User
-from factories import headers_for, make_user
+from app.api.apps import _is_single_container_app
+from app.models import Application
+from factories import headers_for, make_application, make_user
 
 
 @pytest.fixture
@@ -32,26 +31,32 @@ def owner(app, db_session):
 
 
 @pytest.fixture
-def buildpack_app(app, owner, tmp_path):
+def buildpack_app(app, db_session, owner, tmp_path):
     """A build-pack app: source on disk, no compose file anywhere."""
-    application = Application(name='buildpack-app', app_type='docker',
-                              status='stopped', root_path=str(tmp_path),
-                              buildpack_type='nixpacks', port=4173,
-                              user_id=owner.id)
-    db.session.add(application)
-    db.session.commit()
-    return application
+    return make_application(
+        db_session, name='buildpack-app', app_type='docker', source='github',
+        status='stopped', root_path=str(tmp_path), compose_file=None,
+        docker_image=None, buildpack_type='nixpacks', port=4173,
+        user_id=owner.id,
+    )
 
 
 # ── the probe ────────────────────────────────────────────────────────────────
 
-def test_docker_app_type_alone_is_not_a_compose_project(buildpack_app):
-    assert _has_local_compose_project(buildpack_app) is False
+def test_a_buildpack_app_with_no_compose_file_is_single_container(buildpack_app):
+    assert _is_single_container_app(buildpack_app) is True
 
 
-def test_a_compose_file_on_disk_is_a_compose_project(buildpack_app, tmp_path):
+def test_a_compose_file_on_disk_keeps_the_compose_path(buildpack_app, tmp_path):
     (tmp_path / 'docker-compose.yml').write_text('services: {}\n', encoding='utf-8')
-    assert _has_local_compose_project(buildpack_app) is True
+    assert _is_single_container_app(buildpack_app) is False
+
+
+def test_a_non_buildpack_app_keeps_the_compose_path(buildpack_app):
+    """Compose stays the default. An app whose compose file simply has not
+    been rendered yet must not be diverted onto the container path."""
+    buildpack_app.buildpack_type = None
+    assert _is_single_container_app(buildpack_app) is False
 
 
 # ── start ────────────────────────────────────────────────────────────────────
