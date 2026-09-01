@@ -226,6 +226,79 @@ def test_every_not_null_child_relationship_cascades_deletes(app):
         assert not stale, f'stale DELIBERATELY_UNCASCADED entries: {sorted(stale)}'
 
 
+# NOT NULL FK columns with NO parent-side one-to-many relationship: the
+# cascade policy door cannot see them, so when the parent is hard-deleted these
+# rows are left DANGLING — SQLite ships with FK enforcement off, and a purged
+# parent id can be reused by a future row (orphaned env vars attaching to a new
+# app is the nightmare case). Known debt, frozen so it can only SHRINK: a new
+# model declares the parent-side relationship instead (the door then handles
+# its delete), or consciously adds itself here in the commit that explains why.
+KNOWN_DANGLING_ON_DELETE = {
+    'agent_rollouts.version_id -> agent_versions',
+    'ai_conversations.user_id -> users',
+    'ai_pending_actions.user_id -> users',
+    'api_keys.user_id -> users',
+    'application_manifests.project_id -> projects',
+    'application_preview_settings.application_id -> applications',
+    'application_previews.application_id -> applications',
+    'dashboard_boards.user_id -> users',
+    'ddns_hosts.zone_id -> dns_zones',
+    'environment_variable_history.application_id -> applications',
+    'environment_variables.application_id -> applications',
+    'event_subscriptions.user_id -> users',
+    'exposed_services.tunnel_id -> tunnels',
+    'fleet_doctor_results.server_id -> servers',
+    'invitations.invited_by -> users',
+    'login_links.user_id -> users',
+    'projects.workspace_id -> workspaces',
+    'proxy_stacks.server_id -> servers',
+    'queue_messages.group_id -> queue_groups',
+    'resource_grants.user_id -> users',
+    'restore_drills.policy_id -> backup_policies',
+    'server_surveys.server_id -> servers',
+    'tunnels.edge_server_id -> servers',
+    'tunnels.private_server_id -> servers',
+    'waf_policies.application_id -> applications',
+    'wordpress_site_plugins.wordpress_site_id -> wordpress_sites',
+}
+
+
+def test_dangling_on_delete_fk_set_may_only_shrink(app):
+    """Companion ratchet to the cascade sweep: FKs the door CANNOT protect
+    because no parent-side relationship exists. Frozen at the audited set —
+    fixing one (adding the relationship, or explicit purge-time cleanup plus
+    removal here) shrinks it; new unprotected FKs fail the build."""
+    from sqlalchemy.orm import configure_mappers
+
+    with app.app_context():
+        configure_mappers()
+        covered = set()
+        for mapper in db.Model.registry.mappers:
+            for rel in mapper.relationships:
+                if rel.direction.name != 'ONETOMANY' or rel.viewonly:
+                    continue
+                covered.update(c for c in rel.remote_side if c.foreign_keys)
+        current = set()
+        seen = set()
+        for mapper in db.Model.registry.mappers:
+            table = mapper.local_table
+            if table is None or table.name in seen:
+                continue
+            seen.add(table.name)
+            for c in table.columns:
+                if c.foreign_keys and not c.nullable and c not in covered:
+                    target = list(c.foreign_keys)[0].column.table.name
+                    current.add(f'{table.name}.{c.key} -> {target}')
+        new = current - KNOWN_DANGLING_ON_DELETE
+        assert not new, (
+            'new NOT NULL FKs with no parent-side relationship (rows would '
+            'dangle when the parent is hard-deleted) — declare the '
+            f'relationship instead: {sorted(new)}')
+        fixed = KNOWN_DANGLING_ON_DELETE - current
+        assert not fixed, (
+            f'these entries are fixed — remove them from the set: {sorted(fixed)}')
+
+
 def test_deleting_a_user_who_owns_applications_is_refused(app, client, auth_headers, dead_app):
     """The User.applications entry in DELIBERATELY_UNCASCADED is only honest
     while delete_user refuses instead of 500ing — even for a tombstoned app,
