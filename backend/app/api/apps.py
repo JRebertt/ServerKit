@@ -137,6 +137,36 @@ def _assert_managed_app_path(app_name):
     raise ValueError('Invalid application path')
 
 
+def _has_local_compose_project(app):
+    """True when a local app really has a compose project on disk.
+
+    ``app_type == 'docker'`` is not the same as "compose-managed". A build-pack
+    app is deployed by building an image and running a single container
+    (``DeploymentService._deploy_docker``); nothing in that path ever writes a
+    compose file, so ``compose_file`` stays NULL. Handing such a directory to
+    ``docker compose`` fails with "no configuration file provided: not found",
+    which is what start/stop/restart did for every build-pack app.
+    """
+    if app.server_id or not app.root_path:
+        return False
+    if app.compose_file:
+        return os.path.isfile(os.path.join(app.root_path, app.compose_file))
+    return any(
+        os.path.isfile(os.path.join(app.root_path, name))
+        for name in ('docker-compose.yml', 'docker-compose.yaml',
+                     'compose.yml', 'compose.yaml')
+    )
+
+
+def _app_container_name(app):
+    """The single container a build-pack deploy creates for this app.
+
+    Must match ``DeploymentService._deploy_docker``, which names it
+    ``serverkit-app-<id>``.
+    """
+    return f'serverkit-app-{app.id}'
+
+
 def _ensure_local_image_compose(app):
     """Materialize a compose project for a local docker app that carries a
     ``docker_image`` but has no source on disk yet.
@@ -1525,7 +1555,7 @@ def start_app(app_id):
                 detach=True,
                 user_id=current_user_id
             )
-        else:
+        elif _has_local_compose_project(app):
             # Authenticate a bound private registry before compose pulls the
             # image; best-effort, always logs back out. No-op without registry_id.
             _registry = ContainerRegistryService.login_for_app(app)
@@ -1537,6 +1567,14 @@ def start_app(app_id):
                 )
             finally:
                 ContainerRegistryService.logout_for_app(_registry)
+        else:
+            # Build-pack app: one container, created by the deploy.
+            container = _app_container_name(app)
+            if not DockerService.get_container(container):
+                return jsonify({'error': 'This application has not been deployed yet. '
+                                         'Run a deploy to build its image and create '
+                                         'the container.'}), 400
+            result = DockerService.start_container(container)
         if not result.get('success') or _agent_result_failed(result):
             return jsonify({'error': _agent_result_error(result, 'Failed to start containers')}), 400
 
@@ -1961,11 +1999,17 @@ def stop_app(app_id):
                 _compose_target(app),
                 user_id=current_user_id
             )
-        else:
+        elif _has_local_compose_project(app):
             result = DockerService.compose_down(
                 app.root_path,
                 compose_file=_local_compose_file(app)
             )
+        else:
+            # Build-pack app. A container that no longer exists is already
+            # stopped -- reporting that as a failure would strand the app.
+            container = _app_container_name(app)
+            result = ({'success': True} if not DockerService.get_container(container)
+                      else DockerService.stop_container(container))
         if not result.get('success') or _agent_result_failed(result):
             return jsonify({'error': _agent_result_error(result, 'Failed to stop containers')}), 400
 
@@ -2000,11 +2044,18 @@ def restart_app(app_id):
                 _compose_target(app),
                 user_id=current_user_id
             )
-        else:
+        elif _has_local_compose_project(app):
             result = DockerService.compose_restart(
                 app.root_path,
                 compose_file=_local_compose_file(app)
             )
+        else:
+            container = _app_container_name(app)
+            if not DockerService.get_container(container):
+                return jsonify({'error': 'This application has not been deployed yet. '
+                                         'Run a deploy to build its image and create '
+                                         'the container.'}), 400
+            result = DockerService.restart_container(container)
         if not result.get('success') or _agent_result_failed(result):
             return jsonify({'error': _agent_result_error(result, 'Failed to restart containers')}), 400
 
