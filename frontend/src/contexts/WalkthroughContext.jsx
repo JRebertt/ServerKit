@@ -194,14 +194,19 @@ export function WalkthroughProvider({ children }) {
                 ));
                 return;
             }
-            const signaledStep = activeWalkthrough.steps.find(
-                (step) => step.signal === event.detail?.type,
-            );
-            if (signaledStep) completeStep(activeWalkthrough.id, signaledStep.id);
+            // Only the step the operator is actually on may advance. These
+            // signals are ordinary product events, so a later step's signal
+            // can fire while an earlier step is still current -- matching
+            // against the whole list would complete that step out of order
+            // and silently skip everything between. Mirrors the route effect
+            // above, which is already scoped to currentStep.
+            if (currentStep?.signal && currentStep.signal === event.detail?.type) {
+                completeStep(activeWalkthrough.id, currentStep.id);
+            }
         };
         window.addEventListener(WALKTHROUGH_SIGNAL_EVENT, handleSignal);
         return () => window.removeEventListener(WALKTHROUGH_SIGNAL_EVENT, handleSignal);
-    }, [activeWalkthrough, completeStep]);
+    }, [activeWalkthrough, completeStep, currentStep]);
 
     const checkCurrent = useCallback(async () => {
         if (!activeWalkthrough) return false;
