@@ -63,9 +63,7 @@ class NotificationPreferences(TimestampMixin, JsonColumnMixin, db.Model):
 
 
     # Relationship
-    # cascade: user_id is NOT NULL — preferences die with the account.
-    user = db.relationship('User', backref=db.backref(
-        'notification_preferences', uselist=False, cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('notification_preferences', uselist=False))
 
     def get_channels(self):
         """Get the list of enabled channels."""

@@ -35,9 +35,7 @@ class ServerTemplate(JsonColumnMixin, TimestampMixin, db.Model):
 
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
 
-    # cascade: template_id is NOT NULL — assignments die with the template.
-    assignments = db.relationship('ServerTemplateAssignment', backref='template',
-                                  lazy='dynamic', cascade='all, delete-orphan')
+    assignments = db.relationship('ServerTemplateAssignment', backref='template', lazy='dynamic')
 
     def _get_json(self, field):
         return self._json_read(field, [])
@@ -174,9 +172,7 @@ class ServerTemplateAssignment(JsonColumnMixin, db.Model):
     applied_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    # cascade: server_id is NOT NULL — assignments die with the server too.
-    server = db.relationship('Server', backref=db.backref(
-        'template_assignments', lazy='dynamic', cascade='all, delete-orphan'))
+    server = db.relationship('Server', backref=db.backref('template_assignments', lazy='dynamic'))
 
     __table_args__ = (
         db.UniqueConstraint('template_id', 'server_id', name='uq_template_server'),

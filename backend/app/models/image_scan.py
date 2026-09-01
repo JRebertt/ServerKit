@@ -20,10 +20,7 @@ class ImageVulnerabilityScan(JsonColumnMixin, db.Model):
     started_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime, nullable=True)
 
-    # cascade: application_id is NOT NULL — purge must delete, not null out.
-    application = db.relationship('Application', backref=db.backref(
-        'image_scans', lazy='dynamic', cascade='all, delete-orphan',
-        order_by='ImageVulnerabilityScan.started_at.desc()'))
+    application = db.relationship('Application', backref=db.backref('image_scans', lazy='dynamic', order_by='ImageVulnerabilityScan.started_at.desc()'))
 
     def set_counts(self, counts):
         self.severity_counts = json.dumps(counts)
@@ -75,10 +72,7 @@ class SbomArtifact(JsonColumnMixin, db.Model):
     sbom_json = db.Column(db.Text)  # SPDX 2.3 JSON
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # cascade: application_id is NOT NULL — purge must delete, not null out.
-    application = db.relationship('Application', backref=db.backref(
-        'sboms', lazy='dynamic', cascade='all, delete-orphan',
-        order_by='SbomArtifact.created_at.desc()'))
+    application = db.relationship('Application', backref=db.backref('sboms', lazy='dynamic', order_by='SbomArtifact.created_at.desc()'))
 
     def to_dict(self, include_sbom=False):
         return {

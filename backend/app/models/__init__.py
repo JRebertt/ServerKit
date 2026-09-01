@@ -1,3 +1,6 @@
+# Registers the mapper hook that auto-cascades deletes onto NOT NULL child
+# FKs (the alternative is an IntegrityError on every parent hard-delete).
+from app.models import _delete_cascade_policy  # noqa: F401
 from app.models.user import User
 from app.models.application import Application
 from app.models.domain import Domain

@@ -21,9 +21,7 @@ class OAuthIdentity(TimestampMixin, db.Model):
     token_expires_at = db.Column(db.DateTime, nullable=True)
     last_login_at = db.Column(db.DateTime, nullable=True)
 
-    # cascade: user_id is NOT NULL — linked identities die with the account.
-    user = db.relationship('User', backref=db.backref(
-        'oauth_identities', lazy='dynamic', cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('oauth_identities', lazy='dynamic'))
 
     def to_dict(self):
         return {

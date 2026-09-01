@@ -40,10 +40,7 @@ class AgentPlugin(JsonColumnMixin, TimestampMixin, db.Model):
 
 
     # Relationships
-    # cascade: install rows have a NOT NULL plugin_id — deleting the plugin must
-    # delete them, or the default FK null-out IntegrityErrors.
-    installations = db.relationship('AgentPluginInstall', backref='plugin',
-                                    lazy='dynamic', cascade='all, delete-orphan')
+    installations = db.relationship('AgentPluginInstall', backref='plugin', lazy='dynamic')
 
     @property
     def manifest(self):
@@ -130,9 +127,7 @@ class AgentPluginInstall(JsonColumnMixin, db.Model):
     health_status = db.Column(db.String(32), default='unknown')  # healthy, degraded, unhealthy, unknown
     metrics_json = db.Column(db.Text)
 
-    # cascade: server_id is NOT NULL — removing a server must take its installs.
-    server = db.relationship('Server', backref=db.backref(
-        'plugin_installs', lazy='dynamic', cascade='all, delete-orphan'))
+    server = db.relationship('Server', backref=db.backref('plugin_installs', lazy='dynamic'))
 
     @property
     def config(self):

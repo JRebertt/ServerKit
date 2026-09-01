@@ -190,39 +190,25 @@ def test_purge_takes_the_one_to_one_policy_rows_with_it(app, dead_app, monkeypat
         assert Deployment.query.filter_by(app_id=dead_app.id).first() is None
 
 
-# Relationships DELIBERATELY left without a delete cascade. Each entry must be
-# backed by something that keeps the parent delete from ever reaching the FK
-# null-out — a guard, or the absence of any delete path:
-#   User.applications      — delete_user REFUSES (409) while the user owns apps;
-#                            apps go through app delete + Recycle Bin purge so
-#                            containers/volumes are cleaned, never a cascade.
-#   CloudProvider.servers  — no code path deletes a CloudProvider row today;
-#                            silently dropping the inventory of provisioned
-#                            (billing!) VMs must stay a deliberate decision.
-DELIBERATELY_UNCASCADED = {
-    'User.applications',
-    'CloudProvider.servers',
-}
-
-
 def test_every_not_null_child_relationship_cascades_deletes(app):
     """The invariant behind the purge crash, pinned for EVERY model: a
     one-to-many whose child FK is NOT NULL must carry a delete cascade, because
     SQLAlchemy's default on parent delete — dynamic relationships included — is
     to NULL the child FK, which the NOT NULL constraint turns into an
     IntegrityError the moment anything hard-deletes the parent (Recycle Bin
-    purge, retention pruning, admin deletes). Exceptions are enumerated and
-    justified in DELIBERATELY_UNCASCADED above."""
-    from sqlalchemy import inspect as sa_inspect
+    purge, retention pruning, admin deletes).
+
+    The cascade is applied by _delete_cascade_policy's mapper hook, so this is
+    a test that THE DOOR WORKS, not a checklist for model authors. Exceptions
+    live (with their justification) in DELIBERATELY_UNCASCADED there."""
+    from sqlalchemy.orm import configure_mappers
+
+    from app.models._delete_cascade_policy import DELIBERATELY_UNCASCADED
 
     with app.app_context():
+        configure_mappers()
         offenders = set()
-        seen = set()
         for mapper in db.Model.registry.mappers:
-            cls = mapper.class_
-            if cls in seen:
-                continue
-            seen.add(cls)
             for rel in mapper.relationships:
                 if rel.direction.name != 'ONETOMANY' or rel.viewonly:
                     continue
@@ -230,13 +216,13 @@ def test_every_not_null_child_relationship_cascades_deletes(app):
                 if not fk_cols or all(c.nullable for c in fk_cols):
                     continue
                 if 'delete' not in rel.cascade:
-                    offenders.add(f'{cls.__name__}.{rel.key}')
-        unexpected = offenders - DELIBERATELY_UNCASCADED
+                    offenders.add(f'{mapper.class_.__name__}.{rel.key}')
+        unexpected = offenders - set(DELIBERATELY_UNCASCADED)
         assert not unexpected, (
-            'NOT NULL child relationships without a delete cascade (a parent '
-            f'hard-delete would IntegrityError): {sorted(unexpected)}')
-        # The allowlist may only shrink: an entry that stops matching is stale.
-        stale = DELIBERATELY_UNCASCADED - offenders
+            'NOT NULL child relationships the cascade policy did not reach '
+            f'(a parent hard-delete would IntegrityError): {sorted(unexpected)}')
+        # The registry may only shrink: an entry that stops matching is stale.
+        stale = set(DELIBERATELY_UNCASCADED) - offenders
         assert not stale, f'stale DELIBERATELY_UNCASCADED entries: {sorted(stale)}'
 
 

@@ -43,9 +43,7 @@ class SanitizationProfile(JsonColumnMixin, db.Model):
     updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
 
     # Relationships
-    # cascade: user_id is NOT NULL — personal profiles die with the account.
-    user = db.relationship('User', backref=db.backref(
-        'sanitization_profiles', lazy='dynamic', cascade='all, delete-orphan'))
+    user = db.relationship('User', backref=db.backref('sanitization_profiles', lazy='dynamic'))
 
     def get_config(self):
         """Parse and return the config dict."""

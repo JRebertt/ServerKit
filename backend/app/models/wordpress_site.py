@@ -100,10 +100,7 @@ class WordPressSite(JsonColumnMixin, TimestampMixin, db.Model):
     # Timestamps
 
     # Relationships
-    # cascade: application_id is NOT NULL, so a real delete of the app (Recycle
-    # Bin purge) must take this row with it — the default null-out IntegrityErrors.
-    application = db.relationship('Application', backref=db.backref(
-        'wp_site', uselist=False, cascade='all, delete-orphan'))
+    application = db.relationship('Application', backref=db.backref('wp_site', uselist=False))
     environments = db.relationship(
         'WordPressSite',
         backref=db.backref('production_site', remote_side=[id]),
@@ -113,21 +110,17 @@ class WordPressSite(JsonColumnMixin, TimestampMixin, db.Model):
     vulnerabilities = db.relationship('WordPressVulnerability', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     update_runs = db.relationship('WordPressUpdateRun', backref='site', lazy='dynamic', cascade='all, delete-orphan')
     reports = db.relationship('WordPressReport', backref='site', lazy='dynamic', cascade='all, delete-orphan')
-    # cascade on both: the site FKs are NOT NULL, so a sync job cannot outlive
-    # either endpoint — deleting a site takes its job history along.
     sync_jobs_as_source = db.relationship(
         'SyncJob',
         foreign_keys='SyncJob.source_site_id',
         backref='source_site',
-        lazy='dynamic',
-        cascade='all, delete-orphan'
+        lazy='dynamic'
     )
     sync_jobs_as_target = db.relationship(
         'SyncJob',
         foreign_keys='SyncJob.target_site_id',
         backref='target_site',
-        lazy='dynamic',
-        cascade='all, delete-orphan'
+        lazy='dynamic'
     )
 
     def to_dict(self, include_environments=False, include_snapshots=False):

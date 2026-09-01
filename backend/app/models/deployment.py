@@ -59,10 +59,7 @@ class Deployment(JsonColumnMixin, db.Model):
     extra_data = db.Column(db.Text, default='{}')
 
     # Relationships
-    # cascade: app_id is NOT NULL, so a real delete of the app (Recycle Bin
-    # purge) must take the history with it — the default null-out IntegrityErrors.
-    app = db.relationship('Application', backref=db.backref(
-        'deployments', lazy='dynamic', cascade='all, delete-orphan'))
+    app = db.relationship('Application', backref=db.backref('deployments', lazy='dynamic'))
     deployer = db.relationship('User', backref=db.backref('user_deployments', lazy='dynamic'))
 
     def get_metadata(self):
@@ -194,10 +191,7 @@ class DeploymentDiff(JsonColumnMixin, db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # cascade: deployment_id is NOT NULL — retention pruning (and app purge)
-    # deletes Deployment rows, which must take their diff along.
-    deployment = db.relationship('Deployment', foreign_keys=[deployment_id],
-                                 backref=db.backref('diff', cascade='all, delete-orphan'))
+    deployment = db.relationship('Deployment', foreign_keys=[deployment_id], backref='diff')
 
     def to_dict(self):
         return {

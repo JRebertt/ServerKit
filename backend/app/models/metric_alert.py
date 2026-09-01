@@ -55,9 +55,7 @@ class MetricAlert(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime)
 
-    # cascade: server_id is NOT NULL — alerts die with their server.
-    server = db.relationship('Server', backref=db.backref(
-        'metric_alerts', cascade='all, delete-orphan'))
+    server = db.relationship('Server', backref='metric_alerts')
 
     def to_dict(self):
         return {

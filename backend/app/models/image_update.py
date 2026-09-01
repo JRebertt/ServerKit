@@ -18,8 +18,7 @@ class ImageUpdateCheck(SerializableMixin, db.Model):
     error_message = db.Column(db.Text)
     checked_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # cascade: application_id is NOT NULL — purge must delete, not null out.
     application = db.relationship('Application', backref=db.backref(
-        'image_update_checks', lazy='dynamic', cascade='all, delete-orphan',
+        'image_update_checks', lazy='dynamic',
         order_by='ImageUpdateCheck.checked_at.desc()'))
 
