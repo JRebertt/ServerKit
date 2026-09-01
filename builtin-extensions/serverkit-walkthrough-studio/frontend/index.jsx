@@ -551,4 +551,7 @@ export function WalkthroughStudioPage() {
     );
 }
 
-export default WalkthroughStudioPage;
+// No default export on purpose: the route contribution resolves the named
+// WalkthroughStudioPage export, and a default export would make the legacy
+// auto-render in PluginLoader mount this whole page globally on panels
+// where the extension is not installed.

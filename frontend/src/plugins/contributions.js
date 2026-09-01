@@ -58,6 +58,23 @@ export function getPluginModule(slug) {
     return moduleBySlug[slug] || getRuntimeModule(slug) || null;
 }
 
+// True iff the BAKED manifest for this slug declares any contribution.
+// Such a plugin owns its rendering through the contribution model even
+// when it is not installed on this panel — its module is still in the
+// bundle (eager glob), so the legacy auto-render must never pick it up.
+// Without this gate, a baked-but-uninstalled extension whose index module
+// had a default export mounted its whole page globally on every route
+// (the Walkthrough Studio page stacked on top of the dashboard).
+export function declaresBakedContributions(slug) {
+    const contrib = localManifestBySlug[slug]?.contributions;
+    if (!contrib || typeof contrib !== 'object') return false;
+    return Object.values(contrib).some((value) => (
+        Array.isArray(value)
+            ? value.length > 0
+            : !!value && typeof value === 'object' && Object.keys(value).length > 0
+    ));
+}
+
 // Resolve a contribution's `component` string to an actual React component.
 // `component` may be:
 //   - "default"  → mod.default
