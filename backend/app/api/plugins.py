@@ -481,6 +481,10 @@ def get_manifest_spec():
                                           'description': 'Placeable dashboard widget types: {id, name, component, icon?, category?, description?, w?, h?, min?, default_cfg?}. Unlike widgets (fixed host slot), these appear in the dashboard widget library and the user positions, resizes and configures instances of them.'},
                     'layouts': {'type': 'array',
                                 'description': 'Custom layout components: {id, component}. The component must render <Outlet/> somewhere; it wraps every route that references its id. Built-in layouts (padded, full, bare) are reserved.'},
+                    'walkthroughs': {
+                        'type': 'array',
+                        'description': 'Declarative guided flows: {id, title, description, duration?, icon?, tone?, secondary?, permissions?, steps}. Steps use stable data-walkthrough target tokens and completion {type: manual|route|signal|check|target, ...}. Definitions are namespaced to the contributing extension at runtime and cannot contain executable code.',
+                    },
                 },
             },
         },

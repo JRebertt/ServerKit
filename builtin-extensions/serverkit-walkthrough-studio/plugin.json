@@ -1,0 +1,93 @@
+{
+  "name": "serverkit-walkthrough-studio",
+  "display_name": "Walkthrough Studio",
+  "version": "1.0.0",
+  "description": "Create, validate, preview, import, and export guided ServerKit walkthroughs without writing application code.",
+  "author": "ServerKit",
+  "license": "MIT",
+  "category": "utility",
+  "homepage": "https://github.com/jhd3197/ServerKit",
+  "permissions": [],
+  "min_panel_version": "1.7.81",
+  "sdk_version": "^1.5.0",
+  "icon": "<path d=\"M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5Z\"/><path d=\"M8 7h8M8 11h6M8 15h4\"/>",
+  "contributions": {
+    "nav": [
+      {
+        "id": "walkthrough-studio",
+        "label": "Walkthrough Studio",
+        "route": "/walkthrough-studio",
+        "category": "system",
+        "icon": "<path d=\"M4 19.5V4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5Z\"/><path d=\"M8 7h8M8 11h6M8 15h4\"/>"
+      }
+    ],
+    "routes": [
+      { "path": "walkthrough-studio", "component": "WalkthroughStudioPage", "layout": "full" }
+    ],
+    "page_titles": {
+      "/walkthrough-studio": "Walkthrough Studio"
+    },
+    "command_palette": [
+      {
+        "label": "Walkthrough Studio",
+        "path": "/walkthrough-studio",
+        "category": "Tools",
+        "keywords": "guide tutorial onboarding author builder"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "build-first-walkthrough",
+        "title": "Build your first walkthrough",
+        "description": "Design a guided flow, test it in the live dock, and publish it to your team.",
+        "duration": "About 6 minutes",
+        "icon": "guide",
+        "tone": "violet",
+        "secondary": true,
+        "permissions": [
+          { "feature": "settings", "level": "admin" }
+        ],
+        "steps": [
+          {
+            "id": "open-studio",
+            "title": "Open Walkthrough Studio",
+            "description": "The Studio keeps guide metadata, steps, and the live preview visible in one authoring surface.",
+            "action": "Open Studio",
+            "path": "/walkthrough-studio",
+            "target": "studio-guide-meta",
+            "completion": { "type": "route", "path": "/walkthrough-studio" }
+          },
+          {
+            "id": "shape-guide",
+            "title": "Describe the outcome",
+            "description": "Give the guide a stable id, a concrete outcome, and an honest duration.",
+            "target": "studio-guide-meta",
+            "completion": { "type": "manual" }
+          },
+          {
+            "id": "author-steps",
+            "title": "Author and order the steps",
+            "description": "Choose how each step completes and point it at a stable data-walkthrough token.",
+            "target": "studio-step-list",
+            "completion": { "type": "manual" }
+          },
+          {
+            "id": "preview-guide",
+            "title": "Preview the guide",
+            "description": "Run the draft in the real walkthrough dock before publishing it.",
+            "target": "studio-preview",
+            "completion": { "type": "manual" }
+          },
+          {
+            "id": "publish-guide",
+            "title": "Publish the walkthrough",
+            "description": "Save the validated definition so every permitted user sees it immediately.",
+            "action": "Publish walkthrough",
+            "target": "studio-publish",
+            "completion": { "type": "signal", "signal": "walkthrough-studio-guide-saved" }
+          }
+        ]
+      }
+    ]
+  }
+}

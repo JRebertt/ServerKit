@@ -8,3 +8,14 @@ export async function updateWalkthroughState(state) {
         body: { state },
     });
 }
+
+export async function getWalkthroughDefinitions() {
+    return this.request('/walkthroughs/definitions');
+}
+
+export async function updateWalkthroughDefinitions(definitions) {
+    return this.request('/walkthroughs/definitions', {
+        method: 'PUT',
+        body: { definitions },
+    });
+}

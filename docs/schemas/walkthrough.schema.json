@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://serverkit.ai/schemas/walkthrough.schema.json",
+  "title": "ServerKit Walkthrough",
+  "description": "A safe, declarative guided flow contributed by an extension or created in Walkthrough Studio.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "description", "steps"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "title_key": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "description": { "type": "string", "minLength": 1, "maxLength": 320 },
+    "description_key": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "duration": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "duration_key": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "icon": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "tone": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "secondary": { "type": "boolean", "default": true },
+    "permissions": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["feature", "level"],
+        "properties": {
+          "feature": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "level": { "enum": ["read", "write", "admin"] }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,79}$"
+    },
+    "target": {
+      "type": "string",
+      "description": "The value of a data-walkthrough attribute. CSS selectors are not accepted.",
+      "pattern": "^[a-z0-9][a-z0-9._:-]{0,79}$"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._:-]{0,119}$"
+    },
+    "completion": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "manual" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": { "const": "route" },
+            "path": { "type": "string", "pattern": "^/", "maxLength": 500 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "signal"],
+          "properties": {
+            "type": { "const": "signal" },
+            "signal": { "$ref": "#/$defs/token" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "check"],
+          "properties": {
+            "type": { "const": "check" },
+            "check": { "$ref": "#/$defs/token" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "target" } }
+        }
+      ]
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "title_key": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "description_key": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "action": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "action_key": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "path": { "type": "string", "pattern": "^/", "maxLength": 500 },
+        "target": { "$ref": "#/$defs/target" },
+        "completion": { "$ref": "#/$defs/completion" },
+        "route": { "type": "string", "pattern": "^/", "maxLength": 500 },
+        "signal": { "$ref": "#/$defs/token" },
+        "check": { "$ref": "#/$defs/token" }
+      },
+      "description": "route, signal and check are shorthand for the matching single-condition completion block. An explicit completion always wins."
+
+    }
+  }
+}

@@ -707,6 +707,7 @@ Regenerate (backend/):
 - `GET /waf/applications/{app_id}/events`
 - `GET /waf/applications/{app_id}/policy`
 - `GET /waf/status`
+- `GET /walkthroughs/definitions`
 - `GET /walkthroughs/state`
 - `GET /webhooks/endpoints`
 - `GET /webhooks/endpoints/{endpoint_id}`
@@ -1328,6 +1329,7 @@ Regenerate (backend/):
 - `PUT /system/timezone`
 - `PUT /views/{view_id}`
 - `PUT /waf/applications/{app_id}/policy`
+- `PUT /walkthroughs/definitions`
 - `PUT /walkthroughs/state`
 - `PUT /workspaces/members/{member_id}/role`
 - `PUT /workspaces/{workspace_id}`

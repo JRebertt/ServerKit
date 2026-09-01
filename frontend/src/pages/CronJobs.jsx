@@ -743,7 +743,7 @@ function CronDrawer({ job, isAdmin, running, onClose, onRefresh, onRun, onEdit, 
                                         },
                                         {
                                             key: 'duration',
-                                            headerKey: 'app.cronJobs.duration', header: 'Duration',
+                                            headerKey: 'common.labels.duration', header: 'Duration',
                                             sortable: true,
                                             sortValue: (r) => r.duration_seconds,
                                             render: (r) => formatDuration(r.duration_seconds),

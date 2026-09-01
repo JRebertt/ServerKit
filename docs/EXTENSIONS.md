@@ -604,6 +604,74 @@ call `i18next.init()` or `changeLanguage()` from an extension: the panel owns
 both, and calling them would reconfigure or switch the language for the whole
 panel.
 
+## Guided walkthrough contributions
+
+Extensions can add safe, declarative guides to the panel's Walkthroughs dock.
+The panel namespaces every contributed id with the extension slug, filters the
+guide through the declared RBAC requirements, and removes it immediately when
+the extension is disabled. No extension JavaScript is needed for route,
+manual, or target-visible steps:
+
+```jsonc
+"contributions": {
+  "walkthroughs": [{
+    "id": "first-site",
+    "title": "Launch your first site",
+    "description": "Create the site and verify that it is online.",
+    "duration": "About 5 minutes",
+    "icon": "globe",
+    "tone": "green",
+    "secondary": true,
+    "permissions": [{ "feature": "applications", "level": "write" }],
+    "steps": [{
+      "id": "open-create",
+      "title": "Open the create flow",
+      "description": "Start from the extension's site list.",
+      "action": "Create site",
+      "path": "/my-extension/new",
+      "target": "myext-create-site",
+      "completion": { "type": "route", "path": "/my-extension/new" }
+    }, {
+      "id": "launch-site",
+      "title": "Launch the site",
+      "description": "Submit the reviewed configuration.",
+      "target": "myext-submit-site",
+      "completion": { "type": "signal", "signal": "myext.site-created" }
+    }]
+  }]
+}
+```
+
+`target` is the value of a stable `data-walkthrough` attribute, never a CSS
+selector. For the example above, the extension renders
+`data-walkthrough="myext-submit-site"`. This restriction prevents a guide from
+reaching into password fields or depending on fragile generated class names.
+
+Five completion modes are supported:
+
+| Type | Completes when |
+|---|---|
+| `manual` | The operator chooses **Done · next step**. |
+| `route` | The current path matches `completion.path` (or the step's `path`). |
+| `signal` | The UI emits the named signal after a successful operation. |
+| `check` | A host-owned, allowlisted status check returns success. |
+| `target` | The stable `data-walkthrough` target becomes visible. |
+
+Emit success signals through the SDK only after the operation succeeds:
+
+```js
+import { emitWalkthroughSignal } from 'serverkit-sdk';
+
+await createSite(values);
+emitWalkthroughSignal('myext.site-created', { siteId });
+```
+
+Definitions cannot contain JavaScript, commands, arbitrary API calls, or raw
+selectors. The same validator runs during extension install and when an admin
+publishes a custom guide from Walkthrough Studio. The editor schema lives at
+`docs/schemas/walkthrough.schema.json`; TypeScript definitions live at
+`frontend/src/plugins/sdk/walkthroughs.d.ts`.
+
 ### Checking your own extension
 
 The panel's censuses take a `--root`, so run them against your repo instead of
@@ -678,6 +746,7 @@ readable *"needs panel SDK ^1.3.0 (this panel offers 1.2.0)"* at install time.
 
 | SDK | Added |
 |---|---|
+| `^1.5.0` | Declarative walkthrough authoring: manifest contributions, validation/normalization helpers, success-signal emission, and the walkthrough runtime hook. |
 | `^1.3.0` | Localization: `useTranslation`, `Trans`, `t`, `useLocale`, `useLabel`, `useFormat` and the `formatDate`/`formatNumber`/`formatRelative` door. `i18next` and `react-i18next` became shared singletons, so an extension that **externalizes** them needs this SDK or newer. |
 | `^1.2.0` | Layout/feedback primitives, the `ui/*` form kit, common hooks, format utils, and the cross-feature embeds (git repo-connect, backups `ProtectionPanel`). |
 

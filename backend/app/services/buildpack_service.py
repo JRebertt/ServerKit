@@ -531,6 +531,13 @@ class BuildpackService:
             # Locally installed CLIs (vite, next, nest, ...) live in
             # node_modules/.bin, which is not on PATH for RUN/CMD.
             'ENV PATH=/app/node_modules/.bin:$PATH',
+            # Browser-driver postinstalls each fetch a few hundred MB of
+            # Chrome into the build layer (puppeteer alone is ~500MB). A
+            # production build never drives a browser, and on a small host
+            # that download is what fills the disk mid-export -- opt out.
+            'ENV PUPPETEER_SKIP_DOWNLOAD=1 '
+            'PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 '
+            'CYPRESS_INSTALL_BINARY=0',
             'COPY package*.json ./',
         ]
         if build:

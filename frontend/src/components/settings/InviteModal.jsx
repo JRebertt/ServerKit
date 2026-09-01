@@ -55,6 +55,9 @@ const InviteModal = ({ onClose, onCreated }) => {
 
             const response = await api.createInvitation(data);
             setResult(response);
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'invitation-created' },
+            }));
             if (onCreated) onCreated();
         } catch (err) {
             setError(err.message || 'Failed to create invitation');
@@ -66,6 +69,9 @@ const InviteModal = ({ onClose, onCreated }) => {
     async function copyLink() {
         if (result?.invite_url && await copyToClipboard(result.invite_url)) {
             setCopied(true);
+            window.dispatchEvent(new CustomEvent('serverkit:walkthrough-signal', {
+                detail: { type: 'invitation-link-copied' },
+            }));
             setTimeout(() => setCopied(false), 2000);
         }
     }
@@ -75,7 +81,7 @@ const InviteModal = ({ onClose, onCreated }) => {
         return (
             <Modal open={true} onClose={onClose} title={t('app.inviteModal.invitationCreated', 'Invitation Created')} size="md">
                         <p>{t('app.inviteModal.shareThisInvitationLink', 'Share this invitation link:')}</p>
-                        <div className="invite-link-display">
+                        <div className="invite-link-display" data-walkthrough="invite-result">
                             <code>{result.invite_url}</code>
                             <Button variant="ghost" size="sm" onClick={copyLink}>
                                 {copied ? 'Copied!' : 'Copy'}
@@ -100,7 +106,7 @@ const InviteModal = ({ onClose, onCreated }) => {
 
     return (
         <Modal open={true} onClose={onClose} title={t('app.inviteModal.inviteUser', 'Invite User')} size="md">
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} data-walkthrough="invite-form">
                     <div className="modal-body">
                         {error && <div className="error-message">{error}</div>}
 
@@ -186,7 +192,7 @@ const InviteModal = ({ onClose, onCreated }) => {
 
                     <div className="modal-footer">
                         <Button type="button" variant="ghost" onClick={onClose}>{t('common.actions.cancel', 'Cancel')}</Button>
-                        <Button type="submit" variant="default" disabled={loading}>
+                        <Button type="submit" variant="default" disabled={loading} data-walkthrough="invite-submit">
                             {loading ? 'Creating...' : 'Create Invitation'}
                         </Button>
                     </div>

@@ -484,7 +484,7 @@ const DELIVERY_COLUMNS = [
     },
     {
         key: 'duration',
-        headerKey: 'app.apiSettingsTab.duration', header: 'Duration',
+        headerKey: 'common.labels.duration', header: 'Duration',
         sortable: true,
         sortValue: (d) => d.duration_ms ?? null,
         render: (d) => (d.duration_ms ? `${d.duration_ms}ms` : '-'),

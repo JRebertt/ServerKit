@@ -15,7 +15,7 @@
  *      the contribution model.
  *
  * Plugins that declare ANY contribution (routes, nav, tabs, widgets,
- * palette entries, layouts, ai) own their rendering through the
+ * palette entries, layouts, walkthroughs, ai) own their rendering through the
  * contribution model and are excluded from the legacy auto-render.
  * Gating on widgets alone let bundled extensions whose index module
  * happened to have a default export (WordPress, Cloudflare zone ops)
@@ -59,6 +59,7 @@ const PluginLoader = ({ api }) => {
             contributions.routes, contributions.nav, contributions.tabs,
             contributions.widgets, contributions.command_palette,
             contributions.layouts,
+            contributions.walkthroughs,
             contributions.ai?.suggested_prompts, contributions.ai?.tool_renderers,
         ];
         for (const bucket of buckets) {

@@ -46,7 +46,7 @@ export default function BackupDetailDrawer({ run, open, onClose, onRestore, onVe
                 <div className="backup-detail-drawer__meta">
                     <div className="backup-detail-drawer__row"><span>{t('common.labels.created', 'Created')}</span><span>{formatDateTime(run.started_at)}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.finished', 'Finished')}</span><span>{formatDateTime(run.finished_at)}</span></div>
-                    <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.duration', 'Duration')}</span><span>{run.duration_seconds != null ? `${run.duration_seconds}s` : '—'}</span></div>
+                    <div className="backup-detail-drawer__row"><span>{t('common.labels.duration', 'Duration')}</span><span>{run.duration_seconds != null ? `${run.duration_seconds}s` : '—'}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('common.labels.type', 'Type')}</span><span>{run.kind}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('app.backupDetailDrawer.compression', 'Compression')}</span><span>{run.compression || '—'}</span></div>
                     <div className="backup-detail-drawer__row"><span>{t('common.labels.storage', 'Storage')}</span><span>{storageLabel(run)}</span></div>

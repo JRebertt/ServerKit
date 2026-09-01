@@ -443,6 +443,7 @@ _REQUIRED_CONTRIB_KEYS = {
     'widgets': ('slot', 'component'),
     'dashboard_widgets': ('id', 'name', 'component'),
     'layouts': ('id', 'component'),
+    'walkthroughs': ('id', 'title', 'description', 'steps'),
 }
 
 _KNOWN_CONTRIB_KINDS = set(_REQUIRED_CONTRIB_KEYS) | {'page_titles', 'ai'}
@@ -533,6 +534,16 @@ def _validate_manifest(manifest):
         titles = contrib.get('page_titles')
         if titles is not None and not isinstance(titles, dict):
             problems.append('contributions.page_titles must be an object of path -> title')
+
+        walkthroughs = contrib.get('walkthroughs')
+        if walkthroughs is not None:
+            from app.services.walkthrough_definition_service import (
+                validate_walkthrough_definitions,
+            )
+            problems.extend(validate_walkthrough_definitions(
+                walkthroughs,
+                field='contributions.walkthroughs',
+            ))
 
     if problems:
         raise ValueError(

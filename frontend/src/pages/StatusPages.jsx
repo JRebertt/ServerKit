@@ -778,7 +778,7 @@ const StatusPages = () => {
                 )}
             >
                 <div className="form-group">
-                    <label>{t('app.statusPages.title', 'Title')}</label>
+                    <label>{t('common.labels.title', 'Title')}</label>
                     <Input value={incidentForm.title} onChange={(e) => setIncidentForm({ ...incidentForm, title: e.target.value })} autoFocus />
                 </div>
                 <div className="status-modal-grid">

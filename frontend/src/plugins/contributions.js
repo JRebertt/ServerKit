@@ -91,6 +91,9 @@ const EMPTY = {
     // (== the sidebar item id: files | servers | monitoring). Consumed by
     // TabGroupLayout (tab strip merge) + Sidebar (group item stays lit).
     tabs: [],
+    // Declarative guided flows supplied by extensions. The walkthrough
+    // registry validates and namespaces these before they reach the shell.
+    walkthroughs: [],
     // AI assistant contributions: per-route suggested prompts + custom
     // tool-result renderers. Consumed by the core AIAssistant via
     // useContributions().ai.
@@ -128,6 +131,7 @@ function getBuildTimeContributions() {
     const dashboard_widgets = [];
     const layouts = [];
     const tabs = [];
+    const walkthroughs = [];
     const ai = { suggested_prompts: [], tool_renderers: [] };
 
     for (const entry of installed) {
@@ -145,6 +149,7 @@ function getBuildTimeContributions() {
         dashboard_widgets.push(...tagItems(contrib.dashboard_widgets, slug));
         layouts.push(...tagItems(contrib.layouts, slug));
         tabs.push(...tagItems(contrib.tabs, slug));
+        walkthroughs.push(...tagItems(contrib.walkthroughs, slug));
 
         if (contrib.ai && typeof contrib.ai === 'object') {
             ai.suggested_prompts.push(...tagItems(contrib.ai.suggested_prompts, slug));
@@ -165,6 +170,7 @@ function getBuildTimeContributions() {
         dashboard_widgets,
         layouts,
         tabs,
+        walkthroughs,
         ai,
     };
 }

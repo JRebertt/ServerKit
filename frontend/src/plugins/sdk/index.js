@@ -38,7 +38,7 @@
 // GET /api/v1/plugins/contributions. The backend mirror lives in
 // backend/app/utils/sdk.py — keep the two in lock-step (asserted by
 // backend/tests/test_sdk_contract.py).
-export const SDK_VERSION = '1.4.0';
+export const SDK_VERSION = '1.5.0';
 
 export { api, default as defaultApi } from '../../services/api';
 
@@ -196,3 +196,16 @@ export { useColumnVisibility } from '../../hooks/useColumnVisibility';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 export { PageLoader } from '../../components/PageLoader';
 export { copyToClipboard } from '../../utils/clipboard';
+export { downloadBlob } from '../../utils/downloadBlob';
+
+// Declarative walkthrough authoring (1.5.0). Extensions normally contribute
+// definitions through plugin.json; these exports power authoring tools,
+// validation previews, and successful-action signals without exposing the
+// walkthrough engine's internal state shape.
+export {
+    WALKTHROUGH_COMPLETION_TYPES,
+    emitWalkthroughSignal,
+    normalizeWalkthroughDefinition,
+    validateWalkthroughDefinition,
+} from '../../services/walkthroughRegistry';
+export { useWalkthroughs } from '../../contexts/walkthroughContextValue';
