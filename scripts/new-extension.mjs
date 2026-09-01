@@ -25,6 +25,7 @@
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { validateWalkthroughDefinition } from '../frontend/src/services/walkthroughRegistry.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -43,6 +44,7 @@ const REQUIRED_CONTRIB_KEYS = {
     command_palette: ['label', 'path'],
     widgets: ['slot', 'component'],
     layouts: ['id', 'component'],
+    walkthroughs: ['id', 'title', 'description', 'steps'],
 };
 const KNOWN_CONTRIB_KINDS = new Set([...Object.keys(REQUIRED_CONTRIB_KEYS), 'page_titles', 'ai']);
 
@@ -132,6 +134,14 @@ function validateManifest(manifest) {
         if (contrib.page_titles != null
                 && (typeof contrib.page_titles !== 'object' || Array.isArray(contrib.page_titles))) {
             problems.push('contributions.page_titles must be an object of path -> title');
+        }
+        if (Array.isArray(contrib.walkthroughs)) {
+            contrib.walkthroughs.forEach((walkthrough, i) => {
+                for (const item of validateWalkthroughDefinition(walkthrough)) {
+                    const suffix = item.path ? `.${item.path}` : '';
+                    problems.push(`contributions.walkthroughs[${i}]${suffix}: ${item.message}`);
+                }
+            });
         }
     }
 

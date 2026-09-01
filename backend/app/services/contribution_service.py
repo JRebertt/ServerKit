@@ -12,7 +12,8 @@ A plugin manifest may declare a `contributions` block with any subset of:
       "dashboard_widgets": [{ id, name, component, icon?, category?,
                               description?, w?, h?, min?, default_cfg? }],
       "layouts":        [{ id, component }],
-      "tabs":           [{ group, to, label, icon?, end?, order? }]
+      "tabs":           [{ group, to, label, icon?, end?, order? }],
+      "walkthroughs":   [{ id, title, description, steps, ... }]
     }
 
 `widgets` and `dashboard_widgets` are different surfaces and are easy to
@@ -113,6 +114,7 @@ def get_active_contributions():
     dashboard_widgets = []
     layouts = []
     tabs = []
+    walkthroughs = []
     # AI assistant contributions: per-route suggested prompts + custom
     # tool-result renderers, consumed by the core AIAssistant.
     ai = {'suggested_prompts': [], 'tool_renderers': []}
@@ -129,6 +131,7 @@ def get_active_contributions():
         dashboard_widgets.extend(_tag(contrib.get('dashboard_widgets'), p.slug))
         layouts.extend(_tag(contrib.get('layouts'), p.slug))
         tabs.extend(_tag(contrib.get('tabs'), p.slug))
+        walkthroughs.extend(_tag(contrib.get('walkthroughs'), p.slug))
 
         ai_contrib = contrib.get('ai')
         if isinstance(ai_contrib, dict):
@@ -150,6 +153,7 @@ def get_active_contributions():
         'dashboard_widgets': dashboard_widgets,
         'layouts': layouts,
         'tabs': tabs,
+        'walkthroughs': walkthroughs,
         'ai': ai,
         # Panel SDK version the client uses to gate runtime bundles (plan 25 #1).
         'sdk_version': SDK_VERSION,

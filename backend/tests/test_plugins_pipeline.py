@@ -72,6 +72,19 @@ def _write_builtin(builtin_dir, slug='serverkit-demo', version='1.0.0',
                                    'component': 'DemoWidget', 'category': 'Utility',
                                    'w': 3, 'h': 2, 'min': [2, 2],
                                    'default_cfg': {'limit': 5}}],
+            'walkthroughs': [{
+                'id': 'demo-first-run',
+                'title': 'Try Demo',
+                'description': 'Open Demo and complete one safe action.',
+                'steps': [{
+                    'id': 'open-demo',
+                    'title': 'Open Demo',
+                    'description': 'Navigate to the Demo extension.',
+                    'path': '/demo',
+                    'target': 'demo-page',
+                    'completion': {'type': 'route', 'path': '/demo'},
+                }],
+            }],
         },
     }
     (folder / 'plugin.json').write_text(json.dumps(manifest), encoding='utf-8')
@@ -219,7 +232,7 @@ def test_contributions_endpoint_envelope(app, client, auth_headers, plugin_dirs)
 
     # The envelope always carries every key.
     for key in ('nav', 'routes', 'page_titles', 'command_palette', 'widgets',
-                'dashboard_widgets', 'layouts', 'tabs', 'ai'):
+                'dashboard_widgets', 'layouts', 'tabs', 'walkthroughs', 'ai'):
         assert key in data
 
     # Contributions are tagged with the source plugin slug.
@@ -242,6 +255,10 @@ def test_contributions_endpoint_envelope(app, client, auth_headers, plugin_dirs)
                and w.get('component') == 'DemoWidget'
                for w in data['dashboard_widgets'])
     assert not any(w.get('id') == 'demo-widget' for w in data['widgets'])
+
+    assert any(w.get('plugin') == 'serverkit-demo'
+               and w.get('id') == 'demo-first-run'
+               for w in data['walkthroughs'])
 
 
 def test_disabled_plugin_drops_from_contributions(app, client, auth_headers, plugin_dirs):
@@ -356,6 +373,21 @@ def test_manifest_lint_rejects_bad_shapes():
                             'contributions': {'routes': [{'path': 'x'}]}})
     with pytest.raises(ValueError, match='lifecycle.install'):
         _validate_manifest({**_LINT_BASE, 'lifecycle': {'install': 'no-colon'}})
+    with pytest.raises(ValueError, match=r'walkthroughs\[0\].steps\[0\].target'):
+        _validate_manifest({
+            **_LINT_BASE,
+            'contributions': {'walkthroughs': [{
+                'id': 'bad-guide',
+                'title': 'Bad Guide',
+                'description': 'Uses an arbitrary selector.',
+                'steps': [{
+                    'id': 'bad-step',
+                    'title': 'Bad Step',
+                    'description': 'This must fail.',
+                    'target': '#password',
+                }],
+            }]},
+        })
 
 
 def test_manifest_lint_unknown_contrib_kind_warns_not_fails():

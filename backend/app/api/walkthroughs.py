@@ -2,7 +2,11 @@
 
 from flask import Blueprint, jsonify, request
 
-from app.middleware.rbac import get_current_user, require_role, viewer_required
+from app.middleware.rbac import admin_required, get_current_user, require_role, viewer_required
+from app.services.walkthrough_definition_service import (
+    WalkthroughDefinitionError,
+    WalkthroughDefinitionService,
+)
 from app.services.walkthrough_service import (
     WalkthroughService,
     WalkthroughStateError,
@@ -29,3 +33,24 @@ def update_walkthrough_state():
     except WalkthroughStateError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({'success': True, 'state': state}), 200
+
+
+@walkthroughs_bp.route('/definitions', methods=['GET'])
+@viewer_required
+def get_walkthrough_definitions():
+    return jsonify({
+        'definitions': WalkthroughDefinitionService.get_definitions(),
+    }), 200
+
+
+@walkthroughs_bp.route('/definitions', methods=['PUT'])
+@admin_required
+def update_walkthrough_definitions():
+    data = request.get_json(silent=True) or {}
+    try:
+        definitions = WalkthroughDefinitionService.save_definitions(
+            data.get('definitions', data),
+        )
+    except WalkthroughDefinitionError as exc:
+        return jsonify({'error': str(exc)}), 400
+    return jsonify({'success': True, 'definitions': definitions}), 200
