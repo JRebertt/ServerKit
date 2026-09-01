@@ -137,7 +137,6 @@ def on_purge_application(app):
     """
     from app import paths
     from app.services.docker_service import DockerService
-    from app.services.upload_service import get_app_storage_dir
 
     # A purge normally reclaims the volumes -- that is most of what it is for.
     # `_purge_remove_data` is the one exception: DELETE ?purge=true skips the
@@ -154,16 +153,23 @@ def on_purge_application(app):
         except Exception as exc:                        # noqa: BLE001
             logger.warning('Purge %s: compose down failed: %s', app.name, exc)
 
-    # Only ServerKit-managed uploads. A `manual` app points at a directory the
-    # operator already had, and removing that would destroy data ServerKit never
-    # created — the same guard delete_app has always carried.
+    # Reclaim the app's directory whenever ServerKit created it — anything
+    # whose root_path lives under APPS_DIR: a git clone, an uploaded source
+    # tree, a template render. A purge that leaves the directory behind blocks
+    # the name forever ("App directory already exists" on the next create)
+    # while the Recycle Bin shows nothing to explain it. The one exception is
+    # a `manual` app: its root_path points at a directory the operator already
+    # had, and removing that would destroy data ServerKit never created — the
+    # same guard delete_app has always carried.
     try:
-        if app.source == 'upload' and app.root_path and app.root_path.startswith(paths.APPS_DIR):
-            storage = get_app_storage_dir(app.name)
-            if os.path.exists(storage):
-                shutil.rmtree(storage)
+        base = os.path.abspath(paths.APPS_DIR)
+        root = os.path.abspath(app.root_path) if app.root_path else None
+        if (app.source != 'manual' and root
+                and root.startswith(base + os.sep)
+                and os.path.exists(root)):
+            shutil.rmtree(root)
     except Exception as exc:                            # noqa: BLE001
-        logger.warning('Purge %s: storage removal failed: %s', app.name, exc)
+        logger.warning('Purge %s: root path removal failed: %s', app.name, exc)
 
     # Now that the app is going for good, its cron jobs fall back to the System
     # bucket rather than pointing at an id that no longer resolves.

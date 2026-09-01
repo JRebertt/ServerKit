@@ -358,6 +358,74 @@ def test_purge_honours_an_explicit_remove_data_false(app, dead_app, monkeypatch)
     assert calls and calls[0].get('volumes') is False
 
 
+# ------------------------------------------------------------- purge cleanup
+
+def _stub_purge_side_effects(monkeypatch):
+    """compose_down and cron detach are not what these tests are about."""
+    from app.services import docker_service
+    monkeypatch.setattr(docker_service.DockerService, 'compose_down',
+                        classmethod(lambda cls, path, **kw: {'success': True}))
+    monkeypatch.setattr(application_restore.CronService, 'clear_application',
+                        classmethod(lambda cls, _id: 0))
+
+
+def test_purge_removes_a_managed_clone_regardless_of_source(app, monkeypatch, tmp_path):
+    """A purged git app must take its clone with it. Leaving the directory
+    blocks the name on the next create ("App directory already exists") while
+    the Recycle Bin shows nothing to explain it — the field failure this
+    pins."""
+    from app import paths
+    _stub_purge_side_effects(monkeypatch)
+    monkeypatch.setattr(paths, 'APPS_DIR', str(tmp_path))
+    clone = tmp_path / 'repo-app'
+    clone.mkdir()
+    (clone / 'docker-compose.yml').write_text('services: {}')
+
+    with app.app_context():
+        row = Application(name='repo-app', app_type='docker', user_id=1,
+                          root_path=str(clone), source='github')
+        application_restore.on_purge_application(row)
+
+    assert not clone.exists()
+
+
+def test_purge_never_removes_a_manual_apps_directory(app, monkeypatch, tmp_path):
+    """A manual app's root_path is a directory the operator already had —
+    removing it would destroy data ServerKit never created, even when it
+    happens to sit under APPS_DIR."""
+    from app import paths
+    _stub_purge_side_effects(monkeypatch)
+    monkeypatch.setattr(paths, 'APPS_DIR', str(tmp_path))
+    existing = tmp_path / 'my-site'
+    existing.mkdir()
+    (existing / 'index.php').write_text('<?php')
+
+    with app.app_context():
+        row = Application(name='my-site', app_type='php', user_id=1,
+                          root_path=str(existing), source='manual')
+        application_restore.on_purge_application(row)
+
+    assert (existing / 'index.php').is_file()
+
+
+def test_purge_leaves_directories_outside_apps_dir_alone(app, monkeypatch, tmp_path):
+    """Only ServerKit-managed paths are reclaimed; anything else is the
+    operator's."""
+    from app import paths
+    _stub_purge_side_effects(monkeypatch)
+    monkeypatch.setattr(paths, 'APPS_DIR', str(tmp_path / 'managed'))
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    (elsewhere / 'app.py').write_text('# not ours')
+
+    with app.app_context():
+        row = Application(name='elsewhere', app_type='flask', user_id=1,
+                          root_path=str(elsewhere), source='github')
+        application_restore.on_purge_application(row)
+
+    assert (elsewhere / 'app.py').is_file()
+
+
 def test_a_failing_purge_hook_still_purges(app, dead_app):
     """The caller has said twice that they want the row gone; a directory that
     will not delete is not a reason to keep the record."""
