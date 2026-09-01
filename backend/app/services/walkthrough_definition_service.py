@@ -32,6 +32,9 @@ _GUIDE_FIELDS = {
 _STEP_FIELDS = {
     'id', 'title', 'title_key', 'description', 'description_key', 'action',
     'action_key', 'path', 'target', 'completion',
+    # Step-level shorthand for the common single-condition cases. Core
+    # walkthroughs are authored this way, so extensions may be too.
+    'route', 'signal', 'check',
 }
 _COMPLETION_FIELDS = {'type', 'path', 'signal', 'check'}
 
@@ -42,6 +45,32 @@ class WalkthroughDefinitionError(ValueError):
 
 def _bounded_string(value: Any, *, maximum: int) -> bool:
     return isinstance(value, str) and 0 < len(value.strip()) <= maximum
+
+
+def _completion_for(step: Dict[str, Any]):
+    """Resolve a step's completion and say which spelling supplied it.
+
+    An explicit ``completion`` block always wins; otherwise a step may carry
+    ``signal``, ``check`` or ``route`` directly. Returns ``(completion,
+    shorthand_field)`` where ``shorthand_field`` is None for an explicit
+    block, so problems can be reported against the key the author actually
+    wrote. Kept in lock-step with ``completionFor()`` in
+    frontend/src/services/walkthroughRegistry.js.
+    """
+    if 'completion' in step:
+        return step['completion'], None
+    if step.get('signal'):
+        return {'type': 'signal', 'signal': step['signal']}, 'signal'
+    if step.get('check'):
+        return {'type': 'check', 'check': step['check']}, 'check'
+    if step.get('route'):
+        return {'type': 'route', 'path': step['route']}, 'route'
+    return {'type': 'manual'}, None
+
+
+def _cfield(cbase, shorthand, name):
+    """Path to a completion sub-field, collapsed when shorthand supplied it."""
+    return cbase if shorthand else f'{cbase}.{name}'
 
 
 def validate_walkthrough_definitions(raw: Any, *, field: str = 'walkthroughs') -> List[str]:
@@ -142,33 +171,37 @@ def validate_walkthrough_definitions(raw: Any, *, field: str = 'walkthroughs') -
             if target is not None and (not isinstance(target, str) or not _TARGET_RE.fullmatch(target)):
                 problems.append(f'{sbase}.target must be a stable data-walkthrough token')
 
-            completion = step.get('completion', {'type': 'manual'})
+            completion, shorthand = _completion_for(step)
+            cbase = f'{sbase}.{shorthand}' if shorthand else f'{sbase}.completion'
             if not isinstance(completion, dict):
-                problems.append(f'{sbase}.completion must be an object')
+                problems.append(f'{cbase} must be an object')
                 continue
             unknown_completion_fields = sorted(set(completion) - _COMPLETION_FIELDS)
             if unknown_completion_fields:
                 problems.append(
-                    f'{sbase}.completion contains unsupported fields: '
+                    f'{cbase} contains unsupported fields: '
                     f'{", ".join(unknown_completion_fields)}')
             completion_type = completion.get('type', 'manual')
             if completion_type not in COMPLETION_TYPES:
                 problems.append(
-                    f'{sbase}.completion.type must be one of {", ".join(sorted(COMPLETION_TYPES))}')
+                    f'{cbase}.type must be one of {", ".join(sorted(COMPLETION_TYPES))}')
             elif completion_type == 'route':
                 route = completion.get('path') or path
                 if not isinstance(route, str) or not route.startswith('/') or len(route) > 500:
-                    problems.append(f'{sbase}.completion.path must be a route beginning with /')
+                    problems.append(
+                        f'{_cfield(cbase, shorthand, "path")} must be a route beginning with /')
             elif completion_type == 'signal':
                 signal = completion.get('signal')
                 if not isinstance(signal, str) or not _TOKEN_RE.fullmatch(signal):
-                    problems.append(f'{sbase}.completion.signal must be a stable event token')
+                    problems.append(
+                        f'{_cfield(cbase, shorthand, "signal")} must be a stable event token')
             elif completion_type == 'check':
                 check = completion.get('check')
                 if not isinstance(check, str) or not _TOKEN_RE.fullmatch(check):
-                    problems.append(f'{sbase}.completion.check must be a named host check')
+                    problems.append(
+                        f'{_cfield(cbase, shorthand, "check")} must be a named host check')
             elif completion_type == 'target' and target is None:
-                problems.append(f'{sbase}.completion target requires step.target')
+                problems.append(f'{cbase} target requires step.target')
 
     try:
         encoded_size = len(json.dumps(raw, ensure_ascii=False).encode('utf-8'))

@@ -109,8 +109,13 @@
         "action_key": { "type": "string", "minLength": 1, "maxLength": 120 },
         "path": { "type": "string", "pattern": "^/", "maxLength": 500 },
         "target": { "$ref": "#/$defs/target" },
-        "completion": { "$ref": "#/$defs/completion" }
-      }
+        "completion": { "$ref": "#/$defs/completion" },
+        "route": { "type": "string", "pattern": "^/", "maxLength": 500 },
+        "signal": { "$ref": "#/$defs/token" },
+        "check": { "$ref": "#/$defs/token" }
+      },
+      "description": "route, signal and check are shorthand for the matching single-condition completion block. An explicit completion always wins."
+
     }
   }
 }

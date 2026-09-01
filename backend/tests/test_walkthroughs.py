@@ -126,3 +126,47 @@ def test_walkthrough_definitions_require_authentication(client):
         '/api/v1/walkthroughs/definitions',
         json={'definitions': [_definition()]},
     ).status_code in (401, 422)
+
+
+def test_walkthrough_definition_accepts_step_level_shorthand(client, db_session):
+    """`signal:` on a step is shorthand for a signal completion block.
+
+    Core walkthroughs are authored that way, so a manifest that copies the
+    pattern must install rather than be rejected at the door.
+    """
+    admin = make_user(db_session, role='admin', username='guide-shorthand')
+    definition = _definition()
+    step = definition['steps'][0]
+    del step['completion']
+    step['signal'] = 'service-created'
+
+    response = client.put(
+        '/api/v1/walkthroughs/definitions',
+        headers=headers_for(admin),
+        json={'definitions': [definition]},
+    )
+    assert response.status_code == 200
+    assert response.get_json()['definitions'][0]['steps'][0]['signal'] == 'service-created'
+
+
+def test_walkthrough_shorthand_is_held_to_the_same_token_rules(client, db_session):
+    """The shorthand is a spelling, not an escape hatch.
+
+    An invalid token is still rejected, and the problem names the key the
+    author actually wrote rather than the completion block it desugars to.
+    """
+    admin = make_user(db_session, role='admin', username='guide-shorthand-bad')
+    definition = _definition()
+    step = definition['steps'][0]
+    del step['completion']
+    step['signal'] = 'Not A Token!'
+
+    response = client.put(
+        '/api/v1/walkthroughs/definitions',
+        headers=headers_for(admin),
+        json={'definitions': [definition]},
+    )
+    assert response.status_code == 400
+    error = response.get_json()['error']
+    assert '.signal' in error
+    assert '.completion.signal' not in error
