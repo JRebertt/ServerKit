@@ -16,7 +16,7 @@ class ErrorLog(JsonColumnMixin, db.Model):
     traceback = db.Column(db.Text, nullable=True)
     endpoint = db.Column(db.String(255), nullable=True)  # API path / page URL
     method = db.Column(db.String(10), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     context_json = db.Column(db.Text, nullable=True)  # JSON string
     count = db.Column(db.Integer, nullable=False, default=1)  # dedup hit counter
     first_seen = db.Column(db.DateTime, default=datetime.utcnow)

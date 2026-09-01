@@ -37,9 +37,9 @@ class SecurityAlert(db.Model):
     # Timestamps
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     acknowledged_at = db.Column(db.DateTime)
-    acknowledged_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    acknowledged_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     resolved_at = db.Column(db.DateTime)
-    resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
 
     # Relationships
     server = db.relationship('Server', backref=db.backref('security_alerts', lazy='dynamic'))

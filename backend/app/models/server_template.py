@@ -18,7 +18,7 @@ class ServerTemplate(JsonColumnMixin, TimestampMixin, db.Model):
     version = db.Column(db.Integer, default=1)
 
     # Inheritance
-    parent_id = db.Column(db.Integer, db.ForeignKey('server_templates.id'), nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('server_templates.id'), nullable=True, index=True)
     parent = db.relationship('ServerTemplate', remote_side=[id], backref='children')
 
     # Expected state specification
@@ -33,7 +33,7 @@ class ServerTemplate(JsonColumnMixin, TimestampMixin, db.Model):
     auto_remediate = db.Column(db.Boolean, default=False)
     remediation_approval_required = db.Column(db.Boolean, default=True)
 
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
 
     assignments = db.relationship('ServerTemplateAssignment', backref='template', lazy='dynamic')
 
@@ -153,8 +153,8 @@ class ServerTemplateAssignment(JsonColumnMixin, db.Model):
     __tablename__ = 'server_template_assignments'
 
     id = db.Column(db.Integer, primary_key=True)
-    template_id = db.Column(db.Integer, db.ForeignKey('server_templates.id'), nullable=False)
-    server_id = db.Column(db.Integer, db.ForeignKey('servers.id'), nullable=False)
+    template_id = db.Column(db.Integer, db.ForeignKey('server_templates.id'), nullable=False, index=True)
+    server_id = db.Column(db.Integer, db.ForeignKey('servers.id'), nullable=False, index=True)
 
     # Compliance status
     STATUS_COMPLIANT = 'compliant'

@@ -31,7 +31,7 @@ class DeploymentJob(RunLifecycleMixin, JsonColumnMixin, db.Model):
     # Target
     target_server_id = db.Column(db.String(36), db.ForeignKey('servers.id'), nullable=True, index=True)
     app_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True, index=True)
-    requested_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    requested_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     trigger = db.Column(db.String(30), default='manual')
 
     # Links to the release ledgers (§3 unification): the DeploymentJob is the

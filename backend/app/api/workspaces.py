@@ -115,7 +115,10 @@ def delete_workspace(workspace_id):
     user = get_current_user()
     if not user.is_admin:
         return jsonify({'error': 'Admin access required'}), 403
-    result = WorkspaceService.delete_workspace(workspace_id)
+    try:
+        result = WorkspaceService.delete_workspace(workspace_id)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 409
     if not result:
         return jsonify({'error': 'Workspace not found'}), 404
     return jsonify({'message': 'Workspace deleted'})

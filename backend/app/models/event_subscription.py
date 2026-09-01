@@ -11,7 +11,7 @@ class EventSubscription(TimestampMixin, JsonColumnMixin, db.Model):
     __tablename__ = 'event_subscriptions'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
     url = db.Column(db.String(2048), nullable=False)
     secret = db.Column(db.String(256), nullable=True)
@@ -21,7 +21,9 @@ class EventSubscription(TimestampMixin, JsonColumnMixin, db.Model):
     retry_count = db.Column(db.Integer, default=3)
     timeout_seconds = db.Column(db.Integer, default=10)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    user = db.relationship('User', foreign_keys=[user_id],
+                           backref=db.backref('event_subscriptions', lazy='dynamic'))
     deliveries = db.relationship('EventDelivery', back_populates='subscription',
                                  lazy='dynamic', cascade='all, delete-orphan')
 
@@ -84,7 +86,7 @@ class EventDelivery(JsonColumnMixin, db.Model):
     __tablename__ = 'event_deliveries'
 
     id = db.Column(db.Integer, primary_key=True)
-    subscription_id = db.Column(db.Integer, db.ForeignKey('event_subscriptions.id'), nullable=False)
+    subscription_id = db.Column(db.Integer, db.ForeignKey('event_subscriptions.id'), nullable=False, index=True)
     event_type = db.Column(db.String(100), nullable=False)
     payload = db.Column(db.Text, nullable=True)  # JSON
     status = db.Column(db.String(20), default='pending')  # pending | success | failed

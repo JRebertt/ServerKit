@@ -37,6 +37,7 @@ class SiteBaseDomain(TimestampMixin, db.Model):
         db.Integer,
         db.ForeignKey('dns_provider_configs.id', ondelete='SET NULL'),
         nullable=True,
+        index=True,
     )
 
     def to_dict(self):

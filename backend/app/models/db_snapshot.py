@@ -25,7 +25,7 @@ class DatabaseSnapshot(JsonColumnMixin, db.Model):
     __tablename__ = 'database_snapshots'
 
     id = db.Column(db.Integer, primary_key=True)
-    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False)
+    site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
 
     # Snapshot info
     name = db.Column(db.String(200), nullable=False)
@@ -96,8 +96,8 @@ class SyncJob(JsonColumnMixin, TimestampMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     # Source and target sites
-    source_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False)
-    target_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False)
+    source_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
+    target_site_id = db.Column(db.Integer, db.ForeignKey('wordpress_sites.id'), nullable=False, index=True)
 
     # Job name
     name = db.Column(db.String(200))

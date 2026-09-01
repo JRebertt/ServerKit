@@ -21,7 +21,7 @@ class CloudflareTunnel(SerializableMixin, TimestampMixin, db.Model):
     name = db.Column(db.String(128), nullable=False)
     account_id = db.Column(db.String(64), nullable=False)
     dns_provider_config_id = db.Column(
-        db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True)
+        db.Integer, db.ForeignKey('dns_provider_configs.id'), nullable=True, index=True)
     token_encrypted = db.Column(db.Text)     # cloudflared connector token (encrypted)
 
 

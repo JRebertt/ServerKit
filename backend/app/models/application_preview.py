@@ -32,6 +32,9 @@ class ApplicationPreview(TimestampMixin, JsonColumnMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     application_id = db.Column(
         db.Integer, db.ForeignKey('applications.id'), nullable=False, index=True)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    application = db.relationship('Application',
+                                  backref=db.backref('previews', lazy='dynamic'))
 
     pr_number = db.Column(db.Integer, nullable=False)
     pr_title = db.Column(db.String(500), nullable=True)
@@ -88,6 +91,9 @@ class ApplicationPreviewSettings(TimestampMixin, db.Model):
     application_id = db.Column(
         db.Integer, db.ForeignKey('applications.id'),
         primary_key=True, unique=True, nullable=False)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    application = db.relationship('Application',
+                                  backref=db.backref('preview_settings', uselist=False))
 
     enabled = db.Column(db.Boolean, default=False, nullable=False)
     domain_template = db.Column(

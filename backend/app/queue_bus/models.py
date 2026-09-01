@@ -138,7 +138,10 @@ class QueueMessage(db.Model):
     completed_at = db.Column(db.DateTime, nullable=True)
 
     queue = db.relationship('Queue', back_populates='messages')
-    group = db.relationship('QueueGroup')
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL
+    # group FK directly (the queue chain already cascades, this closes the FK).
+    group = db.relationship('QueueGroup',
+                            backref=db.backref('messages', lazy='dynamic'))
 
     def get_payload(self):
         if self.payload_json:

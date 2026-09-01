@@ -157,6 +157,189 @@ def test_purge_is_what_removes_the_volumes(app, dead_app, monkeypatch):
     assert calls and calls[0].get('volumes') is True
 
 
+def test_purge_takes_the_one_to_one_policy_rows_with_it(app, dead_app, monkeypatch):
+    """Field report: purging an app that had an auto-scale policy died with
+    `IntegrityError: NOT NULL constraint failed: container_scale_policies
+    .application_id`. Without a delete cascade SQLAlchemy's default on parent
+    delete is to NULL the child FK — and these one-to-one rows declare the FK
+    NOT NULL, so the purge itself crashed. The policy rows must ride along."""
+    from app.services import docker_service
+    monkeypatch.setattr(docker_service.DockerService, 'compose_down',
+                        classmethod(lambda cls, path, **kw: {'success': True}))
+    monkeypatch.setattr(application_restore.CronService, 'clear_application',
+                        classmethod(lambda cls, _id: 0))
+
+    from app.models.container_scale_policy import ContainerScalePolicy
+    from app.models.container_sleep_policy import ContainerSleepPolicy
+    from app.models.deployment import Deployment
+
+    with app.app_context():
+        db.session.add(ContainerScalePolicy(application_id=dead_app.id))
+        db.session.add(ContainerSleepPolicy(application_id=dead_app.id))
+        db.session.add(Deployment(app_id=dead_app.id, version=1))
+        db.session.commit()
+
+        ok, warning = recycle_bin_service.purge('application', dead_app.id)
+        assert ok
+        assert warning is None, warning
+        assert Application.query.get(dead_app.id) is None
+        assert ContainerScalePolicy.query.filter_by(
+            application_id=dead_app.id).first() is None
+        assert ContainerSleepPolicy.query.filter_by(
+            application_id=dead_app.id).first() is None
+        assert Deployment.query.filter_by(app_id=dead_app.id).first() is None
+
+
+def test_every_not_null_child_relationship_cascades_deletes(app):
+    """The invariant behind the purge crash, pinned for EVERY model: a
+    one-to-many whose child FK is NOT NULL must carry a delete cascade, because
+    SQLAlchemy's default on parent delete — dynamic relationships included — is
+    to NULL the child FK, which the NOT NULL constraint turns into an
+    IntegrityError the moment anything hard-deletes the parent (Recycle Bin
+    purge, retention pruning, admin deletes).
+
+    The cascade is applied by _delete_cascade_policy's mapper hook, so this is
+    a test that THE DOOR WORKS, not a checklist for model authors. Exceptions
+    live (with their justification) in DELIBERATELY_UNCASCADED there."""
+    from sqlalchemy.orm import configure_mappers
+
+    from app.models._delete_cascade_policy import DELIBERATELY_UNCASCADED
+
+    with app.app_context():
+        configure_mappers()
+        offenders = set()
+        for mapper in db.Model.registry.mappers:
+            for rel in mapper.relationships:
+                if rel.direction.name != 'ONETOMANY' or rel.viewonly:
+                    continue
+                fk_cols = [c for c in rel.remote_side if c.foreign_keys]
+                if not fk_cols or all(c.nullable for c in fk_cols):
+                    continue
+                if 'delete' not in rel.cascade:
+                    offenders.add(f'{mapper.class_.__name__}.{rel.key}')
+        unexpected = offenders - set(DELIBERATELY_UNCASCADED)
+        assert not unexpected, (
+            'NOT NULL child relationships the cascade policy did not reach '
+            f'(a parent hard-delete would IntegrityError): {sorted(unexpected)}')
+        # The registry may only shrink: an entry that stops matching is stale.
+        stale = set(DELIBERATELY_UNCASCADED) - offenders
+        assert not stale, f'stale DELIBERATELY_UNCASCADED entries: {sorted(stale)}'
+
+
+# NOT NULL FK columns with NO parent-side one-to-many relationship: the
+# cascade policy door cannot see them, so when the parent is hard-deleted these
+# rows are left DANGLING — SQLite ships with FK enforcement off, and a purged
+# parent id can be reused by a future row (orphaned env vars attaching to a new
+# app is the nightmare case). Known debt, frozen so it can only SHRINK: a new
+# model declares the parent-side relationship instead (the door then handles
+# its delete), or consciously adds itself here in the commit that explains why.
+KNOWN_DANGLING_ON_DELETE = set()  # all 26 audited FKs now declare the
+# parent-side relationship (the door cascades them, or the parent's delete
+# path guards) — keep this EMPTY.
+
+
+def test_dangling_on_delete_fk_set_may_only_shrink(app):
+    """Companion ratchet to the cascade sweep: FKs the door CANNOT protect
+    because no parent-side relationship exists. Frozen at the audited set —
+    fixing one (adding the relationship, or explicit purge-time cleanup plus
+    removal here) shrinks it; new unprotected FKs fail the build."""
+    from sqlalchemy.orm import configure_mappers
+
+    with app.app_context():
+        configure_mappers()
+        covered = set()
+        for mapper in db.Model.registry.mappers:
+            for rel in mapper.relationships:
+                if rel.direction.name != 'ONETOMANY' or rel.viewonly:
+                    continue
+                covered.update(c for c in rel.remote_side if c.foreign_keys)
+        current = set()
+        seen = set()
+        for mapper in db.Model.registry.mappers:
+            table = mapper.local_table
+            if table is None or table.name in seen:
+                continue
+            seen.add(table.name)
+            for c in table.columns:
+                if c.foreign_keys and not c.nullable and c not in covered:
+                    target = list(c.foreign_keys)[0].column.table.name
+                    current.add(f'{table.name}.{c.key} -> {target}')
+        new = current - KNOWN_DANGLING_ON_DELETE
+        assert not new, (
+            'new NOT NULL FKs with no parent-side relationship (rows would '
+            'dangle when the parent is hard-deleted) — declare the '
+            f'relationship instead: {sorted(new)}')
+        fixed = KNOWN_DANGLING_ON_DELETE - current
+        assert not fixed, (
+            f'these entries are fixed — remove them from the set: {sorted(fixed)}')
+
+
+def test_every_fk_column_is_indexed(app):
+    """FK columns are born indexed — every join, per-parent listing, and the
+    cascade deletes applied by _delete_cascade_policy scan the whole table
+    without one. Declare index=True on the column (migration 096 covers
+    existing installs). PK and single-column-unique FKs are already served."""
+    with app.app_context():
+        offenders = []
+        seen = set()
+        for mapper in db.Model.registry.mappers:
+            table = mapper.local_table
+            if table is None or table.name in seen:
+                continue
+            seen.add(table.name)
+            leading = {list(ix.columns)[0].key
+                       for ix in table.indexes if list(ix.columns)}
+            for c in table.columns:
+                if not c.foreign_keys or c.primary_key or c.unique:
+                    continue
+                if c.key not in leading:
+                    offenders.append(f'{table.name}.{c.key}')
+        assert not offenders, (
+            f'FK columns without an index — add index=True: {sorted(offenders)}')
+
+
+def test_deleting_a_workspace_with_projects_is_refused(app):
+    """The Workspace.projects entry in DELIBERATELY_UNCASCADED is only honest
+    while delete_workspace refuses instead of 500ing."""
+    import pytest as _pytest
+
+    from app.models import Project
+    from app.models.workspace import Workspace
+    from app.services.workspace_service import WorkspaceService
+
+    with app.app_context():
+        ws = Workspace(name='doomed-ws', slug='doomed-ws')
+        db.session.add(ws)
+        db.session.commit()
+        db.session.add(Project(name='keeper', slug='keeper', workspace_id=ws.id))
+        db.session.commit()
+        with _pytest.raises(ValueError, match='still contains'):
+            WorkspaceService.delete_workspace(ws.id)
+        assert Workspace.query.get(ws.id) is not None
+
+
+def test_deleting_a_user_who_owns_applications_is_refused(app, client, auth_headers, dead_app):
+    """The User.applications entry in DELIBERATELY_UNCASCADED is only honest
+    while delete_user refuses instead of 500ing — even for a tombstoned app,
+    which still holds the NOT NULL FK."""
+    from werkzeug.security import generate_password_hash
+    from app.models import User
+
+    with app.app_context():
+        owner = User(email='app-owner@test.local', username='app-owner',
+                     password_hash=generate_password_hash('x'),
+                     role=User.ROLE_DEVELOPER, is_active=True)
+        db.session.add(owner)
+        db.session.commit()
+        Application.query.get(dead_app.id).user_id = owner.id
+        db.session.commit()
+        owner_id = owner.id
+
+    res = client.delete(f'/api/v1/admin/users/{owner_id}', headers=auth_headers)
+    assert res.status_code == 409, res.get_json()
+    assert 'application' in res.get_json()['error']
+
+
 def test_purge_honours_an_explicit_remove_data_false(app, dead_app, monkeypatch):
     """Database engines default to preserving their volumes — losing the data is
     the only irreversible part of that uninstall."""

@@ -50,6 +50,10 @@ class AiConversation(JsonColumnMixin, TimestampMixin, db.Model):
     pending_actions = db.relationship(
         'AiPendingAction', backref='conversation', cascade='all, delete-orphan', lazy='dynamic',
     )
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # a user's conversations die with the account.
+    user = db.relationship('User',
+                           backref=db.backref('ai_conversations', lazy='dynamic'))
 
     @property
     def export(self) -> dict:
@@ -154,6 +158,9 @@ class AiPendingAction(JsonColumnMixin, db.Model):
         db.String(64), db.ForeignKey('ai_conversations.id', ondelete='CASCADE'), index=True, nullable=False,
     )
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), index=True, nullable=False)
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    user = db.relationship('User',
+                           backref=db.backref('ai_pending_actions', lazy='dynamic'))
     tool_name = db.Column(db.String(128), nullable=False)   # qualified name, e.g. core__restart_docker_container
     plugin_slug = db.Column(db.String(128))                 # None => built-in tool
     params_json = db.Column(db.Text)

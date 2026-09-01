@@ -28,7 +28,9 @@ class ExposedService(TimestampMixin, db.Model):
     last_error = db.Column(db.Text)
 
 
-    tunnel = db.relationship('Tunnel')
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    tunnel = db.relationship('Tunnel',
+                             backref=db.backref('exposed_services', lazy='dynamic'))
 
     def url(self):
         if not self.hostname:

@@ -26,7 +26,7 @@ class User(JsonColumnMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = db.Column(db.DateTime, nullable=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
 
     @validates('email')
     def _normalize_email(self, key, email):

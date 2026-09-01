@@ -19,7 +19,7 @@ class WebhookEndpoint(TimestampMixin, JsonColumnMixin, db.Model):
     filter_paths = db.Column(db.Text, nullable=True)  # JSON list of dotted-path filters
     forward_url = db.Column(db.String(500), nullable=True)
     retry_count = db.Column(db.Integer, default=3)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     # Workspace scoping (#33): backfilled to the Default workspace by migration 021.
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
 

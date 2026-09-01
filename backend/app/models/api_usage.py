@@ -9,8 +9,8 @@ class ApiUsageLog(SerializableMixin, db.Model):
     __tablename__ = 'api_usage_logs'
 
     id = db.Column(db.Integer, primary_key=True)
-    api_key_id = db.Column(db.Integer, db.ForeignKey('api_keys.id'), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    api_key_id = db.Column(db.Integer, db.ForeignKey('api_keys.id'), nullable=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     method = db.Column(db.String(10), nullable=False)
     endpoint = db.Column(db.String(500), nullable=False)
     blueprint = db.Column(db.String(100), nullable=True)
@@ -33,8 +33,8 @@ class ApiUsageSummary(SerializableMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     period_start = db.Column(db.DateTime, nullable=False, index=True)
-    api_key_id = db.Column(db.Integer, db.ForeignKey('api_keys.id'), nullable=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    api_key_id = db.Column(db.Integer, db.ForeignKey('api_keys.id'), nullable=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     endpoint = db.Column(db.String(500), nullable=True)
     total_requests = db.Column(db.Integer, default=0)
     success_count = db.Column(db.Integer, default=0)

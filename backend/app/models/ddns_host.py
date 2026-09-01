@@ -10,7 +10,7 @@ class DdnsHost(db.Model):
     __tablename__ = 'ddns_hosts'
 
     id = db.Column(db.Integer, primary_key=True)
-    zone_id = db.Column(db.Integer, db.ForeignKey('dns_zones.id'), nullable=False)
+    zone_id = db.Column(db.Integer, db.ForeignKey('dns_zones.id'), nullable=False, index=True)
     # Record name within the zone: '@' for the apex, or e.g. 'home' for
     # home.example.com. Matches DNSRecord.name.
     record_name = db.Column(db.String(256), nullable=False, default='@')
@@ -23,7 +23,10 @@ class DdnsHost(db.Model):
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    zone = db.relationship('DNSZone')
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # a DDNS host is meaningless without its zone.
+    zone = db.relationship('DNSZone',
+                           backref=db.backref('ddns_hosts', lazy='dynamic'))
 
     @staticmethod
     def generate_token():

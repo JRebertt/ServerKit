@@ -37,7 +37,7 @@ class EmailProviderConnection(TimestampMixin, JsonColumnMixin, db.Model):
     uses_relay = db.Column(db.Boolean, default=False, nullable=False)
     relay_priority = db.Column(db.Integer, default=0, nullable=False)
 
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     last_tested_at = db.Column(db.DateTime)
     last_test_ok = db.Column(db.Boolean)
 

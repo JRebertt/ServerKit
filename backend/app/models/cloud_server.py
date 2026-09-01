@@ -14,7 +14,7 @@ class CloudProvider(db.Model):
     provider_type = db.Column(db.String(32), nullable=False)  # digitalocean, hetzner, vultr, linode
     api_key_encrypted = db.Column(db.Text)
     is_active = db.Column(db.Boolean, default=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     servers = db.relationship('CloudServer', backref='provider', lazy='dynamic')
@@ -35,7 +35,7 @@ class CloudServer(JsonColumnMixin, db.Model):
     __tablename__ = 'cloud_servers'
 
     id = db.Column(db.Integer, primary_key=True)
-    provider_id = db.Column(db.Integer, db.ForeignKey('cloud_providers.id'), nullable=False)
+    provider_id = db.Column(db.Integer, db.ForeignKey('cloud_providers.id'), nullable=False, index=True)
     external_id = db.Column(db.String(128))  # provider's server ID
     name = db.Column(db.String(128), nullable=False)
     hostname = db.Column(db.String(256))
@@ -68,7 +68,7 @@ class CloudServer(JsonColumnMixin, db.Model):
     # Metadata
     metadata_json = db.Column(db.Text)
 
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     destroyed_at = db.Column(db.DateTime)
 
@@ -109,7 +109,7 @@ class CloudSnapshot(SerializableMixin, db.Model):
     __tablename__ = 'cloud_snapshots'
 
     id = db.Column(db.Integer, primary_key=True)
-    server_id = db.Column(db.Integer, db.ForeignKey('cloud_servers.id'), nullable=False)
+    server_id = db.Column(db.Integer, db.ForeignKey('cloud_servers.id'), nullable=False, index=True)
     external_id = db.Column(db.String(128))
     name = db.Column(db.String(128))
     size_gb = db.Column(db.Float)

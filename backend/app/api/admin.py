@@ -216,6 +216,15 @@ def delete_user(user_id):
         if admin_count <= 1:
             return jsonify({'error': 'Cannot delete the last admin'}), 400
 
+    # Applications never ride a user delete — see applications_owned_by for
+    # why tombstoned rows block too.
+    from app.services.application_restore import applications_owned_by
+    owned = applications_owned_by(user.id)
+    if owned:
+        return jsonify({'error': f'User still owns {owned} application(s), '
+                                 'including any in the Recycle Bin — delete or '
+                                 'purge them first'}), 409
+
     username = user.username
     user_id_deleted = user.id
 

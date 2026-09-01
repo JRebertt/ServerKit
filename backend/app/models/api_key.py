@@ -11,7 +11,7 @@ class ApiKey(JsonColumnMixin, db.Model):
     __tablename__ = 'api_keys'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
     key_prefix = db.Column(db.String(8), nullable=False)
     key_hash = db.Column(db.String(256), unique=True, nullable=False)
@@ -25,7 +25,10 @@ class ApiKey(JsonColumnMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     revoked_at = db.Column(db.DateTime, nullable=True)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # a user's API keys die with the account.
+    user = db.relationship('User', foreign_keys=[user_id],
+                           backref=db.backref('api_keys', lazy='dynamic'))
 
     TIER_STANDARD = 'standard'
     TIER_ELEVATED = 'elevated'

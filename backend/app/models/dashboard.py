@@ -36,6 +36,10 @@ class DashboardBoard(TimestampMixin, db.Model):
         nullable=False,
         index=True,
     )
+    # The DB-level ondelete above is inert on SQLite (FK enforcement is off);
+    # this parent-side backref lets the delete-cascade policy do it in the ORM.
+    user = db.relationship('User',
+                           backref=db.backref('dashboard_boards', lazy='dynamic'))
     # The shipped-default id this board came from ('overview' / 'infra' /
     # 'apps'). NULL for boards the user created themselves — those have no
     # default to reset to.

@@ -22,7 +22,7 @@ class SandboxRun(db.Model):
     status = db.Column(db.String(16), nullable=False, default='running', index=True)
     results = db.Column(db.JSON)
     error = db.Column(db.Text)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     finished_at = db.Column(db.DateTime)
 

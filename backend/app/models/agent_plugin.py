@@ -104,8 +104,8 @@ class AgentPluginInstall(JsonColumnMixin, db.Model):
     __tablename__ = 'agent_plugin_installs'
 
     id = db.Column(db.Integer, primary_key=True)
-    plugin_id = db.Column(db.Integer, db.ForeignKey('agent_plugins.id'), nullable=False)
-    server_id = db.Column(db.Integer, db.ForeignKey('servers.id'), nullable=False)
+    plugin_id = db.Column(db.Integer, db.ForeignKey('agent_plugins.id'), nullable=False, index=True)
+    server_id = db.Column(db.Integer, db.ForeignKey('servers.id'), nullable=False, index=True)
 
     # Installation state
     STATUS_INSTALLING = 'installing'

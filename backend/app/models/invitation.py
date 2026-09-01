@@ -18,15 +18,18 @@ class Invitation(JsonColumnMixin, db.Model):
                       default=lambda: __import__('secrets').token_urlsafe(32))
     role = db.Column(db.String(20), nullable=False, default='developer')
     permissions = db.Column(db.Text, nullable=True)  # JSON custom permissions
-    invited_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    invited_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     expires_at = db.Column(db.DateTime, nullable=True)
     accepted_at = db.Column(db.DateTime, nullable=True)
-    accepted_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    accepted_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     status = db.Column(db.String(20), default=STATUS_PENDING, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    inviter = db.relationship('User', foreign_keys=[invited_by])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK:
+    # pending invitations die with the inviter's account.
+    inviter = db.relationship('User', foreign_keys=[invited_by],
+                              backref=db.backref('sent_invitations', lazy='dynamic'))
     accepter = db.relationship('User', foreign_keys=[accepted_by])
 
     @property

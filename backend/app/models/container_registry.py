@@ -34,7 +34,7 @@ class ContainerRegistry(db.Model):
     secret = EncryptedSecret('secret_encrypted', legacy_plaintext=True)
     # Nullable FK — a registry can be scoped to one workspace, or global (NULL).
     workspace_id = db.Column(db.Integer, db.ForeignKey('workspaces.id'), nullable=True, index=True)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     last_used_at = db.Column(db.DateTime, nullable=True)
     last_tested_at = db.Column(db.DateTime, nullable=True)
     last_test_ok = db.Column(db.Boolean, nullable=True)

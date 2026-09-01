@@ -21,14 +21,16 @@ class LoginLink(db.Model):
     )
     created_by_id = db.Column(
         db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'),
-        nullable=True,
+        nullable=True, index=True,
     )
     expires_at = db.Column(db.DateTime, nullable=False)
     used_at = db.Column(db.DateTime, nullable=True)
     bound_ip = db.Column(db.String(64), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    user = db.relationship('User', foreign_keys=[user_id])
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    user = db.relationship('User', foreign_keys=[user_id],
+                           backref=db.backref('login_links', lazy='dynamic'))
     created_by = db.relationship('User', foreign_keys=[created_by_id])
 
     @property

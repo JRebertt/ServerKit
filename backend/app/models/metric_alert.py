@@ -50,7 +50,7 @@ class MetricAlert(db.Model):
     duration_seconds = db.Column(db.Integer)  # how long it was exceeded
 
     status = db.Column(db.String(20), default='active', index=True)  # active, acknowledged, resolved
-    acknowledged_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    acknowledged_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime)

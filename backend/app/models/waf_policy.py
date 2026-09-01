@@ -28,6 +28,9 @@ class WafPolicy(JsonColumnMixin, db.Model):
         unique=True,
         index=True,
     )
+    # Parent-side backref so the delete-cascade policy covers the NOT NULL FK.
+    application = db.relationship('Application',
+                                  backref=db.backref('waf_policy', uselist=False))
 
     mode = db.Column(db.String(10), default='off', nullable=False)
     paranoia_level = db.Column(db.Integer, default=1, nullable=False)  # 1-4
