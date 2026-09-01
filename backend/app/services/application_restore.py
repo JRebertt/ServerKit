@@ -33,6 +33,17 @@ from app.services.cron_service import CronService
 logger = logging.getLogger(__name__)
 
 
+def applications_owned_by(user_id):
+    """Count of Application rows a user owns — live AND tombstoned.
+
+    Applications never ride a user delete: their user_id is NOT NULL, but the
+    rows own containers and volumes that must go through app delete + Recycle
+    Bin purge — never a silent cascade. Unfiltered on purpose: a tombstoned
+    app still holds the FK, so it blocks too.
+    """
+    return Application.query.filter_by(user_id=user_id).count()
+
+
 def _live_name_clash(app):
     """Another LIVE app already using this one's name, if any."""
     return (Application.query_active()
