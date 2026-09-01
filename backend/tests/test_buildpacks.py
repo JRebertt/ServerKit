@@ -175,6 +175,27 @@ def test_generate_dockerfile_node_build_keeps_dev_dependencies():
     assert df.index('RUN npm install\n') < df.index('RUN npm run build')
 
 
+def test_generate_dockerfile_node_skips_browser_downloads():
+    """devDependencies stay, but their browser binaries must not.
+
+    Keeping devDependencies (see above) also drags in puppeteer/playwright/
+    cypress postinstalls, which fetch a full Chrome (~500MB) into the build
+    layer. Nothing in a production build drives a browser, and on a small
+    host that download is what exhausts the disk during image export.
+    """
+    plan = {
+        'builder': 'nixpacks', 'language': 'node', 'framework': 'vite',
+        'versions': {'node': '24'}, 'build_command': 'npm run build',
+        'start_command': 'serve -s dist -l tcp://0.0.0.0:4173', 'port': 4173,
+    }
+    df = BuildpackService.generate_dockerfile(plan)
+    assert 'PUPPETEER_SKIP_DOWNLOAD=1' in df
+    assert 'PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1' in df
+    assert 'CYPRESS_INSTALL_BINARY=0' in df
+    # The opt-out only works if it is exported before the install runs.
+    assert df.index('PUPPETEER_SKIP_DOWNLOAD=1') < df.index('RUN npm install')
+
+
 def test_detect_vite_defaults_to_serve_not_preview(tmp_path):
     """`vite preview` host-checks against preview.allowedHosts and blocks
     every domain the panel proxy forwards -- the default start command must
