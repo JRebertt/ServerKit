@@ -252,22 +252,22 @@ export function WalkthroughStudioPage() {
     };
 
     const addStep = () => {
-        setDraft((current) => {
-            const nextNumber = current.steps.length + 1;
-            return {
-                ...current,
-                steps: [...current.steps, {
-                    id: `step-${nextNumber}`,
-                    title: t('walkthroughStudio.numberedStep', 'Step {{number}}', { number: nextNumber }),
-                    description: t('walkthroughStudio.newStepDescription', 'Describe the operator action and the expected outcome.'),
-                    action: 'Open page',
-                    path: '/',
-                    target: '',
-                    completion: { type: 'manual' },
-                }],
-            };
-        });
-        setStepIndex(draft.steps.length);
+        // The appended list and the index that selects into it must come from
+        // one snapshot. Reading draft.steps.length *after* a functional
+        // setDraft can observe a different list than the one just appended
+        // to, which selects the wrong step or an index past the end.
+        const nextNumber = draft.steps.length + 1;
+        const steps = [...draft.steps, {
+            id: `step-${nextNumber}`,
+            title: t('walkthroughStudio.numberedStep', 'Step {{number}}', { number: nextNumber }),
+            description: t('walkthroughStudio.newStepDescription', 'Describe the operator action and the expected outcome.'),
+            action: 'Open page',
+            path: '/',
+            target: '',
+            completion: { type: 'manual' },
+        }];
+        setDraft({ ...draft, steps });
+        setStepIndex(steps.length - 1);
     };
 
     const moveStep = (direction) => {
