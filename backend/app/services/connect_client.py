@@ -37,7 +37,7 @@ import requests
 
 from app import paths
 from app.services import connect_keys
-from app.services import connect_commands, connect_storage
+from app.services import connect_commands, connect_policy, connect_storage
 from app.services.connect_metrics import MetricsPublisher
 from app.services.connect_updates import UpdateCheck, check_and_apply, fetch_jwks
 
@@ -57,6 +57,10 @@ POLL_INTERVAL_S = 3.0
 # Backup destinations change when a backup runs, not every minute; Cloud can
 # ask for one immediately with the storage.report command.
 STORAGE_INTERVAL_S = 300.0
+# How often the policy facts document goes out unasked. Six
+# hours is the plan's own number and the abuse control that goes with it;
+# "Check now" is the policy.report command, not a shorter interval.
+POLICY_INTERVAL_S = 6 * 3600.0
 
 
 def _peek_command_id(token) -> str:
@@ -624,6 +628,8 @@ class RelayClient:
         self._jwks = None
         self._storage_stream = 0
         self._storage_next_at = 0.0
+        self._policy_stream = 0
+        self._policy_next_at = 0.0
 
     # -- lifecycle -----------------------------------------------------
 
@@ -750,6 +756,7 @@ class RelayClient:
             self._check_for_update(cfg)
             self._load_jwks(cfg)
             self._publish_storage(ws)
+            self._publish_policy(ws)
             while self.running:
                 try:
                     raw = ws.recv(timeout=PING_INTERVAL_S)
@@ -757,10 +764,12 @@ class RelayClient:
                     ws.send('{"t":"ping"}')
                     self._publish_metrics(ws)
                     self._publish_storage(ws)
+                    self._publish_policy(ws)
                     continue
                 self._handle_frame(ws, raw)
                 self._publish_metrics(ws)
                 self._publish_storage(ws)
+                self._publish_policy(ws)
             return 'stopped'
         except Exception as exc:
             from websockets.exceptions import ConnectionClosed
@@ -965,6 +974,31 @@ class RelayClient:
         self._storage_stream += 1
         return self._send(ws, connect_storage.status_frame(
             f'sto{self._storage_stream}', snapshot))
+
+    # -- the policy stream --------------------------------
+
+    def publish_policy(self, facts=None) -> bool:
+        """Send one facts document now. Used by the policy.report command."""
+        ws = self._ws
+        if ws is None:
+            return False
+        facts = facts if facts is not None else connect_policy.build_facts(self.app)
+        self._policy_stream += 1
+        return self._send(ws, connect_policy.facts_frame(
+            f'pol{self._policy_stream}', facts))
+
+    def _publish_policy(self, ws):
+        now = time.monotonic()
+        if now < self._policy_next_at:
+            return
+        self._policy_next_at = now + POLICY_INTERVAL_S
+        try:
+            facts = connect_policy.build_facts(self.app)
+        except Exception:
+            logger.debug('Connect policy: could not build facts', exc_info=True)
+            return
+        self._policy_stream += 1
+        self._send(ws, connect_policy.facts_frame(f'pol{self._policy_stream}', facts))
 
     def _publish_storage(self, ws):
         """Where backups go and how they went, on its own slow cadence: this

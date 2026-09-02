@@ -42,6 +42,14 @@ ACTION_SCOPES = {
     'storage.unassign': 'storage.manage',
     'storage.test': 'storage.manage',
     'storage.report': 'storage.manage',
+    # Policy repairs, bundled as the consent screen groups them:
+    # agreeing to "turn the firewall back on" is not agreeing to "install
+    # operating system packages".
+    'security.firewall.enable': 'security.remediate',
+    'security.fail2ban.enable': 'security.remediate',
+    'security.2fa.require': 'security.remediate',
+    'packages.security_upgrade': 'packages.upgrade',
+    'backup.verify': 'backup.run',
 }
 
 
@@ -180,4 +188,4 @@ def result_frame(cmd_id: str, state: str, result: dict = None, stream: str = Non
 
 # Importing the handler modules is what registers them. Kept at the bottom so
 # a handler module may import this one for @handler.
-from app.services import connect_storage  # noqa: E402,F401
+from app.services import connect_policy, connect_storage  # noqa: E402,F401
