@@ -1609,6 +1609,9 @@ def connect_status(as_json):
     rows = [
         ('State', state.get('state')),
         ('Reason', state.get('state_reason') or '-'),
+        ('Transport', state.get('transport') or '-'),
+        ('Last seen', state.get('last_connected_at') or '-'),
+        ('Relay instance', state.get('relay_instance') or '-'),
         ('ServerKit Cloud', state.get('cloud_url')),
         ('Organization', state.get('org_slug') or '-'),
         ('Name', state.get('name') or '-'),
@@ -1620,6 +1623,48 @@ def connect_status(as_json):
          + ('' if state.get('key_present') else ' (MISSING)')),
     ]
     _echo_table(['Field', 'Value'], rows)
+
+
+@connect.command('doctor')
+@click.option('--json', 'as_json', is_flag=True, help='Output machine-readable JSON')
+def connect_doctor(as_json):
+    """Diagnose the path from this panel to the ServerKit relay.
+
+    Exits non-zero when any hard check fails (DNS, TCP, TLS, clock skew,
+    device key, panel loopback). A refused WebSocket upgrade is a warning —
+    the client falls back to limited (long-poll) mode.
+    """
+    from app.services import connect_client
+
+    checks = connect_client.run_doctor()
+    healthy = connect_client.doctor_ok(checks)
+
+    if as_json:
+        _echo_json({'ok': healthy, 'checks': checks})
+    else:
+        click.echo('ServerKit Cloud connect doctor')
+        click.echo()
+        for check in checks:
+            if check['ok']:
+                mark = click.style('OK  ', fg='green')
+            elif check['hard']:
+                mark = click.style('FAIL', fg='red')
+            else:
+                mark = click.style('WARN', fg='yellow')
+            line = f'  {mark} {check["name"]}'
+            if check.get('note'):
+                line += f'  ({check["note"]})'
+            click.echo(line)
+            if check.get('error'):
+                click.echo(f'    {check["error"]}')
+        click.echo()
+        if healthy:
+            click.echo(click.style('All hard checks passed.', fg='green'))
+        else:
+            click.echo(click.style('Some checks failed — see above.', fg='red'))
+
+    if not healthy:
+        sys.exit(1)
 
 
 @connect.command('disconnect')

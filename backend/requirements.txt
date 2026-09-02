@@ -24,6 +24,9 @@ Flask-Cors==6.0.2
 Flask-SocketIO==5.6.1
 python-socketio==5.16.3
 python-engineio==4.13.3
+# WebSocket CLIENT for the ServerKit Cloud relay (see
+# app/services/connect_client.py). The server-side stack above cannot dial out.
+websockets==15.0.1
 
 # System monitoring
 psutil==5.9.7

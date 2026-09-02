@@ -43,6 +43,29 @@ def _public_bytes(private_key: Ed25519PrivateKey) -> bytes:
     )
 
 
+def _load_existing(path: str) -> Ed25519PrivateKey:
+    with open(path, 'rb') as f:
+        private_key = serialization.load_pem_private_key(f.read(), password=None)
+    if not isinstance(private_key, Ed25519PrivateKey):
+        raise ValueError(f'{path} is not an Ed25519 private key')
+    if os.name != 'nt':
+        os.chmod(path, 0o600)
+    return private_key
+
+
+def load_keypair(path: str = None):
+    """Strictly load the device keypair; raises FileNotFoundError if absent.
+
+    Returns (private_key, pubkey_hex, fingerprint). Used by the relay
+    transport: generating a fresh key here would silently change the device
+    identity and fail every hello signature.
+    """
+    path = path or default_key_path()
+    private_key = _load_existing(path)
+    pubkey_bytes = _public_bytes(private_key)
+    return private_key, pubkey_bytes.hex(), fingerprint_of(pubkey_bytes)
+
+
 def load_or_create_keypair(path: str = None):
     """Load the device keypair from ``path``, generating + persisting one if absent.
 
@@ -51,12 +74,7 @@ def load_or_create_keypair(path: str = None):
     """
     path = path or default_key_path()
     if os.path.exists(path):
-        with open(path, 'rb') as f:
-            private_key = serialization.load_pem_private_key(f.read(), password=None)
-        if not isinstance(private_key, Ed25519PrivateKey):
-            raise ValueError(f'{path} is not an Ed25519 private key')
-        if os.name != 'nt':
-            os.chmod(path, 0o600)
+        private_key = _load_existing(path)
     else:
         private_key = Ed25519PrivateKey.generate()
         os.makedirs(os.path.dirname(path), exist_ok=True)
