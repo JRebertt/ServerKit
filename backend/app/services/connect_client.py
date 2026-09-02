@@ -38,6 +38,7 @@ import requests
 from app import paths
 from app.services import connect_keys
 from app.services.connect_metrics import MetricsPublisher
+from app.services.connect_updates import UpdateCheck, check_and_apply
 
 logger = logging.getLogger(__name__)
 
@@ -557,6 +558,8 @@ def _relay_config() -> dict:
     return {
         'device_id': data['device_id'],
         'relay_url': data['relay_url'],
+        # Where the release feed lives.
+        'cloud_url': data.get('cloud_url') or resolve_cloud_url(),
         'private_key': private_key,
         'key_path': key_path,
     }
@@ -594,6 +597,9 @@ class RelayClient:
         self._metrics_stream = 0
         self._metrics_inflight = {}   # stream id -> samples awaiting the ack
         self._metrics_next_at = 0.0
+        # Release feed check: asked on reconnect, at most
+        # once an hour, and acted on only when this install can update itself.
+        self._update = UpdateCheck()
 
     # -- lifecycle -----------------------------------------------------
 
@@ -717,6 +723,7 @@ class RelayClient:
             self._set_state('online', None, transport='ws')
             logger.info('Connect relay: online via ws (instance %s)',
                         self.relay_instance)
+            self._check_for_update(cfg)
             while self.running:
                 try:
                     raw = ws.recv(timeout=PING_INTERVAL_S)
@@ -777,6 +784,25 @@ class RelayClient:
             except Exception:
                 pass
             raise
+
+    # -- release feed ------------------------------------
+
+    def _check_for_update(self, cfg):
+        """Ask ServerKit Cloud whether this connect client is current.
+
+        Failures here are never fatal to the connection: an old client that
+        cannot reach the feed keeps working, which is the whole point of the
+        relay staying up.
+        """
+        try:
+            from app.utils.version import get_panel_version
+            check_and_apply(cfg['cloud_url'], get_panel_version(), self._update)
+        except Exception:
+            logger.debug('Connect updates: check failed', exc_info=True)
+
+    @property
+    def update_state(self) -> dict:
+        return self._update.to_dict()
 
     # -- metrics ----------------------------------------
 
