@@ -37,6 +37,7 @@ import requests
 
 from app import paths
 from app.services import connect_keys
+from app.services.connect_metrics import MetricsPublisher
 
 logger = logging.getLogger(__name__)
 
@@ -586,6 +587,13 @@ class RelayClient:
         self._attempts_at = collections.deque()
         self._flap_logged = False
         self._last_written = None  # (state, reason, transport) transition dedup
+        # Metrics publisher: one summary a minute over the
+        # relay's `metrics` stream. Buffered while offline, never backfilled
+        # further than its own five-minute window.
+        self._metrics = MetricsPublisher()
+        self._metrics_stream = 0
+        self._metrics_inflight = {}   # stream id -> samples awaiting the ack
+        self._metrics_next_at = 0.0
 
     # -- lifecycle -----------------------------------------------------
 
@@ -714,8 +722,10 @@ class RelayClient:
                     raw = ws.recv(timeout=PING_INTERVAL_S)
                 except TimeoutError:
                     ws.send('{"t":"ping"}')
+                    self._publish_metrics(ws)
                     continue
                 self._handle_frame(ws, raw)
+                self._publish_metrics(ws)
             return 'stopped'
         except Exception as exc:
             from websockets.exceptions import ConnectionClosed
@@ -768,10 +778,52 @@ class RelayClient:
                 pass
             raise
 
+    # -- metrics ----------------------------------------
+
+    def _publish_metrics(self, ws):
+        """Collect on the Cloud-set interval and send whatever is buffered.
+
+        A send that fails leaves the samples in the buffer: they go out on the
+        next connection if they are still inside the five-minute window, and
+        are dropped rather than sent late if they are not.
+        """
+        now = time.monotonic()
+        if now < self._metrics_next_at:
+            return
+        self._metrics_next_at = now + self._metrics.interval_s
+        try:
+            self._metrics.collect(self.app)
+        except Exception:
+            logger.debug('Connect metrics: collect failed', exc_info=True)
+            return
+        if not self._metrics.pending():
+            return
+        samples = self._metrics.take()
+        self._metrics_stream += 1
+        stream_id = f'met{self._metrics_stream}'
+        try:
+            ws.send(json.dumps(self._metrics.frame(stream_id, samples)))
+            self._metrics_inflight[stream_id] = samples
+        except Exception:
+            self._metrics.requeue(samples)
+            logger.debug('Connect metrics: send failed, samples kept', exc_info=True)
+
     def _handle_frame(self, ws, raw):
         try:
             frame = json.loads(raw)
         except ValueError:
+            return
+        if frame.get('t') == 'close':
+            # The relay closes an ingest stream with ServerKit Cloud's own answer, which
+            # carries the interval Cloud wants us to send at.
+            stream_id = frame.get('s')
+            if stream_id in self._metrics_inflight:
+                payload = frame.get('p') or {}
+                if payload.get('ok'):
+                    self._metrics_inflight.pop(stream_id, None)
+                    self._metrics.apply_ack(payload)
+                else:
+                    self._metrics.requeue(self._metrics_inflight.pop(stream_id, []))
             return
         if frame.get('t') == 'open':
             # M2 has no streams yet: refuse honestly (mirrors the relay).
