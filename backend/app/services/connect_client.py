@@ -475,7 +475,7 @@ def build_hello(private_key, device_id: str, client_version: str) -> dict:
     ts = int(time.time())
     nonce = secrets.token_hex(16)
     sig = private_key.sign(f'{device_id}|{ts}|{nonce}'.encode()).hex()
-    return {
+    hello = {
         't': 'hello',
         'device_id': device_id,
         'ts': ts,
@@ -484,6 +484,14 @@ def build_hello(private_key, device_id: str, client_version: str) -> dict:
         'proto': PROTO_VERSION,
         'client_version': client_version,
     }
+    try:
+        # Publish this panel's end-to-end key, signed with its identity key.
+        # Failing here is not fatal: without it commands
+        # arrive under TLS as before, and Cloud says so per server.
+        hello.update(connect_keys.e2e_hello_fields(private_key, device_id))
+    except Exception:
+        logger.debug('Connect: could not publish the end-to-end key', exc_info=True)
+    return hello
 
 
 HELLO_HEADERS = {
@@ -493,6 +501,10 @@ HELLO_HEADERS = {
     'sig': 'X-ServerKit-Sig',
     'proto': 'X-ServerKit-Proto',
     'client_version': 'X-ServerKit-Client-Version',
+    # The end-to-end key travels on the long-poll fallback too, so a panel in
+    # limited mode is not quietly less private than one on a WebSocket.
+    'x25519_pubkey': 'X-ServerKit-X25519',
+    'x25519_sig': 'X-ServerKit-X25519-Sig',
 }
 
 

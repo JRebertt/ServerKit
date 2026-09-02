@@ -14,6 +14,14 @@ checks four things, in this order and with no shortcuts:
    claim. ServerKit Cloud checks the customer's grant before it signs; this is the
    second check, on the machine that would do the work.
 
+A command's arguments arrive one of two ways. Where this panel has published
+an end-to-end key, they are `sealed`: encrypted to that key
+by ServerKit Cloud, so the relay carries them without being able to read them — which is
+what makes it safe to send a storage credential through it. Otherwise they are
+`args`, protected by TLS on both legs. `unseal_args` is where the two meet, and
+a sealed payload this panel cannot open is a refused command rather than a
+guess.
+
 Only then is the action looked up in HANDLERS. An action this client version
 does not implement fails with that sentence rather than silently succeeding —
 the operator sees "this server's ServerKit is too old for that" in Cloud,
@@ -148,6 +156,19 @@ def handler(action: str):
     return register
 
 
+def unseal_args(claims: dict) -> dict:
+    """The command's arguments, whether they arrived sealed or in the clear.
+
+    A sealed payload we cannot open raises: running a command with arguments
+    we guessed at is worse than not running it.
+    """
+    sealed = claims.get('sealed')
+    if not sealed:
+        return claims.get('args') or {}
+    from app.services import connect_keys
+    return connect_keys.open_sealed(claims.get('device_id') or '', sealed)
+
+
 def run(claims: dict, app=None) -> dict:
     """Execute one verified command. Returns {ok, summary, code, output}.
 
@@ -161,7 +182,15 @@ def run(claims: dict, app=None) -> dict:
                 'summary': f'This server\'s ServerKit does not know how to run {action}. '
                            f'Update it and try again.'}
     try:
-        out = fn(claims.get('args') or {}, app)
+        args = unseal_args(claims)
+    except Exception as exc:
+        logger.warning('Connect command %s: could not unseal its arguments: %s', action, exc)
+        return {'ok': False, 'code': 400,
+                'summary': 'This command arrived encrypted to a key this panel could not use, '
+                           'so it was not run. Nothing was changed. Reconnect the panel to '
+                           'ServerKit Cloud to publish a fresh key.'}
+    try:
+        out = fn(args, app)
     except Exception as exc:
         logger.warning('Connect command %s failed: %s', action, exc, exc_info=True)
         return {'ok': False, 'code': 500, 'summary': f'{type(exc).__name__}: {exc}'}
