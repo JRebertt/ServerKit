@@ -37,8 +37,9 @@ import requests
 
 from app import paths
 from app.services import connect_keys
+from app.services import connect_commands, connect_storage
 from app.services.connect_metrics import MetricsPublisher
-from app.services.connect_updates import UpdateCheck, check_and_apply
+from app.services.connect_updates import UpdateCheck, check_and_apply, fetch_jwks
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,22 @@ STATES = ('unpaired', 'pairing', 'paired_offline', 'online', 'degraded', 'revoke
 HTTP_TIMEOUT_S = 20
 DEFAULT_PAIR_TIMEOUT_S = 15 * 60  # generous: the user may walk away to log in
 POLL_INTERVAL_S = 3.0
+# How often the Storage Hub snapshot goes out unasked.
+# Backup destinations change when a backup runs, not every minute; Cloud can
+# ask for one immediately with the storage.report command.
+STORAGE_INTERVAL_S = 300.0
+
+
+def _peek_command_id(token) -> str:
+    """The cmd_id out of an unverified command, used only to report *why* the
+    command was refused. Nothing is run on the strength of it."""
+    if not token:
+        return ''
+    try:
+        import jwt
+        return str(jwt.decode(token, options={'verify_signature': False}).get('cmd_id') or '')
+    except Exception:
+        return ''
 
 
 class ConnectError(Exception):
@@ -600,6 +617,13 @@ class RelayClient:
         # Release feed check: asked on reconnect, at most
         # once an hour, and acted on only when this install can update itself.
         self._update = UpdateCheck()
+        # Signed commands and the Storage Hub's status
+        # stream. The JWKS is fetched once per connection: a
+        # command is verified against the keys Cloud published, and a key
+        # Cloud rotates is picked up on the next reconnect.
+        self._jwks = None
+        self._storage_stream = 0
+        self._storage_next_at = 0.0
 
     # -- lifecycle -----------------------------------------------------
 
@@ -724,15 +748,19 @@ class RelayClient:
             logger.info('Connect relay: online via ws (instance %s)',
                         self.relay_instance)
             self._check_for_update(cfg)
+            self._load_jwks(cfg)
+            self._publish_storage(ws)
             while self.running:
                 try:
                     raw = ws.recv(timeout=PING_INTERVAL_S)
                 except TimeoutError:
                     ws.send('{"t":"ping"}')
                     self._publish_metrics(ws)
+                    self._publish_storage(ws)
                     continue
                 self._handle_frame(ws, raw)
                 self._publish_metrics(ws)
+                self._publish_storage(ws)
             return 'stopped'
         except Exception as exc:
             from websockets.exceptions import ConnectionClosed
@@ -852,13 +880,108 @@ class RelayClient:
                     self._metrics.requeue(self._metrics_inflight.pop(stream_id, []))
             return
         if frame.get('t') == 'open':
-            # M2 has no streams yet: refuse honestly (mirrors the relay).
+            if frame.get('k') == 'command':
+                self._run_command(ws, frame)
+                return
+            # Anything else is a stream this client version does not speak.
+            # Refusing honestly is what stops the relay holding it open.
             ws.send(json.dumps({
                 's': frame.get('s'),
                 't': 'close',
                 'reason': 'unsupported',
-                'detail': 'streams arrive with the next Connect release',
+                'detail': 'this ServerKit version does not speak that stream',
             }))
+
+    # -- signed commands --------------------------------
+
+    def _load_jwks(self, cfg):
+        """Cloud's public signing keys, read once per connection. Without them
+        no command runs — an unverified command is not a command."""
+        try:
+            self._jwks = fetch_jwks(cfg['cloud_url'])
+        except Exception:
+            self._jwks = None
+            logger.debug('Connect commands: could not read the JWKS', exc_info=True)
+
+    def _run_command(self, ws, frame):
+        """Verify, acknowledge, run, report.
+
+        Verification is synchronous so a bad command is refused on the socket
+        it arrived on. The work itself runs on its own thread: a backup that
+        takes four minutes must not stop the heartbeat.
+        """
+        payload = frame.get('p') or {}
+        cfg = _read_connect_file()
+        try:
+            claims = connect_commands.verify(
+                payload.get('jwt'), self._jwks, cfg.get('device_id'),
+                granted_scopes=None)
+        except connect_commands.CommandRejected as exc:
+            cmd_id = _peek_command_id(payload.get('jwt'))
+            logger.warning('Connect command refused: %s', exc)
+            if cmd_id:
+                self._send(ws, connect_commands.result_frame(
+                    cmd_id, 'failed', {'ok': False, 'code': 403, 'summary': str(exc)}))
+            else:
+                self._send(ws, {'s': frame.get('s'), 't': 'close',
+                                'reason': 'unsupported', 'detail': str(exc)})
+            return
+
+        cmd_id = claims.get('cmd_id')
+        self._send(ws, connect_commands.result_frame(cmd_id, 'running'))
+        threading.Thread(
+            target=self._command_worker, args=(claims,), daemon=True,
+            name=f'connect-cmd-{cmd_id}').start()
+
+    def _command_worker(self, claims):
+        result = connect_commands.run(claims, self.app)
+        state = 'succeeded' if result.get('ok') else 'failed'
+        self._send(self._ws, connect_commands.result_frame(
+            claims.get('cmd_id'), state, result))
+
+    def _send(self, ws, frame) -> bool:
+        """One frame, best effort. A dropped socket is not an error worth
+        raising here: ServerKit Cloud times the command out and says so, and the panel
+        reports again on reconnect."""
+        if ws is None:
+            return False
+        try:
+            ws.send(json.dumps(frame))
+            return True
+        except Exception:
+            logger.debug('Connect: could not send frame', exc_info=True)
+            return False
+
+    # -- the storage stream ------------------------------
+
+    def publish_storage(self, snapshot=None) -> bool:
+        """Send one storage snapshot now. Used by the storage.report command."""
+        ws = self._ws
+        if ws is None:
+            return False
+        snapshot = snapshot if snapshot is not None else connect_storage.build_status(self.app)
+        if snapshot is None:
+            return False
+        self._storage_stream += 1
+        return self._send(ws, connect_storage.status_frame(
+            f'sto{self._storage_stream}', snapshot))
+
+    def _publish_storage(self, ws):
+        """Where backups go and how they went, on its own slow cadence: this
+        changes when a backup runs, not every minute."""
+        now = time.monotonic()
+        if now < self._storage_next_at:
+            return
+        self._storage_next_at = now + STORAGE_INTERVAL_S
+        try:
+            snapshot = connect_storage.build_status(self.app)
+        except Exception:
+            logger.debug('Connect storage: could not build a snapshot', exc_info=True)
+            return
+        if snapshot is None:
+            return
+        self._storage_stream += 1
+        self._send(ws, connect_storage.status_frame(f'sto{self._storage_stream}', snapshot))
 
     # -- long-poll fallback ----------------------------------------------
 

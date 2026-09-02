@@ -531,6 +531,13 @@ def remove_schedule(schedule_id):
 def get_storage_config():
     """Get storage provider configuration (secrets masked)."""
     config = StorageProviderService.get_config_masked()
+    # A destination ServerKit Cloud set is read-only here:
+    # two places writing the same config would race, and the operator should
+    # be told where it came from rather than watch their edit disappear.
+    config['managed_by_cloud'] = bool(config.get('managed_by_cloud'))
+    if config['managed_by_cloud']:
+        config['managed_note'] = ('This destination is managed by ServerKit Cloud. Change it '
+                                  'under Backups in Cloud, or unassign it there to edit it here.')
     return jsonify(config), 200
 
 
@@ -541,6 +548,11 @@ def update_storage_config():
     data = request.get_json()
     if not data:
         return jsonify({'error': 'No data provided'}), 400
+
+    if StorageProviderService.get_config().get('managed_by_cloud'):
+        return jsonify({'error': 'This backup destination is managed by ServerKit Cloud. '
+                                 'Unassign it there to set it here — backups keep running '
+                                 'either way.'}), 409
 
     result = StorageProviderService.save_config(data)
     return jsonify(result), 200 if result['success'] else 400

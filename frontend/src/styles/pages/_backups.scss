@@ -1160,3 +1160,16 @@
     border-radius: $radius-lg;
     padding: $space-4;
 }
+
+/* A destination ServerKit Cloud manages is read-only here.
+   The fieldset is the disable mechanism; it must not look like a box. */
+.bk-storage-fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0;
+}
+
+.bk-storage-fieldset:disabled {
+    opacity: 0.65;
+}
