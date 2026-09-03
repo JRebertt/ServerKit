@@ -263,6 +263,7 @@ CORE_BLUEPRINTS: tuple[BlueprintSpec, ...] = (
         name='obs_fleet',
     ),
     BlueprintSpec('app.api.pairing', 'pairing_bp', '/api/v1/pairing'),
+    BlueprintSpec('app.api.connect', 'connect_bp', '/api/v1/connect'),
     BlueprintSpec('app.api.ai', 'ai_bp', '/api/v1/ai'),
     BlueprintSpec('app.api.speed_test', 'speedtest_bp', '/api/v1/speedtest'),
     BlueprintSpec('app.api.site_imports', 'site_imports_bp', '/api/v1/imports'),

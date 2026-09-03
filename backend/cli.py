@@ -6,6 +6,7 @@ import click
 import json
 import secrets
 import sys
+import contextlib
 from pathlib import Path
 
 # Load .env file before importing app
@@ -1529,6 +1530,178 @@ def _prompt_disk_selection(usable):
         if picked:
             return picked
         click.echo(click.style('Nothing selected — pick at least one number.', fg='yellow'))
+
+
+# ── connect (ServerKit Cloud pairing) ─────────────────────────────────────────
+
+@cli.group(invoke_without_command=True)
+@click.option('--cloud', 'cloud_url', default=None,
+              help='ServerKit Cloud control-plane URL (default: SERVERKIT_CLOUD_URL env var '
+                   'or https://app.serverkit.ai)')
+@click.option('--json', 'as_json', is_flag=True, help='Output machine-readable JSON')
+@click.pass_context
+def connect(ctx, cloud_url, as_json):
+    """Pair this panel with ServerKit Cloud.
+
+    Prints a pairing code and this panel's fingerprint, then waits for the
+    enrollment to be approved in the browser.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+
+    from app.services import connect_client
+    from app.services.connect_client import ConnectError
+
+    already = connect_client.status()
+    if already.get('paired'):
+        if as_json:
+            _echo_json(already)
+            return
+        click.echo(f'This panel is already connected to organization '
+                   f'"{already.get("org_slug")}" as "{already.get("name")}" '
+                   f'({already.get("cloud_url")}).')
+        click.echo(f'Fingerprint: {already.get("fingerprint_grouped")}')
+        click.echo('Run `serverkit connect status` for details, or '
+                   '`serverkit connect disconnect` before re-pairing.')
+        return
+
+    # The app context is only needed to enumerate managed agents from the DB.
+    # Pairing itself is DB-independent, so a broken local DB must not block it.
+    try:
+        app = create_app()
+        app_context = app.app_context()
+    except Exception as exc:
+        click.echo(click.style(
+            f'Warning: panel database unavailable ({exc}); '
+            'reporting no managed agents to ServerKit Cloud.', fg='yellow'), err=True)
+        app_context = contextlib.nullcontext()
+
+    try:
+        with app_context:
+            result = connect_client.connect(cloud_url=cloud_url, echo=click.echo)
+    except ConnectError as exc:
+        _fail(str(exc))
+    except KeyboardInterrupt:
+        click.echo()
+        _fail('Pairing aborted — nothing was saved. '
+              'Run `serverkit connect` to start over.')
+
+    if as_json:
+        _echo_json(result)
+
+
+@connect.command('status')
+@click.option('--json', 'as_json', is_flag=True, help='Output machine-readable JSON')
+def connect_status(as_json):
+    """Show this panel's ServerKit Cloud connection state."""
+    from app.services import connect_client
+
+    state = connect_client.status()
+    if as_json:
+        _echo_json(state)
+        return
+
+    if not state.get('paired'):
+        click.echo('Not connected to ServerKit Cloud. '
+                   'Run `serverkit connect` to pair this panel.')
+        return
+
+    rows = [
+        ('State', state.get('state')),
+        ('Reason', state.get('state_reason') or '-'),
+        ('Transport', state.get('transport') or '-'),
+        ('Last seen', state.get('last_connected_at') or '-'),
+        ('Relay instance', state.get('relay_instance') or '-'),
+        ('ServerKit Cloud', state.get('cloud_url')),
+        ('Organization', state.get('org_slug') or '-'),
+        ('Name', state.get('name') or '-'),
+        ('Fingerprint', state.get('fingerprint_grouped') or '-'),
+        ('Relay', state.get('relay_url') or '-'),
+        ('Scopes', ', '.join(state.get('scopes') or []) or '-'),
+        ('Paired at', state.get('paired_at') or '-'),
+        ('Device key', state.get('key_path')
+         + ('' if state.get('key_present') else ' (MISSING)')),
+    ]
+    _echo_table(['Field', 'Value'], rows)
+
+
+@connect.command('doctor')
+@click.option('--json', 'as_json', is_flag=True, help='Output machine-readable JSON')
+def connect_doctor(as_json):
+    """Diagnose the path from this panel to the ServerKit relay.
+
+    Exits non-zero when any hard check fails (DNS, TCP, TLS, clock skew,
+    device key, panel loopback). A refused WebSocket upgrade is a warning —
+    the client falls back to limited (long-poll) mode.
+    """
+    from app.services import connect_client
+
+    checks = connect_client.run_doctor()
+    healthy = connect_client.doctor_ok(checks)
+
+    if as_json:
+        _echo_json({'ok': healthy, 'checks': checks})
+    else:
+        click.echo('ServerKit Cloud connect doctor')
+        click.echo()
+        for check in checks:
+            if check['ok']:
+                mark = click.style('OK  ', fg='green')
+            elif check['hard']:
+                mark = click.style('FAIL', fg='red')
+            else:
+                mark = click.style('WARN', fg='yellow')
+            line = f'  {mark} {check["name"]}'
+            if check.get('note'):
+                line += f'  ({check["note"]})'
+            click.echo(line)
+            if check.get('error'):
+                click.echo(f'    {check["error"]}')
+        click.echo()
+        if healthy:
+            click.echo(click.style('All hard checks passed.', fg='green'))
+        else:
+            click.echo(click.style('Some checks failed — see above.', fg='red'))
+
+    if not healthy:
+        sys.exit(1)
+
+
+@connect.command('disconnect')
+@click.option('--remove-key', is_flag=True,
+              help='Also delete the device keypair (a new identity on next pair)')
+@click.option('--yes', is_flag=True, help='Skip the confirmation prompt')
+@click.option('--json', 'as_json', is_flag=True, help='Output machine-readable JSON')
+def connect_disconnect(remove_key, yes, as_json):
+    """Forget the ServerKit Cloud pairing on this panel.
+
+    Local only — to revoke the device for everyone, remove it in the ServerKit Cloud UI.
+    """
+    from app.services import connect_client
+
+    state = connect_client.status()
+    if not state.get('paired'):
+        if as_json:
+            _echo_json({'success': True, 'state': 'unpaired', 'removed': []})
+            return
+        click.echo('This panel is not connected to ServerKit Cloud.')
+        return
+
+    if not yes and not as_json:
+        click.echo(f'This will forget the pairing with organization '
+                   f'"{state.get("org_slug")}" on this panel. '
+                   'The device stays registered on ServerKit Cloud until revoked there.')
+        if not click.confirm('Disconnect?', default=False):
+            click.echo('Aborted.')
+            return
+
+    result = connect_client.disconnect(remove_key=remove_key)
+    if as_json:
+        _echo_json(result)
+        return
+    for path in result['removed']:
+        click.echo(f'Removed {path}')
+    click.echo(click.style('Disconnected from ServerKit Cloud.', fg='green'))
 
 
 if __name__ == '__main__':

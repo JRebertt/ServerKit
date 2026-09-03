@@ -159,6 +159,25 @@ THREAD_OWNERSHIP = {
         'lifecycle': LIFECYCLE_REQUEST_STREAM,
         'rationale': 'Emitter lifetime is coupled to one socket subscription.',
     },
+    'app/services/connect_client.py:start:self._run': {
+        'owner': 'connect relay client',
+        'lifecycle': LIFECYCLE_PROCESS_LOOP,
+        'rationale': (
+            'One outbound socket per process, started at boot only when the '
+            'panel is paired and stopped with it; there is nothing to resume '
+            'because reconnection is the loop itself.'
+        ),
+    },
+    'app/services/connect_client.py:_run_command:self._command_worker': {
+        'owner': 'connect signed command',
+        'lifecycle': LIFECYCLE_BOUNDED_DELIVERY,
+        'rationale': (
+            'One signed command runs off the socket read loop so a slow '
+            'handler cannot stall the heartbeat. The command row lives in the '
+            'control plane, which times it out and is told the outcome, so a '
+            'restart loses an attempt rather than the record of it.'
+        ),
+    },
 }
 
 

@@ -883,6 +883,21 @@ const Backups = () => {
                             <h3>{t('app.backups.configureDestination', 'Configure destination')}</h3>
                         </div>
                         <div className="card-body">
+                            {/* While ServerKit Cloud owns this
+                                destination the form here is read-only, and says
+                                where the setting comes from and how to take it
+                                back. Backups keep running either way. */}
+                            {storageConfig?.managed_by_cloud && (
+                                <div className="alert alert-info" role="status">
+                                    <i className="ph ph-cloud" />
+                                    <span>
+                                        {storageConfig.managed_note
+                                            || t('app.backups.storageManagedByCloud',
+                                                 'This destination is managed by ServerKit Cloud. Change it under Backups in Cloud, or unassign it there to edit it here.')}
+                                    </span>
+                                </div>
+                            )}
+                            <fieldset disabled={!!storageConfig?.managed_by_cloud} className="bk-storage-fieldset">
                             <form onSubmit={handleSaveStorageConfig}>
                                 <FormField label={t('app.backups.storageProvider', 'Storage Provider')} hint={t('app.backups.s3CompatibleWorksWithAwsS3', 'S3-Compatible works with AWS S3, MinIO and Wasabi.')}>
                                     <SegControl
@@ -1065,6 +1080,7 @@ const Backups = () => {
                                     )}
                                 </div>
                             </form>
+                            </fieldset>
                         </div>
                     </div>
                 </>

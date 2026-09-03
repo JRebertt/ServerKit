@@ -101,8 +101,10 @@ fi
 # T2 — L6: cmd_start must warn (not raw-abort) when systemctl/docker fail
 # (partial installs, non-systemd boxes). cmd_stop already had these guards.
 # --------------------------------------------------------------------------
-t="$WORK/t2"; mkdir -p "$t/bin" "$t/install"
+t="$WORK/t2"; mkdir -p "$t/bin" "$t/install" "$t/nginx/sites-enabled"
 CALL_LOG="$t/calls.log"; : > "$CALL_LOG"
+# Legacy layout (nginx proxies / to the container) so the docker half runs.
+printf 'server {\n  location / { proxy_pass http://127.0.0.1:8080; }\n}\n' > "$t/nginx/sites-enabled/serverkit.conf"
 cat > "$t/bin/systemctl" <<EOF
 #!/usr/bin/env bash
 printf 'systemctl %s\n' "\$*" >> "$CALL_LOG"
@@ -119,13 +121,14 @@ out="$(
     export PATH="$t/bin:$PATH"
     check_root() { :; }
     INSTALL_DIR="$t/install"
+    NGINX_DIR="$t/nginx"
     cmd_start 2>&1
 )"
 rc=$?
 if [ "$rc" -eq 0 ] \
    && printf '%s' "$out" | grep -q 'Could not start backend' \
    && printf '%s' "$out" | grep -q 'Could not start frontend' \
-   && grep -q 'docker compose up -d' "$CALL_LOG"; then
+   && grep -q 'docker compose --profile legacy-frontend up -d frontend' "$CALL_LOG"; then
     ok "start survives failing systemctl/docker with warnings (no raw abort)"
 else
     bad "start aborted or lost a warning: rc=$rc out=[$out]"
@@ -168,8 +171,9 @@ fi
 # T4 — L7: `serverkit logs` on a journal-less box must not die before showing
 # the Docker logs that would have worked.
 # --------------------------------------------------------------------------
-t="$WORK/t4"; mkdir -p "$t/bin" "$t/install"
+t="$WORK/t4"; mkdir -p "$t/bin" "$t/install" "$t/nginx/sites-enabled"
 CALL_LOG="$t/calls.log"; : > "$CALL_LOG"
+printf 'server {\n  location / { proxy_pass http://127.0.0.1:8080; }\n}\n' > "$t/nginx/sites-enabled/serverkit.conf"
 cat > "$t/bin/journalctl" <<EOF
 #!/usr/bin/env bash
 printf 'journalctl %s\n' "\$*" >> "$CALL_LOG"
@@ -185,12 +189,13 @@ out="$(
     set -Eeuo pipefail
     export PATH="$t/bin:$PATH"
     INSTALL_DIR="$t/install"
+    NGINX_DIR="$t/nginx"
     cmd_logs all 2>&1
 )"
 rc=$?
 if [ "$rc" -eq 0 ] \
    && printf '%s' "$out" | grep -q 'Could not read the backend journal' \
-   && grep -q 'docker compose logs --tail=50' "$CALL_LOG"; then
+   && grep -q 'docker compose --profile legacy-frontend logs --tail=50 frontend' "$CALL_LOG"; then
     ok "logs falls through a failing journalctl to the Docker-logs half"
 else
     bad "logs died before the Docker half: rc=$rc out=[$out]"
@@ -443,6 +448,101 @@ else
 fi
 
 # --------------------------------------------------------------------------
+# T12b — issue #127: on a host install (nginx serves frontend/dist from disk,
+# the install.sh default) doctor must recognise the static layout, pass, and
+# never reach for `docker compose` — that built the whole panel image on
+# the operator's box and died on 18 missing png imports.
+# --------------------------------------------------------------------------
+t="$WORK/t12b"
+mkdir -p "$t/bin" "$t/install/backend/instance" "$t/install/frontend/dist" \
+         "$t/nginx/sites-available" "$t/nginx/sites-enabled" "$t/nginx/serverkit-locations"
+printf 'x\n' > "$t/install/backend/instance/serverkit.db"
+printf '<html></html>\n' > "$t/install/frontend/dist/index.html"
+cat > "$t/nginx/sites-available/serverkit.conf" <<EOF
+server {
+    listen 80;
+    root $t/install/frontend/dist;
+    location / {
+        try_files \$uri /index.html;
+    }
+    location /api {
+        proxy_pass http://127.0.0.1:5000;
+    }
+}
+EOF
+# Recording docker stub: no containers, and every invocation is logged.
+cat > "$t/bin/docker" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$t/docker.log"
+exit 0
+EOF
+cat > "$t/bin/ss" <<'EOF'
+#!/usr/bin/env bash
+printf 'LISTEN 0 128 127.0.0.1:5000 users:(("gunicorn",pid=1,fd=1))\n'
+exit 0
+EOF
+chmod +x "$t/bin"/*
+out="$(
+    set -Eeuo pipefail
+    export PATH="$t/bin:$PATH"
+    INSTALL_DIR="$t/install"
+    NGINX_DIR="$t/nginx"
+    cmd_doctor 2>&1
+)"
+rc=$?
+if [ "$rc" -eq 0 ] \
+   && printf '%s' "$out" | grep -q 'Static bundle present' \
+   && ! printf '%s' "$out" | grep -q 'is not running' \
+   && ! grep -q 'compose' "$t/docker.log" 2>/dev/null; then
+    ok "doctor: static host install passes; no container check, no docker compose"
+else
+    bad "doctor static layout: rc=$rc compose=[$(cat "$t/docker.log" 2>/dev/null)] out=[$out]"
+fi
+
+# --------------------------------------------------------------------------
+# T12c — issue #127: static layout with the bundle missing. `--fix` must
+# report it, point at `serverkit update`, and still never run compose.
+# --------------------------------------------------------------------------
+rm -f "$t/install/frontend/dist/index.html" "$t/docker.log"
+out="$(
+    set -Eeuo pipefail
+    export PATH="$t/bin:$PATH"
+    INSTALL_DIR="$t/install"
+    NGINX_DIR="$t/nginx"
+    check_root() { :; }   # --fix wants root; the sandbox is not
+    cmd_doctor --fix 2>&1
+)"
+rc=$?
+if [ "$rc" -ne 0 ] \
+   && printf '%s' "$out" | grep -q 'Frontend bundle missing' \
+   && printf '%s' "$out" | grep -q 'serverkit update' \
+   && ! grep -q 'compose' "$t/docker.log" 2>/dev/null; then
+    ok "doctor --fix: missing static bundle suggests 'serverkit update', never runs compose"
+else
+    bad "doctor --fix static layout: rc=$rc compose=[$(cat "$t/docker.log" 2>/dev/null)] out=[$out]"
+fi
+
+# --------------------------------------------------------------------------
+# T12d — frontend_mode reads the layout off the vhost: proxy_pass on / is the
+# legacy container profile, a dist root is static, nothing at all is unknown.
+# The legacy fix path must target the profile's service, not a bare
+# `docker compose up -d` (which starts the all-in-one panel instead).
+# --------------------------------------------------------------------------
+u="$WORK/t12d"; mkdir -p "$u/nginx/sites-enabled" "$u/install"
+m_unknown="$( INSTALL_DIR="$u/install"; NGINX_DIR="$u/nginx"; frontend_mode )"
+printf 'server {\n  location / { proxy_pass http://127.0.0.1:8080; }\n}\n' > "$u/nginx/sites-enabled/serverkit.conf"
+m_container="$( INSTALL_DIR="$u/install"; NGINX_DIR="$u/nginx"; frontend_mode )"
+printf 'server {\n  root /opt/serverkit/frontend/dist;\n  location /api { proxy_pass http://127.0.0.1:5000; }\n}\n' > "$u/nginx/sites-enabled/serverkit.conf"
+m_static="$( INSTALL_DIR="$u/install"; NGINX_DIR="$u/nginx"; frontend_mode )"
+if [ "$m_unknown" = unknown ] && [ "$m_container" = container ] && [ "$m_static" = static ] \
+   && grep -q 'docker compose --profile legacy-frontend "\$@" frontend' "$CLI" \
+   && [ "$(awk '/INSTALL_DIR/ {p=1; next} /^[[:space:]]*$/ {next} p && /docker compose (up|down|stop|restart|logs|ps)/ && !/--profile/ {c++} {p=0} END {print c+0}' "$CLI")" -eq 0 ]; then
+    ok "frontend_mode: unknown/container/static detected; legacy path targets the profile service"
+else
+    bad "frontend_mode wrong: unknown=[$m_unknown] container=[$m_container] static=[$m_static], or a bare 'docker compose up -d' is back in the CLI"
+fi
+
+# --------------------------------------------------------------------------
 # T13 — L12: list-sites port extraction without GNU grep -oP; conf.d layouts
 # are listed too.
 # --------------------------------------------------------------------------
@@ -689,6 +789,7 @@ check_args 'manifest plan --project 1 --json'      manifest plan --project 1 --j
 check_args 'services list --json'                  services list --json
 check_args 'status --json'                         panel-status --json
 check_args 'doctor --repair --yes'                 panel-doctor --repair --yes
+check_args 'connect status --json'                 connect status --json
 if [ -z "$t20_fail" ]; then
     ok "executed-mode flag passthrough: wrapper commands reach cli.py verbatim"
 else

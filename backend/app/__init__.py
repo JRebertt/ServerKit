@@ -443,6 +443,11 @@ def create_app(config_name=None):
             from app.services.linked_panel_service import LinkedPanelService
             LinkedPanelService.start_client_if_linked(app)
 
+            # Hold the outbound ServerKit Cloud relay connection when this
+            # panel is paired.
+            from app.services import connect_client
+            connect_client.start_client_if_paired(app)
+
     # Request body size limit
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
 

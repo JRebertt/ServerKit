@@ -74,6 +74,16 @@ expect_text "$RELEASE" 'Refusing to overwrite existing release' \
 expect_text "$RELEASE" 'overwrite_files: false' \
     'release assets cannot be overwritten'
 
+# The release tarball must be able to rebuild its own frontend: build-release
+# used to strip every png outside frontend/dist, which emptied
+# frontend/src/assets and made any rebuild from /opt/serverkit die on
+# unresolved imports (issue #127).
+BUILD_RELEASE="$ROOT/scripts/build-release.sh"
+expect_text "$BUILD_RELEASE" '! -path "$BUILD_DIR/frontend/*"' \
+    'release image cleanup leaves the whole frontend/ tree alone'
+expect_absent "$BUILD_RELEASE" '! -path "$BUILD_DIR/frontend/dist/*" -delete' \
+    'release image cleanup no longer strips frontend/src assets'
+
 if [ "$failures" -ne 0 ]; then
     printf '\n%d release workflow guard assertion(s) failed\n' "$failures" >&2
     exit 1
