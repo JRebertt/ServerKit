@@ -4,7 +4,8 @@
 #
 # Architecture:
 #   - Backend: systemd service (runs directly on host)
-#   - Frontend: Docker container (nginx)
+#   - Frontend: static bundle served by host nginx (or, on the legacy
+#     layout, the serverkit-frontend container — see frontend_mode)
 #
 # Usage: serverkit <command> [options]
 #
@@ -39,6 +40,60 @@ VENV_DIR="${SERVERKIT_VENV_DIR:-$INSTALL_DIR/venv}"
 NGINX_DIR="${SERVERKIT_NGINX_DIR:-/etc/nginx}"
 BACKEND_SERVICE="serverkit"
 FRONTEND_CONTAINER="serverkit-frontend"
+
+# How the SPA is served on this box. install.sh has host nginx serve the
+# prebuilt bundle straight from frontend/dist; the `serverkit-frontend`
+# container only exists under the opt-in `legacy-frontend` compose profile.
+# Read the answer off the nginx vhost instead of assuming either layout —
+# a plain `docker compose up -d` on a host install does not start that
+# container, it builds the whole all-in-one panel image (issue #127).
+#
+#   static     nginx `root .../frontend/dist`  (install.sh, the default)
+#   container  nginx proxies `location /` to a local port (legacy profile)
+#   unknown    no serverkit vhost found
+serverkit_vhost() {
+    local conf
+    for conf in "$NGINX_DIR/sites-enabled/serverkit.conf" \
+                "$NGINX_DIR/sites-available/serverkit.conf" \
+                "$NGINX_DIR/conf.d/serverkit.conf"; do
+        if [ -f "$conf" ]; then
+            echo "$conf"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# The directory nginx serves the SPA from (static mode only).
+frontend_static_root() {
+    local conf
+    conf="$(serverkit_vhost)" || return 1
+    sed -n 's/^[[:space:]]*root[[:space:]]\{1,\}\([^;]*\);.*/\1/p' "$conf" \
+        | grep 'frontend/dist' | head -1
+}
+
+frontend_mode() {
+    local conf
+    if conf="$(serverkit_vhost)"; then
+        if grep -Eq '^[[:space:]]*root[[:space:]]+[^;]*frontend/dist' "$conf"; then
+            echo static
+        elif grep -Eq 'proxy_pass[[:space:]]+http://127\.0\.0\.1:[0-9]+' "$conf"; then
+            echo container
+        else
+            echo unknown
+        fi
+    elif [ -f "$INSTALL_DIR/frontend/dist/index.html" ]; then
+        # No vhost yet but the bundle is on disk: install.sh layout.
+        echo static
+    else
+        echo unknown
+    fi
+}
+
+# The compose invocation that actually starts the legacy frontend container.
+compose_frontend() {
+    docker compose --profile legacy-frontend "$@" frontend
+}
 
 # Helper functions
 print_header() {
@@ -356,9 +411,13 @@ cmd_start() {
     # readable warning, not a raw set -e abort.
     systemctl start $BACKEND_SERVICE || print_warning "Could not start backend service '$BACKEND_SERVICE' (is systemd available?)"
 
-    # Start frontend (Docker)
-    cd "$INSTALL_DIR"
-    docker compose up -d || print_warning "Could not start frontend container (is Docker running?)"
+    # Frontend: static files need nginx up; only the legacy layout has a container.
+    if [ "$(frontend_mode)" = container ]; then
+        cd "$INSTALL_DIR"
+        compose_frontend up -d || print_warning "Could not start frontend container (is Docker running?)"
+    else
+        systemctl start nginx || print_warning "Could not start nginx (it serves the frontend)"
+    fi
 
     sleep 3
     print_success "ServerKit started"
@@ -373,9 +432,12 @@ cmd_stop() {
     # Stop backend (systemd)
     systemctl stop $BACKEND_SERVICE || true
 
-    # Stop frontend (Docker)
-    cd "$INSTALL_DIR"
-    docker compose down || true
+    # Legacy frontend container only. nginx stays up on a host install: it
+    # also fronts every managed site, not just the panel.
+    if [ "$(frontend_mode)" = container ]; then
+        cd "$INSTALL_DIR"
+        compose_frontend stop || true
+    fi
 
     print_success "ServerKit stopped"
 }
@@ -389,9 +451,12 @@ cmd_restart() {
     # manager is reported, never a raw abort.
     systemctl restart $BACKEND_SERVICE || print_warning "Could not restart backend service '$BACKEND_SERVICE' (is systemd available?)"
 
-    # Restart frontend (Docker)
-    cd "$INSTALL_DIR"
-    docker compose restart || print_warning "Could not restart frontend container (is Docker running?)"
+    if [ "$(frontend_mode)" = container ]; then
+        cd "$INSTALL_DIR"
+        compose_frontend restart || print_warning "Could not restart frontend container (is Docker running?)"
+    else
+        systemctl reload nginx || print_warning "Could not reload nginx (it serves the frontend)"
+    fi
 
     sleep 3
     print_success "ServerKit restarted"
@@ -410,11 +475,22 @@ cmd_status_brief() {
     fi
 
     # Frontend status
-    if docker ps --format '{{.Names}}' | grep -q $FRONTEND_CONTAINER; then
-        print_success "Frontend: running"
-    else
-        print_error "Frontend: stopped"
-    fi
+    case "$(frontend_mode)" in
+        container)
+            if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "$FRONTEND_CONTAINER"; then
+                print_success "Frontend: running (container)"
+            else
+                print_error "Frontend: stopped (container)"
+            fi
+            ;;
+        *)
+            if systemctl is-active --quiet nginx 2>/dev/null; then
+                print_success "Frontend: served by nginx"
+            else
+                print_error "Frontend: nginx is not running"
+            fi
+            ;;
+    esac
 
     # API health
     if curl -s http://127.0.0.1:5000/api/v1/system/health > /dev/null 2>&1; then
@@ -434,10 +510,17 @@ cmd_status() {
     systemctl status $BACKEND_SERVICE --no-pager -l 2>/dev/null || print_warning "Backend service not found"
 
     echo ""
-    echo "Frontend Container (Docker):"
-    echo "─────────────────────────────"
-    cd "$INSTALL_DIR"
-    docker compose ps 2>/dev/null || print_warning "Frontend container not found"
+    if [ "$(frontend_mode)" = container ]; then
+        echo "Frontend Container (Docker):"
+        echo "─────────────────────────────"
+        cd "$INSTALL_DIR"
+        compose_frontend ps 2>/dev/null || print_warning "Frontend container not found"
+    else
+        echo "Frontend (static, served by nginx):"
+        echo "─────────────────────────────"
+        echo "  root: $(frontend_static_root 2>/dev/null || echo "$INSTALL_DIR/frontend/dist")"
+        systemctl status nginx --no-pager -l 2>/dev/null | head -5 || print_warning "nginx service not found"
+    fi
 
     echo ""
     cmd_status_brief
@@ -456,8 +539,14 @@ cmd_logs() {
             fi
             ;;
         frontend)
-            cd "$INSTALL_DIR"
-            docker compose logs -f || print_warning "Could not read frontend container logs (is Docker running?)"
+            if [ "$(frontend_mode)" = container ]; then
+                cd "$INSTALL_DIR"
+                compose_frontend logs -f || print_warning "Could not read frontend container logs (is Docker running?)"
+            else
+                print_info "The frontend is static files served by nginx; following nginx logs..."
+                tail -f /var/log/nginx/access.log /var/log/nginx/error.log 2>/dev/null \
+                    || print_warning "Could not read /var/log/nginx/*.log"
+            fi
             ;;
         all|*)
             print_info "Showing backend logs (Ctrl+C to switch to frontend)..."
@@ -471,10 +560,16 @@ cmd_logs() {
                 print_warning "journalctl not found — skipping backend logs"
             fi
             echo ""
-            print_info "Showing frontend logs..."
-            echo ""
-            cd "$INSTALL_DIR"
-            docker compose logs --tail=50 || print_warning "Could not read frontend container logs (is Docker running?)"
+            if [ "$(frontend_mode)" = container ]; then
+                print_info "Showing frontend logs..."
+                echo ""
+                cd "$INSTALL_DIR"
+                compose_frontend logs --tail=50 || print_warning "Could not read frontend container logs (is Docker running?)"
+            else
+                print_info "Showing nginx logs (the frontend is static files served by nginx)..."
+                echo ""
+                tail -n 50 /var/log/nginx/error.log 2>/dev/null || print_warning "Could not read /var/log/nginx/error.log"
+            fi
             echo ""
             print_info "For live logs, use: serverkit logs backend OR serverkit logs frontend"
             ;;
@@ -1103,6 +1198,13 @@ cmd_doctor() {
         print_warning "SKIP: $1 (run with --fix to auto-fix)"
     }
 
+    # For issues doctor can diagnose but must not fix on its own (a missing
+    # release bundle, a layout it cannot tell apart): say what to run instead
+    # of promising an auto-fix that does not exist.
+    doctor_hint() {
+        echo "         Try: $1"
+    }
+
     # ── 1. Backend service ──────────────────────────────────────
     echo "Backend"
     echo "───────────────────────────────────────"
@@ -1131,15 +1233,39 @@ cmd_doctor() {
 
     echo ""
 
-    # ── 2. Frontend container ───────────────────────────────────
+    # ── 2. Frontend ─────────────────────────────────────────────
+    # Two layouts exist (see frontend_mode). Check the one this box actually
+    # uses; never "fix" a static install by starting containers.
     FRONTEND_RUNNING=false
     FRONTEND_PORT=""
+    FRONTEND_MODE="$(frontend_mode)"
 
-    if command -v docker >/dev/null 2>&1; then
-        echo "Frontend"
-        echo "───────────────────────────────────────"
+    echo "Frontend"
+    echo "───────────────────────────────────────"
 
-        if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "$FRONTEND_CONTAINER"; then
+    case "$FRONTEND_MODE" in
+    static)
+        STATIC_ROOT="$(frontend_static_root 2>/dev/null || true)"
+        [ -n "$STATIC_ROOT" ] || STATIC_ROOT="$INSTALL_DIR/frontend/dist"
+        if [ -f "$STATIC_ROOT/index.html" ]; then
+            doctor_ok "Static bundle present, served by nginx from $STATIC_ROOT"
+        else
+            doctor_issue "Frontend bundle missing: $STATIC_ROOT/index.html"
+            echo "         The host install serves a prebuilt bundle through nginx; there is no container to start."
+            doctor_hint "serverkit update   (reinstalls the release, bundle included)"
+        fi
+        # A leftover legacy container is harmless but wastes a port and confuses
+        # port-mismatch checks; point at it, do not touch it.
+        if command -v docker >/dev/null 2>&1 \
+           && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "$FRONTEND_CONTAINER"; then
+            print_warning "Container '$FRONTEND_CONTAINER' is running but nginx serves the frontend from disk; it is unused"
+            doctor_hint "cd $INSTALL_DIR && docker compose --profile legacy-frontend stop frontend"
+        fi
+        ;;
+    container)
+        if ! command -v docker >/dev/null 2>&1; then
+            doctor_issue "nginx proxies the frontend to a container but Docker is not installed or not in PATH"
+        elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "$FRONTEND_CONTAINER"; then
             FRONTEND_RUNNING=true
             # Get the actual host port the container is mapped to
             FRONTEND_PORT=$(docker port "$FRONTEND_CONTAINER" 80 2>/dev/null | head -1 | sed -n 's/.*:\([0-9][0-9]*\).*/\1/p' || true)
@@ -1148,14 +1274,14 @@ cmd_doctor() {
             doctor_issue "Container '$FRONTEND_CONTAINER' is not running"
             if [ "$FIX_MODE" = "--fix" ]; then
                 cd "$INSTALL_DIR"
-                docker compose up -d 2>/dev/null && {
+                compose_frontend up -d 2>/dev/null && {
                     sleep 3
                     FRONTEND_PORT=$(docker port "$FRONTEND_CONTAINER" 80 2>/dev/null | head -1 | sed -n 's/.*:\([0-9][0-9]*\).*/\1/p' || true)
                     FRONTEND_RUNNING=true
                     doctor_fixed "Started frontend container (port $FRONTEND_PORT)"
                 } || print_error "  Could not start container"
             else
-                doctor_skip "docker compose up -d"
+                doctor_skip "docker compose --profile legacy-frontend up -d frontend"
             fi
         fi
 
@@ -1166,11 +1292,12 @@ cmd_doctor() {
                 doctor_issue "Container running but not responding on port $FRONTEND_PORT"
             fi
         fi
-    else
-        echo "Frontend"
-        echo "───────────────────────────────────────"
-        doctor_issue "Docker not installed or not in PATH; skipping frontend checks"
-    fi
+        ;;
+    *)
+        doctor_issue "Cannot tell how the frontend is served: no serverkit vhost under $NGINX_DIR and no $INSTALL_DIR/frontend/dist"
+        doctor_hint "serverkit update   (reinstalls the release and its nginx config)"
+        ;;
+    esac
 
     echo ""
 
