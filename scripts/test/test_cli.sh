@@ -789,6 +789,7 @@ check_args 'manifest plan --project 1 --json'      manifest plan --project 1 --j
 check_args 'services list --json'                  services list --json
 check_args 'status --json'                         panel-status --json
 check_args 'doctor --repair --yes'                 panel-doctor --repair --yes
+check_args 'connect status --json'                 connect status --json
 if [ -z "$t20_fail" ]; then
     ok "executed-mode flag passthrough: wrapper commands reach cli.py verbatim"
 else

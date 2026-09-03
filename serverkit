@@ -345,6 +345,7 @@ cmd_help() {
     echo "  manifest          plan | diff | apply — a project's serverkit.yaml"
     echo "  login-url         Mint a one-time panel login link"
     echo "  support-bundle    Build a scrubbed diagnostic zip"
+    echo "  connect           Pair with ServerKit Cloud (connect [status|doctor|disconnect])"
     echo ""
     echo "Utility Commands:"
     echo "  generate-keys     Generate secure keys for .env"
@@ -370,7 +371,7 @@ cmd_completion() {
 _serverkit() {
     local cur commands
     cur="${COMP_WORDS[COMP_CWORD]}"
-    commands="help start stop restart status logs update branch version check-update uninstall create-admin reset-password unlock-user list-users make-admin deactivate-user activate-user init-db migrate-db db-migrate db-status db-history backup-db restore-db disk cleanup-apps factory-reset generate-keys config setup-proxy create-app deploy-template list-servers deployment-status list-apps start-app stop-app app-logs add-site list-sites remove-site doctor manifest services apps repair login-url support-bundle panel-status panel-doctor completion"
+    commands="help start stop restart status logs update branch version check-update uninstall create-admin reset-password unlock-user list-users make-admin deactivate-user activate-user init-db migrate-db db-migrate db-status db-history backup-db restore-db disk cleanup-apps factory-reset generate-keys config setup-proxy create-app deploy-template list-servers deployment-status list-apps start-app stop-app app-logs add-site list-sites remove-site doctor manifest services apps repair login-url support-bundle connect panel-status panel-doctor completion"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=( $(compgen -W "$commands" -- "$cur") )
@@ -394,6 +395,7 @@ _serverkit() {
         db-migrate|migrate-db) COMPREPLY=( $(compgen -W "--no-backup" -- "$cur") ) ;;
         login-url)         COMPREPLY=( $(compgen -W "--ttl --ip --user" -- "$cur") ) ;;
         support-bundle)    COMPREPLY=( $(compgen -W "--out --passphrase" -- "$cur") ) ;;
+        connect)           COMPREPLY=( $(compgen -W "status doctor disconnect --cloud --json" -- "$cur") ) ;;
         deploy-template)   COMPREPLY=( $(compgen -W "--name --target --var --wait" -- "$cur") ) ;;
         *)                 COMPREPLY=() ;;
     esac
@@ -1612,7 +1614,7 @@ case "${1:-help}" in
     migrate-db)
         cmd_migrate_db
         ;;
-    manifest|services|apps|repair|login-url|support-bundle|db-migrate|db-status|db-history)
+    manifest|services|apps|repair|login-url|support-bundle|connect|db-migrate|db-status|db-history)
         cmd_panel_cli "$@"
         ;;
     panel-status)
