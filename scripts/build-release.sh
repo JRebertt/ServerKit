@@ -168,11 +168,15 @@ rm -rf "$BUILD_DIR/frontend/node_modules"
 find "$BUILD_DIR" -type d -name __pycache__    -exec rm -rf {} + 2>/dev/null || true
 find "$BUILD_DIR" -type d -name .pytest_cache  -exec rm -rf {} + 2>/dev/null || true
 find "$BUILD_DIR" -type f -name '*.pyc' -delete 2>/dev/null || true
-# Never strip the built SPA bundle: Vite emits real image assets into
-# frontend/dist/assets (extension icons, etc.) that the panel 404s without.
+# Never strip anything under frontend/: dist/assets holds the images Vite
+# emitted (extension icons, etc.) that the panel 404s without, and src/assets
+# holds the ones the JS imports — delete those and the shipped tree can no
+# longer rebuild its own frontend (`serverkit doctor --fix` on 1.9.x died on
+# 18 unresolved png imports, issue #127). The tar excludes above already keep
+# docs/dev screenshots out; this pass only catches stragglers elsewhere.
 # (Use ! -path, not -prune: -delete implies -depth, which disables -prune.)
 find "$BUILD_DIR" -type f \( -name '*.png' -o -name '*.jpeg' -o -name '*.jpg' \) \
-    ! -path "$BUILD_DIR/frontend/dist/*" -delete 2>/dev/null || true
+    ! -path "$BUILD_DIR/frontend/*" -delete 2>/dev/null || true
 
 # Runtime directory the app expects to exist.
 mkdir -p "$BUILD_DIR/backend/instance"
