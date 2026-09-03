@@ -173,7 +173,7 @@ def facts_frame(stream_id: str, facts: dict) -> dict:
 
 @handler('policy.report')
 def report(args: dict, app=None) -> dict:
-    """"Check now". Build a document and push it up the policy stream."""
+    """"Check now": build a document and push it up the policy stream."""
     facts = build_facts(app)
     client = _relay_client()
     if client is None or not client.publish_policy(facts):
@@ -270,14 +270,17 @@ def _in_app(app, fn):
 
 
 def _systemctl(action: str, unit: str):
-    """True, or the reason it did not work. Never raises."""
-    import shutil
-    import subprocess
-    if shutil.which('systemctl') is None:
+    """True, or the reason it did not work. Never raises.
+
+    run_privileged() adds sudo when the panel is not root, which is the
+    difference between a repair that works off a packaged install and one
+    that reports a permission error the operator cannot act on.
+    """
+    from app.utils.system import is_command_available, run_privileged
+    if not is_command_available('systemctl'):
         return 'this host does not use systemd'
     try:
-        out = subprocess.run(['systemctl', action, unit], capture_output=True,
-                             text=True, timeout=60)
+        out = run_privileged(['systemctl', action, unit], timeout=60)
     except Exception as exc:
         return str(exc)
     if out.returncode == 0:

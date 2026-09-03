@@ -336,6 +336,19 @@ def _past(iso_ts: str) -> bool:
 # ==================== Status / disconnect ====================
 
 
+def _configured_cloud_url() -> str:
+    """The configured control-plane URL, or the default if it is malformed.
+
+    status() is a read: a typo in SERVERKIT_CLOUD_URL should show up when the
+    operator tries to pair, not turn `serverkit connect status` and the
+    Settings panel into an error.
+    """
+    try:
+        return resolve_cloud_url()
+    except ConnectError:
+        return DEFAULT_CLOUD_URL
+
+
 def status() -> dict:
     """Connection state as the UI/CLI should show it.
 
@@ -344,6 +357,7 @@ def status() -> dict:
     needs to be running in this process.
     """
     data = _read_connect_file()
+    cloud_url = _configured_cloud_url()
     key_path = data.get(KEY_PATH_FIELD) or connect_keys.default_key_path()
     key_present = os.path.exists(key_path)
     if not data.get('device_id'):
@@ -351,7 +365,7 @@ def status() -> dict:
             'state': 'unpaired',
             'state_reason': None,
             'paired': False,
-            'cloud_url': resolve_cloud_url(),
+            'cloud_url': cloud_url,
             'key_present': key_present,
             'key_path': key_path,
         }
@@ -366,7 +380,7 @@ def status() -> dict:
         'state': state,
         'state_reason': reason,
         'paired': True,
-        'cloud_url': data.get('cloud_url') or resolve_cloud_url(),
+        'cloud_url': data.get('cloud_url') or cloud_url,
         'device_id': data.get('device_id'),
         'org_slug': data.get('org_slug'),
         'name': data.get('name'),
@@ -509,8 +523,13 @@ HELLO_HEADERS = {
 
 
 def hello_headers(hello: dict) -> dict:
-    """The same hello carried in X-ServerKit-* headers for the poll fallback."""
-    return {header: str(hello[field]) for field, header in HELLO_HEADERS.items()}
+    """The same hello carried in X-ServerKit-* headers for the poll fallback.
+
+    build_hello() drops the end-to-end key rather than fail the connection,
+    so a field it did not publish is simply a header we do not send.
+    """
+    return {header: str(hello[field]) for field, header in HELLO_HEADERS.items()
+            if field in hello}
 
 
 # ---------- runtime state file ----------
