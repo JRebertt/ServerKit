@@ -469,6 +469,7 @@
             "storageConfigurationSaved": "Storage configuration saved",
             "storageCostRates": "Storage cost rates",
             "storageCostRatesSaved": "Storage cost rates saved",
+            "storageManagedByCloud": "This destination is managed by ServerKit Cloud. Change it under Backups in Cloud, or unassign it there to edit it here.",
             "storageProvider": "Storage Provider",
             "testConnection": "Test Connection",
             "testing": "Testing…",
