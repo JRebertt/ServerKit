@@ -1256,7 +1256,10 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
     // Overflow ("More") trigger — a tab-styled button that never collapses.
     &__more {
         flex-shrink: 0;
+        appearance: none;
+        background: transparent;
         border: none;
+        color: inherit;
         font: inherit;
         cursor: pointer;
         &[data-state="open"] { background: var(--surface-hover); color: var(--text); }
@@ -1264,6 +1267,26 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
 
     @media (max-width: 768px) {
         flex-wrap: wrap;
+        &__actions {
+            order: 2;
+            width: 100%;
+            min-width: 0;
+            justify-content: flex-start;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: 3px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-strong) transparent;
+
+            > *,
+            > .sk-topbar__chrome > * { flex-shrink: 0; }
+
+            &::-webkit-scrollbar { height: 4px; }
+            &::-webkit-scrollbar-thumb {
+                background: var(--border-strong);
+                border-radius: 999px;
+            }
+        }
         &__tabs { order: 3; width: 100%; margin-left: 0; justify-content: flex-start; }
     }
 }
