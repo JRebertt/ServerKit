@@ -117,6 +117,28 @@ $dbx-sqlite: #3d8fd1;
         svg { color: $accent-primary; }
     }
 
+    @media (max-width: $breakpoint-sm) {
+        .dbx-toolbar {
+            justify-content: flex-start;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding-bottom: calc(#{$space-2} + 3px);
+            scrollbar-width: thin;
+            scrollbar-color: $border-active transparent;
+
+            &::-webkit-scrollbar { height: 4px; }
+            &::-webkit-scrollbar-thumb {
+                background: $border-active;
+                border-radius: 999px;
+            }
+        }
+
+        .dbx-toolbar-left,
+        .dbx-toolbar-right { flex-shrink: 0; }
+
+        .dbx-title { white-space: nowrap; }
+    }
+
     // ─── New menu ─────────────────────────────────────────
     .dbx-new { position: relative; }
 
