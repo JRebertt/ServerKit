@@ -122,15 +122,11 @@ $dbx-sqlite: #3d8fd1;
             justify-content: flex-start;
             overflow-x: auto;
             overflow-y: hidden;
-            padding-bottom: calc(#{$space-2} + 3px);
-            scrollbar-width: thin;
-            scrollbar-color: $border-active transparent;
+            scrollbar-width: none;
+            -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
 
-            &::-webkit-scrollbar { height: 4px; }
-            &::-webkit-scrollbar-thumb {
-                background: $border-active;
-                border-radius: 999px;
-            }
+            &::-webkit-scrollbar { display: none; }
         }
 
         .dbx-toolbar-left,

@@ -1274,18 +1274,14 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
             justify-content: flex-start;
             overflow-x: auto;
             overflow-y: hidden;
-            padding-bottom: 3px;
-            scrollbar-width: thin;
-            scrollbar-color: var(--border-strong) transparent;
+            scrollbar-width: none;
+            -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
 
             > *,
             > .sk-topbar__chrome > * { flex-shrink: 0; }
 
-            &::-webkit-scrollbar { height: 4px; }
-            &::-webkit-scrollbar-thumb {
-                background: var(--border-strong);
-                border-radius: 999px;
-            }
+            &::-webkit-scrollbar { display: none; }
         }
         &__tabs { order: 3; width: 100%; margin-left: 0; justify-content: flex-start; }
     }
