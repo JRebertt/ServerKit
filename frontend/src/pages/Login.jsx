@@ -56,6 +56,13 @@ const Login = () => {
         setRedeemingLink(true);
         api.redeemLoginLink(token)
             .then((response) => {
+                if (response.requires_2fa) {
+                    setRequires2FA(true);
+                    setTempToken(response.temp_token);
+                    setRedeemingLink(false);
+                    navigate('/login', { replace: true });
+                    return;
+                }
                 setUser(response.user);
                 navigate(consumeRedirect(), { replace: true });
             })

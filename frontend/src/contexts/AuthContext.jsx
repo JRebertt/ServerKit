@@ -144,9 +144,14 @@ export function AuthProvider({ children }) {
         }));
     }
 
-    function logout() {
-        api.logout();
-        setUser(null);
+    async function logout() {
+        try {
+            await api.logout();
+        } catch (err) {
+            console.error('Server sign-out failed:', err);
+        } finally {
+            setUser(null);
+        }
     }
 
     async function updateUser(data) {

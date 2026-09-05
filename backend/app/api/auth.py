@@ -1,10 +1,9 @@
 import logging
-from datetime import datetime
-from flask import Blueprint, request, jsonify
+from datetime import datetime, timedelta
+from flask import Blueprint, request, jsonify, g
 from sqlalchemy import func
 from flask_jwt_extended import (
     create_access_token,
-    create_refresh_token,
     jwt_required,
     get_jwt_identity,
     get_jwt
@@ -13,6 +12,7 @@ from app import db, limiter
 from app.models import User, AuditLog, SystemSettings
 # Aliased: this module already has a `get_current_user` route handler.
 from app.middleware.rbac import admin_required, get_current_user as get_request_user, require_admin_user
+from app.middleware.session_auth import session_required, issue_session_tokens
 from app.services.settings_service import SettingsService
 from app.services.audit_service import AuditService
 from app.services import login_link_service
@@ -154,8 +154,7 @@ def register():
     )
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token, refresh_token = issue_session_tokens(user.id)
 
     return jsonify({
         'message': 'User registered successfully',
@@ -291,7 +290,7 @@ def login():
         temp_token = create_access_token(
             identity=user.id,
             additional_claims={'2fa_pending': True},
-            expires_delta=False  # Use default (short) expiry
+            expires_delta=timedelta(minutes=5)
         )
 
         return jsonify({
@@ -309,8 +308,7 @@ def login():
     AuditService.log_login(user.id, success=True)
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token, refresh_token = issue_session_tokens(user.id)
 
     return jsonify({
         'user': user.to_dict(),
@@ -323,10 +321,10 @@ def login():
 # ONE-TIME LOGIN LINKS
 # ==========================================
 @auth_bp.route('/login-links', methods=['POST'])
-@admin_required
+@session_required
 def create_login_link():
     """Mint a single-use login URL. The raw token is returned exactly once."""
-    current = get_request_user()
+    current = require_admin_user()
     data = request.get_json() or {}
 
     target_id = data.get('user_id') or current.id
@@ -413,6 +411,14 @@ def redeem_login_link():
         raise AuthenticationError('Invalid or expired link', code='auth.link_invalid')
 
     auth_throttle_service.reset(client_ip)
+    if user.totp_enabled:
+        return jsonify({
+            'requires_2fa': True,
+            'temp_token': create_access_token(
+                identity=user.id, additional_claims={'2fa_pending': True},
+                expires_delta=timedelta(minutes=5)),
+            'message': 'Two-factor authentication required',
+        }), 200
     user.reset_failed_login()
     user.last_login_at = datetime.utcnow()
     db.session.commit()
@@ -420,8 +426,7 @@ def redeem_login_link():
     AuditService.log_login(user.id, success=True, details={'method': 'login_link'})
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token, refresh_token = issue_session_tokens(user.id)
 
     return jsonify({
         'user': user.to_dict(),
@@ -481,11 +486,25 @@ def refresh():
     if not user or not user.is_active:
         return jsonify({'error': 'Invalid user'}), 401
 
-    access_token = create_access_token(identity=current_user_id)
+    access_token = create_access_token(
+        identity=current_user_id,
+        additional_claims={'auth_time': get_jwt().get('auth_time', 0),
+                           'session_id': get_jwt()['session_id']})
 
     return jsonify({
         'access_token': access_token
     }), 200
+
+
+@auth_bp.route('/logout', methods=['POST'])
+@session_required
+def logout():
+    """Revoke this browser's access and refresh session, across workers."""
+    from app.models import RevokedSession
+    db.session.add(RevokedSession(session_id=get_jwt()['session_id'],
+                                  user_id=g.session_user.id))
+    db.session.commit()
+    return jsonify({'message': 'Browser session signed out'}), 200
 
 
 @auth_bp.route('/me', methods=['GET'])
@@ -527,7 +546,23 @@ def update_current_user():
     if not user:
         return jsonify({'error': 'User not found'}), 404
 
-    data = request.get_json()
+    data = request.get_json() or {}
+
+    if 'password' in data:
+        import time
+        if not isinstance(data['password'], str) or len(data['password']) < 8:
+            raise ValidationError('Password must be at least 8 characters')
+        if user.has_password:
+            current_password = data.get('current_password')
+            if (not isinstance(current_password, str)
+                    or not user.check_password(current_password)):
+                raise PermissionDeniedError('Current password is required and must be correct')
+        else:
+            # SSO/passkey users without a local password must have completed a
+            # fresh sign-in. Refresh preserves auth_time and cannot renew it.
+            auth_time = get_jwt().get('auth_time', 0)
+            if not isinstance(auth_time, (int, float)) or time.time() - auth_time > 300:
+                raise PermissionDeniedError('Sign in again before setting a password')
 
     if 'username' in data:
         existing = User.query.filter_by(username=data['username']).first()
@@ -544,8 +579,6 @@ def update_current_user():
         user.email = data['email']
 
     if 'password' in data:
-        if len(data['password']) < 8:
-            return jsonify({'error': 'Password must be at least 8 characters'}), 400
         user.set_password(data['password'])
 
     if 'sidebar_config' in data:
@@ -573,7 +606,13 @@ def update_current_user():
 
     db.session.commit()
 
-    return jsonify({'user': user.to_dict()}), 200
+    response = {'user': user.to_dict()}
+    if 'password' in data:
+        # Keep this freshly authenticated browser signed in; every prior
+        # access/refresh token (including its old pair) has been revoked.
+        access_token, refresh_token = issue_session_tokens(user.id)
+        response.update(access_token=access_token, refresh_token=refresh_token)
+    return jsonify(response), 200
 
 
 # ==========================================
@@ -668,8 +707,7 @@ def passkey_authenticate():
     AuditService.log_login(user.id, success=True, details={'method': 'passkey'})
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token, refresh_token = issue_session_tokens(user.id)
 
     return jsonify({
         'user': user.to_dict(),

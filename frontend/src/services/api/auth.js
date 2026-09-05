@@ -10,7 +10,9 @@ export async function login(email, password) {
         method: 'POST',
         body: { email, password },
     });
-    this.setTokens(data.access_token, data.refresh_token);
+    if (data.access_token) {
+        this.setTokens(data.access_token, data.refresh_token);
+    }
     return data;
 }
 
@@ -37,7 +39,11 @@ export async function completeOnboarding(useCases, installedExtensions = [], sec
 }
 
 export async function logout() {
-    this.clearTokens();
+    try {
+        await this.request('/auth/logout', { method: 'POST' });
+    } finally {
+        this.clearTokens();
+    }
 }
 
 export async function getCurrentUser() {
@@ -45,10 +51,14 @@ export async function getCurrentUser() {
 }
 
 export async function updateCurrentUser(data) {
-    return this.request('/auth/me', {
+    const response = await this.request('/auth/me', {
         method: 'PUT',
         body: data
     });
+    if (response.access_token) {
+        this.setTokens(response.access_token, response.refresh_token);
+    }
+    return response;
 }
 
 // One-time login links
@@ -72,7 +82,9 @@ export async function redeemLoginLink(token) {
         method: 'POST',
         body: { token },
     });
-    this.setTokens(data.access_token, data.refresh_token);
+    if (data.access_token) {
+        this.setTokens(data.access_token, data.refresh_token);
+    }
     return data;
 }
 

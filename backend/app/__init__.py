@@ -20,6 +20,26 @@ migrate = Migrate()
 @jwt.user_identity_loader
 def _user_identity(user_id):
     return str(user_id)
+
+
+@jwt.additional_claims_loader
+def _session_claims(user_id):
+    import time
+    import secrets
+    from app.models import User
+    user = db.session.get(User, user_id)
+    session_id = secrets.token_hex(16)
+    return {'auth_version': user.auth_version if user else None,
+            'session_id': session_id,
+            'auth_time': int(time.time())}
+
+
+@jwt.token_in_blocklist_loader
+def _session_revoked(_header, claims):
+    from app.middleware.session_auth import validate_session_claims
+    return validate_session_claims(claims, token_type=claims.get('type')) is None
+
+
 limiter = Limiter(key_func=get_remote_address, default_limits=["100 per minute"])
 # Note: key_func is updated to get_rate_limit_key after app init
 socketio = None
@@ -451,25 +471,9 @@ def create_app(config_name=None):
     # Request body size limit
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB limit
 
-    # Reject 2FA pending tokens on non-2FA endpoints
-    @app.before_request
-    def check_2fa_pending():
-        """Reject 2FA pending tokens on non-2FA endpoints."""
-        from flask_jwt_extended import verify_jwt_in_request, get_jwt
-        if request.endpoint and request.path.startswith('/api/'):
-            # Allow 2FA verification endpoints
-            if '/two-factor/verify' in request.path or '/two-factor/verify-backup' in request.path:
-                return
-            # Allow auth endpoints (login, refresh)
-            if '/auth/login' in request.path or '/auth/refresh' in request.path:
-                return
-            try:
-                verify_jwt_in_request()
-                claims = get_jwt()
-                if claims.get('2fa_pending'):
-                    return jsonify({'error': '2FA verification required'}), 403
-            except Exception:
-                pass  # Let @jwt_required handle actual auth errors
+    # JWTManager's blocklist callback enforces session validity for every JWT
+    # route. MFA verification alone decodes its body token explicitly, so no
+    # path-prefix exceptions can turn a pending token into a full session.
 
     # Serve frontend for root path
     @app.route('/')

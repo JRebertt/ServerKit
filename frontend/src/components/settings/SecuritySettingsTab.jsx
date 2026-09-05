@@ -176,7 +176,10 @@ const SecuritySettingsTab = () => {
         setLoading(true);
 
         try {
-            await updateUser({ password: formData.newPassword });
+            await updateUser({
+                password: formData.newPassword,
+                current_password: formData.currentPassword,
+            });
             setMessage({ type: 'success', text: 'Password changed successfully' });
             setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         } catch (err) {

@@ -2,6 +2,7 @@
 # FKs (the alternative is an IntegrityError on every parent hard-delete).
 from app.models import _delete_cascade_policy  # noqa: F401
 from app.models.user import User
+from app.models.revoked_session import RevokedSession
 from app.models.application import Application
 from app.models.domain import Domain
 from app.models.env_variable import EnvironmentVariable, EnvironmentVariableHistory

@@ -8,10 +8,15 @@ from typing import Dict, List, Optional
 
 from webauthn import generate_registration_options, verify_registration_response
 from webauthn import generate_authentication_options, verify_authentication_response
+from webauthn import options_to_json
 from webauthn.helpers.structs import (
-    RegistrationResult,
-    AuthenticationResult,
+    AttestationConveyancePreference,
+    AuthenticatorAttachment,
+    AuthenticatorSelectionCriteria,
+    AuthenticatorTransport,
     PublicKeyCredentialDescriptor,
+    ResidentKeyRequirement,
+    UserVerificationRequirement,
 )
 from webauthn.helpers.exceptions import InvalidRegistrationResponse, InvalidAuthenticationResponse
 
@@ -100,15 +105,15 @@ class PasskeyService:
             user_display_name=user.username or user.email,
             challenge=os.urandom(32),
             timeout=60000,
-            attestation='none',
-            authenticator_selection={
-                'resident_key': 'preferred',
-                'user_verification': 'preferred',
-                'authenticator_attachment': 'platform',
-            },
+            attestation=AttestationConveyancePreference.NONE,
+            authenticator_selection=AuthenticatorSelectionCriteria(
+                resident_key=ResidentKeyRequirement.PREFERRED,
+                user_verification=UserVerificationRequirement.REQUIRED,
+                authenticator_attachment=AuthenticatorAttachment.PLATFORM,
+            ),
         )
         cls._set_challenge(user.id, 'register', options.challenge)
-        return json.loads(options.json())
+        return json.loads(options_to_json(options))
 
     @classmethod
     def verify_registration(cls, user: User, credential: Dict, device_name: str = '') -> Dict:
@@ -118,11 +123,12 @@ class PasskeyService:
             return {'success': False, 'error': 'Registration challenge expired or missing'}
 
         try:
-            result: RegistrationResult = verify_registration_response(
+            result = verify_registration_response(
                 credential=credential,
                 expected_challenge=challenge,
                 expected_rp_id=_get_rp_id(),
                 expected_origin=_get_origin(),
+                require_user_verification=True,
             )
         except InvalidRegistrationResponse as e:
             return {'success': False, 'error': str(e)}
@@ -139,8 +145,9 @@ class PasskeyService:
             sign_count=result.sign_count,
             device_name=device_name or 'Passkey',
         )
-        if credential.get('transports'):
-            passkey.set_transports(credential['transports'])
+        transports = credential.get('transports') or credential.get('response', {}).get('transports')
+        if transports:
+            passkey.set_transports(transports)
 
         db.session.add(passkey)
         db.session.commit()
@@ -154,7 +161,11 @@ class PasskeyService:
         if user:
             creds = PasskeyCredential.query.filter_by(user_id=user.id, is_active=True).all()
             allow_credentials = [
-                PublicKeyCredentialDescriptor(id=_b64decode_url(c.credential_id), transports=c.get_transports())
+                PublicKeyCredentialDescriptor(
+                    id=_b64decode_url(c.credential_id),
+                    transports=[AuthenticatorTransport(t) for t in c.get_transports()
+                                if t in {item.value for item in AuthenticatorTransport}],
+                )
                 for c in creds
             ]
 
@@ -163,12 +174,12 @@ class PasskeyService:
             challenge=os.urandom(32),
             timeout=60000,
             allow_credentials=allow_credentials,
-            user_verification='preferred',
+            user_verification=UserVerificationRequirement.REQUIRED,
         )
         # Store challenge globally or per-user. We store per-user if known.
         challenge_user_id = user.id if user else 0
         cls._set_challenge(challenge_user_id, 'auth', options.challenge)
-        return json.loads(options.json())
+        return json.loads(options_to_json(options))
 
     @classmethod
     def verify_authentication(cls, credential: Dict, user: Optional[User] = None) -> Dict:
@@ -183,17 +194,18 @@ class PasskeyService:
             return {'success': False, 'error': 'Missing credential id'}
 
         passkey = PasskeyCredential.query.filter_by(credential_id=credential_id_b64, is_active=True).first()
-        if not passkey:
+        if not passkey or (user is not None and passkey.user_id != user.id):
             return {'success': False, 'error': 'Unknown passkey'}
 
         try:
-            result: AuthenticationResult = verify_authentication_response(
+            result = verify_authentication_response(
                 credential=credential,
                 expected_challenge=challenge,
                 expected_rp_id=_get_rp_id(),
                 expected_origin=_get_origin(),
                 credential_public_key=_b64decode_url(passkey.public_key),
                 credential_current_sign_count=passkey.sign_count,
+                require_user_verification=True,
             )
         except InvalidAuthenticationResponse as e:
             return {'success': False, 'error': str(e)}

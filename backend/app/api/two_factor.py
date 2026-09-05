@@ -8,6 +8,7 @@ import logging
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import limiter
+from app.middleware.session_auth import issue_session_tokens
 from app.models import User
 from app.services.totp_service import TOTPService, TwoFactorSetup
 from app.services import auth_throttle_service
@@ -171,7 +172,7 @@ def verify_2fa_code():
     This endpoint is used when login returns requires_2fa=true.
     Expects a temporary token from the login response.
     """
-    from flask_jwt_extended import create_access_token, create_refresh_token, decode_token
+    from flask_jwt_extended import decode_token
     from app import db
 
     # Per-IP brute-force throttle — 2FA codes are a small keyspace, so guessing
@@ -205,9 +206,10 @@ def verify_2fa_code():
     except Exception as e:
         return jsonify({'error': 'Invalid or expired token'}), 401
 
-    user = User.query.get(user_id)
+    from app.middleware.session_auth import validate_session_claims
+    user = validate_session_claims(token_data, allow_pending=True)
     if not user:
-        return jsonify({'error': 'User not found'}), 404
+        return jsonify({'error': 'Invalid or expired token'}), 401
 
     if not user.totp_enabled:
         return jsonify({'error': '2FA is not enabled for this account'}), 400
@@ -219,8 +221,7 @@ def verify_2fa_code():
         user.reset_failed_login()
         db.session.commit()
 
-        access_token = create_access_token(identity=user.id)
-        refresh_token = create_refresh_token(identity=user.id)
+        access_token, refresh_token = issue_session_tokens(user.id)
 
         return jsonify({
             'user': user.to_dict(),
@@ -239,8 +240,7 @@ def verify_2fa_code():
         user.reset_failed_login()
         db.session.commit()
 
-        access_token = create_access_token(identity=user.id)
-        refresh_token = create_refresh_token(identity=user.id)
+        access_token, refresh_token = issue_session_tokens(user.id)
 
         # Warn about remaining backup codes
         remaining = len(user.get_backup_codes())

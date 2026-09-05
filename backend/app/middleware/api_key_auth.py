@@ -8,6 +8,10 @@ def register_api_key_auth(app):
     @app.before_request
     def authenticate_api_key():
         """Check for X-API-Key header and validate."""
+        # Keep credentials request-local even when an embedding application
+        # deliberately keeps its Flask application context across requests.
+        g.pop('api_key', None)
+        g.pop('api_key_user', None)
         api_key_header = request.headers.get('X-API-Key')
 
         if not api_key_header:
@@ -18,6 +22,11 @@ def register_api_key_auth(app):
 
         if not api_key:
             return jsonify({'error': 'Invalid or expired API key'}), 401
+
+        from app.middleware.api_scope_middleware import enforce_request_scope
+        denied = enforce_request_scope(api_key)
+        if denied is not None:
+            return denied
 
         # Record usage against the trusted client IP (see app.utils.client_ip).
         from app.utils.client_ip import get_client_ip

@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 from app.models.json_column_mixin import JsonColumnMixin
 import json
+import secrets
 
 
 class User(JsonColumnMixin, db.Model):
@@ -23,6 +24,8 @@ class User(JsonColumnMixin, db.Model):
     role = db.Column(db.String(20), default='developer')  # 'admin', 'developer', 'viewer'
     permissions = db.Column(db.Text, nullable=True)  # JSON per-feature read/write flags
     is_active = db.Column(db.Boolean, default=True)
+    auth_version = db.Column(db.String(32), nullable=False,
+                             default=lambda: secrets.token_hex(16), server_default='0')
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = db.Column(db.DateTime, nullable=True)
@@ -134,6 +137,22 @@ class User(JsonColumnMixin, db.Model):
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
+        self.revoke_sessions()
+
+    @validates('is_active')
+    def _invalidate_disabled_sessions(self, key, active):
+        if not active:
+            self.revoke_sessions()
+        return active
+
+    def revoke_sessions(self):
+        """Invalidate access/refresh/MFA tokens and unused login links."""
+        self.auth_version = secrets.token_hex(16)
+        if self.id is not None:
+            from app.models.login_link import LoginLink
+            LoginLink.query.filter(
+                (LoginLink.user_id == self.id) | (LoginLink.created_by_id == self.id)
+            ).delete(synchronize_session=False)
 
     def check_password(self, password):
         if not self.password_hash:

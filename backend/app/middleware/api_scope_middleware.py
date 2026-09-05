@@ -13,7 +13,7 @@ shared between the web UI (JWT) and programmatic clients (API keys).
 """
 from functools import wraps
 
-from flask import g, jsonify
+from flask import current_app, g, jsonify, request
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +78,26 @@ SCOPES = [
 SCOPE_KEYS = {entry['key'] for entry in SCOPES}
 
 
+def enforce_request_scope(api_key):
+    """Fail closed for restricted keys when a route has no scope policy.
+
+    Role checks alone cannot constrain an administrator-owned read-only key.
+    Legacy empty scope lists, like '*', retain their existing full-access
+    meaning; both still pass through the route's authentication/RBAC policy.
+    """
+    assigned = api_key.get_scopes()
+    if not assigned or FULL_ACCESS_SCOPE in assigned:
+        return None
+    view = current_app.view_functions.get(request.endpoint)
+    required = getattr(view, '_sk_api_scopes', ()) if view else ()
+    if not required:
+        return jsonify({'error': 'This endpoint does not allow restricted API keys'}), 403
+    for scope in required:
+        if not api_key.has_scope(scope):
+            return jsonify({'error': f'Insufficient API key scope: {scope}'}), 403
+    return None
+
+
 def require_scope(*scopes):
     """Enforce that an API-key request carries ALL of ``scopes``.
 
@@ -113,5 +133,9 @@ def require_scope(*scopes):
                         }), 403
             # JWT/session requests pass through (governed by RBAC).
             return fn(*args, **kwargs)
+        # functools.wraps preserves this metadata through outer RBAC wrappers.
+        # Merge nested declarations: a later decorator may only add constraints.
+        wrapper._sk_api_scopes = tuple(dict.fromkeys(
+            (*getattr(fn, '_sk_api_scopes', ()), *scopes)))
         return wrapper
     return decorator

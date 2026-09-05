@@ -1,8 +1,8 @@
 """SSO / OAuth API blueprint."""
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, session
 from flask_jwt_extended import (
-    create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+    create_access_token, jwt_required, get_jwt_identity
 )
 from app import db
 from app.models import AuditLog
@@ -11,6 +11,7 @@ from app.services import sso_service
 from app.services.settings_service import SettingsService
 from app.services.audit_service import AuditService
 from app.middleware.rbac import admin_required, get_current_user
+from app.middleware.session_auth import issue_session_tokens
 from app.error_reporting import record_unexpected, unexpected_response
 
 sso_bp = Blueprint('sso', __name__)
@@ -290,7 +291,7 @@ def _complete_sso_login(user, provider, is_new):
         temp_token = create_access_token(
             identity=user.id,
             additional_claims={'2fa_pending': True},
-            expires_delta=False,
+            expires_delta=timedelta(minutes=5),
         )
         return jsonify({
             'requires_2fa': True,
@@ -305,8 +306,7 @@ def _complete_sso_login(user, provider, is_new):
     AuditService.log_login(user.id, success=True, details={'provider': provider, 'is_new': is_new})
     db.session.commit()
 
-    access_token = create_access_token(identity=user.id)
-    refresh_token = create_refresh_token(identity=user.id)
+    access_token, refresh_token = issue_session_tokens(user.id)
 
     return jsonify({
         'user': user.to_dict(),

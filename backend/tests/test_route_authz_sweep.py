@@ -202,6 +202,9 @@ VIEWER_WRITABLE = {
     # SELF — the viewer acts only on their own account/data.
     'ai.create_conversation',
     'auth.update_current_user',
+    # Registration options bind exclusively to get_jwt_identity(); a viewer
+    # may enroll their own passkey, never nominate another account in JSON.
+    'auth.passkey_register_options',
     'notifications.mark_inbox_all_read',
     'notifications.test_user_notification',
     'notifications.unmute_own_email',
@@ -218,13 +221,44 @@ VIEWER_WRITABLE = {
     'docker.get_containers_stats',
     # PUBLIC transport — agent long-poll fallback; user JWT is ignored here.
     'agent_poll.disconnect',
+    # PUBLIC authentication challenge only; credential verification and UV are
+    # required by passkey_authenticate before any session tokens are issued.
+    'auth.passkey_auth_options',
 }
+
+
+def test_passkey_enrollment_options_are_self_scoped(client, db_session):
+    from app.services.passkey_service import PasskeyService, _b64decode_url
+    viewer = make_user(db_session, role='viewer')
+    foreign = make_user(db_session, role='admin')
+    assert client.post('/api/v1/auth/passkeys/options/register', json={}).status_code == 401
+    response = client.post('/api/v1/auth/passkeys/options/register',
+                           headers=headers_for(viewer), json={'user_id': foreign.id})
+    assert response.status_code == 200
+    assert _b64decode_url(response.json['user']['id']) == str(viewer.id).encode()
+    assert PasskeyService._get_challenge(viewer.id, 'register') is not None
+    assert PasskeyService._get_challenge(foreign.id, 'register') is None
+
+
+def test_public_passkey_options_issue_only_a_challenge(client, db_session):
+    from app.models import PasskeyCredential
+    viewer = make_user(db_session, role='viewer')
+    response = client.post('/api/v1/auth/passkeys/options/authenticate',
+                           json={'user_id': viewer.id})
+    assert response.status_code == 200
+    assert response.json['challenge']
+    assert response.json['userVerification'] == 'required'
+    assert 'access_token' not in response.json and 'refresh_token' not in response.json
+    assert PasskeyCredential.query.count() == 0
 
 # Endpoints skipped by the live-fire net because firing them reaches out to the
 # network / external providers (slow, flaky in CI). Their gating is asserted by
 # dedicated per-feature tests, not here.
 _SKIP_ENDPOINTS = {
     'servers.check_agent_version',
+    # Revokes the sweep's shared viewer token, masking later missing gates.
+    # Covered with real viewer sessions in test_session_security.py instead.
+    'auth.logout',
 }
 
 
