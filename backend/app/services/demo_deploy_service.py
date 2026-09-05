@@ -83,6 +83,63 @@ def _success_steps():
     ]
 
 
+def _repo_steps(params=None):
+    """A repo (Dockerfile) deploy for a *named* service — the same six phases a
+    real template/repo install walks, but with the app's own name, repository,
+    port and health path in every line. Used for demos and walkthrough
+    recordings, where a generic "demo-app" would read as fake."""
+    p = params or {}
+    name = p.get('app_name') or 'my-app'
+    repo = p.get('repo_url') or 'https://github.com/example/my-app.git'
+    branch = p.get('branch') or 'main'
+    port = int(p.get('port') or 3000)
+    health = p.get('health_path') or '/health'
+    dockerfile = p.get('dockerfile') or 'Dockerfile'
+    image = f'{name}:{branch}'
+    return [
+        _step('Fetch source', [
+            ('info', f'Cloning {repo} (branch {branch})'),
+            ('info', 'Resolving HEAD -> 4f8c2e1'),
+            ('debug', 'Checked out 4f8c2e1 (shallow, depth 1)'),
+            ('info', f'Found {dockerfile} and serverkit.yaml'),
+        ]),
+        _step('Validate configuration', [
+            ('info', f'Manifest OK - service {name}, port {port}, health {health}'),
+            ('info', f'Checking port availability for {port}'),
+            ('info', f'Port {port} is free'),
+        ]),
+        _step('Build image', [
+            ('info', f'Building {image} from {dockerfile}'),
+            ('info', 'Step 1/7 : FROM python:3.12-slim'),
+            ('info', 'Step 2/7 : WORKDIR /app'),
+            ('info', 'Step 3/7 : COPY requirements.txt .'),
+            ('info', 'Step 4/7 : RUN pip install --no-cache-dir -r requirements.txt'),
+            ('info', 'Successfully installed 41 packages'),
+            ('info', 'Step 5/7 : COPY . .'),
+            ('info', f'Step 6/7 : EXPOSE {port}'),
+            ('info', 'Step 7/7 : CMD ["python", "app.py"]'),
+            ('info', f'Successfully built {image}'),
+        ]),
+        _step('Configure routing', [
+            ('info', f'Writing vhost configuration for {name}'),
+            ('info', 'Testing web server configuration'),
+            ('info', 'Configuration test passed'),
+            ('info', 'Web server reloaded'),
+        ]),
+        _step('Start container', [
+            ('info', f'Creating network {name}_default'),
+            ('info', f'Creating container {name}-web-1'),
+            ('info', f'Container {name}-web-1 started on port {port}'),
+        ]),
+        _step('Health check', [
+            ('info', f'Waiting for http://127.0.0.1:{port}{health}'),
+            ('debug', 'Attempt 1: 503 (still starting)'),
+            ('info', 'Attempt 2: 200 OK'),
+            ('info', 'Service is healthy'),
+        ]),
+    ]
+
+
 def _fail_build_steps():
     return [
         _step('Validate configuration', [
@@ -165,6 +222,13 @@ SCENARIOS = {
         'build': _success_steps,
         'result': {'auto_domain': {'success': True, 'url': 'http://demo-app.lvh.me', 'demo': True}},
     },
+    'repo': {
+        'name': 'Repo deploy (named service)',
+        'description': 'Clone, build, route, start, health-check a named service — pass params '
+                       '{app_name, repo_url, branch, port, health_path, dockerfile, url}.',
+        'build': _repo_steps,
+        'takes_params': True,
+    },
     'fail-build': {
         'name': 'Failing build',
         'description': 'Fails mid-build with a realistic tail — exercises the error card, hint, and retry.',
@@ -200,9 +264,16 @@ class DemoDeployService:
             for key, spec in SCENARIOS.items()
         ]
 
+    @staticmethod
+    def _build_steps(spec, plan):
+        if spec.get('takes_params'):
+            return spec['build'](plan.get('params') or {})
+        return spec['build']()
+
     @classmethod
     def create(cls, scenario: str, speed: str = 'fast',
-               user_id: Optional[int] = None, wait: bool = False) -> Dict:
+               user_id: Optional[int] = None, wait: bool = False,
+               params: Optional[Dict] = None, title: Optional[str] = None) -> Dict:
         """Create a demo DeploymentJob and queue it (or run it when wait=True).
 
         Mirrors DeploymentJobService.install_template's shape so callers and
@@ -225,12 +296,17 @@ class DemoDeployService:
             trigger='demo',
             correlation_id=generate_correlation_id(),
         )
-        job.set_plan({
+        plan = {
             'demo': True,
             'scenario': scenario,
             'speed': speed,
-            'steps': [{'name': step['name']} for step in spec['build']()],
-        })
+        }
+        if spec.get('takes_params') and isinstance(params, dict):
+            plan['params'] = params
+        if title:
+            plan['title'] = str(title)[:120]  # the console shows plan.title verbatim
+        plan['steps'] = [{'name': step['name']} for step in cls._build_steps(spec, plan)]
+        job.set_plan(plan)
         db.session.add(job)
         db.session.commit()
 
@@ -267,7 +343,15 @@ class DemoDeployService:
             return cls._fail(job, stream, f'Unknown demo scenario: {scenario}')
 
         delay = SPEED_DELAYS.get(plan.get('speed') or 'fast', SPEED_DELAYS['fast'])
-        line_delay = min(0.8, delay * spec.get('line_delay_factor', 1.0))
+        factor = spec.get('line_delay_factor', 1.0)
+        if spec.get('takes_params'):
+            # `pace` lets a parameterised run stream slower/faster than the
+            # speed preset (e.g. 2.5 = ~0.75 s/line at 'realtime').
+            try:
+                factor = float((plan.get('params') or {}).get('pace') or factor)
+            except (TypeError, ValueError):
+                pass
+        line_delay = min(0.8, delay * factor)
 
         try:
             if delay and spec.get('pending_delay'):
@@ -278,7 +362,7 @@ class DemoDeployService:
             job.started_at = datetime.utcnow()
             db.session.commit()
 
-            for index, step in enumerate(spec['build'](), start=1):
+            for index, step in enumerate(cls._build_steps(spec, plan), start=1):
                 stream.set_step(index, step['name'])
                 lines = step['lines']
                 bulk = len(lines) > 200
@@ -294,8 +378,12 @@ class DemoDeployService:
             job.status = 'succeeded'
             job.completed_at = datetime.utcnow()
             job.current_step_name = None
-            job.set_result({**job.get_result(), 'demo': True, 'scenario': scenario,
-                            **spec.get('result', {})})
+            result = {**job.get_result(), 'demo': True, 'scenario': scenario,
+                      **spec.get('result', {})}
+            url = (plan.get('params') or {}).get('url') if spec.get('takes_params') else None
+            if url:
+                result['auto_domain'] = {'success': True, 'url': url, 'demo': True}
+            job.set_result(result)
             db.session.commit()
             stream.log('info', 'Simulated deployment finished — no real resources were created.')
             stream.close('succeeded')

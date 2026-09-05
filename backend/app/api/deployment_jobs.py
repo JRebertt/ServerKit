@@ -84,6 +84,8 @@ def simulate_deployment():
         speed=data.get('speed') or 'fast',
         user_id=get_jwt_identity(),
         wait=wait,
+        params=data.get('params') if isinstance(data.get('params'), dict) else None,
+        title=data.get('title'),
     )
     if not result.get('success'):
         return jsonify({'error': result.get('error')}), 400
