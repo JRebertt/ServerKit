@@ -71,7 +71,7 @@ def test_csp_allows_only_github_as_an_external_form_target(debug):
 
 @pytest.mark.parametrize('config_path', PANEL_NGINX_CONFIGS)
 def test_panel_nginx_csp_allows_github_manifest_submission(config_path):
-    config = config_path.read_text()
+    config = config_path.read_text(encoding='utf-8')
 
     assert "form-action 'self' https://github.com;" in config
     assert "form-action 'self';" not in config
