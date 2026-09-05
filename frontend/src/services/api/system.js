@@ -724,7 +724,7 @@ export async function getUptimeTrackingStatus() {
 
 // Metrics History endpoints
 export async function getMetricsHistory(period = '1h') {
-    return this.request(`/metrics/history?period=${period}`);
+    return this.request(`/system/performance-history?period=${period}`);
 }
 
 export async function getMetricsStats() {

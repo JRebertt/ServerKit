@@ -7,7 +7,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.error_reporting import unexpected_response
 from app.exceptions import ValidationError
 from app.models import User
-from app.middleware.rbac import admin_required, get_current_user
+from app.middleware.rbac import admin_required, get_current_user, viewer_required
+from app.api.metrics import metrics_history_response
 from app.services.system_service import SystemService
 from app.services.resource_tier_service import ResourceTierService
 from app.services import install_profile_service
@@ -147,6 +148,13 @@ def get_metrics():
 
     metrics = SystemService.get_all_metrics()
     return jsonify(metrics), 200
+
+
+@system_bp.route('/performance-history', methods=['GET'])
+@viewer_required
+def get_performance_history():
+    """Get local metrics history through a content-blocker-safe route."""
+    return metrics_history_response()
 
 
 @system_bp.route('/info', methods=['GET'])
