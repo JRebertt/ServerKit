@@ -7,6 +7,37 @@ function arraysEqual(a, b) {
 }
 
 /**
+ * Measure overflow items at their natural width without leaving collapsed
+ * items visible. CSS-hidden consumers (for example PageTopbar's `is-hidden`
+ * class) and inline-hidden consumers both need an explicit display override;
+ * clearing only the inline declaration does not override a stylesheet rule.
+ *
+ * DOM writes are applied before any width reads to avoid a layout flush for
+ * every item in the strip.
+ */
+export function measureNaturalWidths(items) {
+    const elements = Array.isArray(items) ? items : [];
+    const restore = [];
+
+    for (const element of elements) {
+        if (!element || getComputedStyle(element).display !== 'none') continue;
+        restore.push([element, element.style.display]);
+        element.style.display = 'inline-flex';
+    }
+
+    let widths;
+    try {
+        widths = elements.map((element) => element?.offsetWidth || 0);
+    } finally {
+        for (const [element, display] of restore) {
+            element.style.display = display;
+        }
+    }
+
+    return widths;
+}
+
+/**
  * Keep overflow state safe while a shared tab layout switches to a shorter
  * item list. Effects recompute after render, so consumers must not receive
  * indexes that were valid for the previous route but are invalid now.
@@ -62,14 +93,7 @@ export function useOverflowItems({ count, itemRefs: externalItemRefs, gap = 8, m
         if (containerWidth === 0) return;
 
         // Measure each item's natural width (briefly un-hiding collapsed ones).
-        const widths = itemRefs.current.map((el) => {
-            if (!el) return 0;
-            const wasHidden = el.style.display === 'none';
-            if (wasHidden) el.style.display = '';
-            const w = el.offsetWidth;
-            if (wasHidden) el.style.display = 'none';
-            return w;
-        });
+        const widths = measureNaturalWidths(itemRefs.current);
 
         const activeIndex = getActiveIndex();
         const actualMoreWidth = moreBtnRef.current?.offsetWidth || moreWidth;
