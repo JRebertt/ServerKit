@@ -1275,8 +1275,8 @@ $sk-tones: ('accent', 'green', 'cyan', 'amber', 'red', 'violet');
             overflow-x: auto;
             overflow-y: hidden;
             scrollbar-width: none;
-            -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
-            mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 28px), transparent 100%);
+            -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%);
+            mask-image: linear-gradient(to right, black 0, black calc(100% - 28px), transparent 100%);
 
             > *,
             > .sk-topbar__chrome > * { flex-shrink: 0; }
