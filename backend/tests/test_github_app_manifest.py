@@ -23,6 +23,10 @@ def test_build_manifest_shape_and_state(app):
         assert manifest['name'].startswith('ServerKit')
         assert manifest['url'] == 'https://panel.example'
         assert manifest['redirect_url'].endswith('/connections/github-app/callback')
+        assert manifest['hook_attributes'] == {
+            'url': 'https://panel.example/api/v1/source-connections/github/webhook',
+            'active': False,
+        }
         assert manifest['callback_urls'] == ['https://panel.example/connections/callback/github']
         assert manifest['default_permissions']['contents'] == 'read'
         assert manifest['request_oauth_on_install'] is True
@@ -35,6 +39,18 @@ def test_build_manifest_requires_urls(app):
     with app.test_request_context():
         with pytest.raises(ValueError):
             SC.build_github_app_manifest('', 'https://panel.example')
+
+
+def test_manifest_webhook_url_has_no_double_slash(app):
+    with app.test_request_context():
+        manifest, _, _ = SC.build_github_app_manifest(
+            'https://panel.example/connections/github-app/callback',
+            'https://panel.example/',
+        )
+
+        assert manifest['hook_attributes']['url'] == (
+            'https://panel.example/api/v1/source-connections/github/webhook'
+        )
 
 
 def _fake_conversion_response():

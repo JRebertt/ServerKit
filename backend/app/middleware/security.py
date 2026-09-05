@@ -34,7 +34,7 @@ def register_security_headers(app: Flask):
                 "connect-src 'self' ws: wss: http://localhost:* http://127.0.0.1:*",
                 "frame-ancestors 'none'",
                 "base-uri 'self'",
-                "form-action 'self'",
+                "form-action 'self' https://github.com",
             ]
         else:
             csp_directives = [
@@ -46,7 +46,7 @@ def register_security_headers(app: Flask):
                 "connect-src 'self' ws: wss:",
                 "frame-ancestors 'none'",
                 "base-uri 'self'",
-                "form-action 'self'",
+                "form-action 'self' https://github.com",
             ]
         response.headers['Content-Security-Policy'] = '; '.join(csp_directives)
 

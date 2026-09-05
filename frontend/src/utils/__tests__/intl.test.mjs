@@ -96,7 +96,9 @@ test('the compact style keeps its shape, and its date tail follows the locale', 
     assert.equal(formatRelativeShort(Date.now() - 2 * 86400000), '2d');
 
     // Past a week it becomes a date -- which used to be the browser's date.
-    const old = Date.now() - 60 * 86400000;
+    // Pinned rather than "60 days ago": on any day whose month equals its
+    // day-of-month (7 July) the en-US and es short dates coincide.
+    const old = new Date('2024-03-15T12:00:00Z').getTime();
     const english = formatRelativeShort(old);
     setFormatLocale('es');
     assert.notEqual(formatRelativeShort(old), english);

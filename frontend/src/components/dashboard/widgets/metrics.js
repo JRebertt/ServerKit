@@ -6,7 +6,7 @@
  * they are shaped differently, so each metric carries the candidate paths for
  * both:
  *
- *   local host   GET /api/v1/metrics/history?period=…
+ *   local host   GET /api/v1/system/performance-history?period=…
  *                → MetricsHistory.to_dict()  (backend/app/models/metrics_history.py)
  *                  { timestamp, level, cpu:{percent,min,max},
  *                    memory:{percent,used_bytes,total_bytes,…},

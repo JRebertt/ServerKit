@@ -137,31 +137,51 @@ def _panel_machine_id(fallback: str) -> str:
 def _gather_hosts() -> list:
     """One host entry (kind 'agent') per agent-backed Server this panel manages.
 
-    Server rows carry no machine_id/fingerprint for their agents, so only
-    agent_id and hostname are reported. Without a Flask app context (or with
-    the DB down) the honest answer is an empty list.
+    Each entry carries every identifier we hold for that host: the agent's own
+    id, and — from the pairing record the agent enrolled with — its machine id
+    and key fingerprint. Cloud counts a host once per organisation however many
+    panels report it, and it can only do that if it can recognise the same
+    machine twice. Reporting agent_id alone is what let one agent under two
+    panels take two slots.
+
+    Without a Flask app context (or with the DB down) the honest answer is an
+    empty list.
     """
     try:
         from flask import has_app_context
         if not has_app_context():
             return []
+        from app.models.pending_agent import PendingAgent
         from app.models.server import Server
         servers = (
             Server.query
             .filter(Server.agent_id.isnot(None))
-            .with_entities(Server.agent_id, Server.hostname, Server.name)
+            .with_entities(Server.id, Server.agent_id, Server.hostname, Server.name)
             .all()
         )
-        return [
-            {
+        if not servers:
+            return []
+        # The enrolment row is where the agent's own machine id and key
+        # fingerprint live; it is keyed by the server it was claimed onto.
+        identities = {}
+        for row in (PendingAgent.query
+                    .filter(PendingAgent.claimed_server_id.in_([s.id for s in servers]))
+                    .with_entities(PendingAgent.claimed_server_id,
+                                   PendingAgent.machine_id,
+                                   PendingAgent.pubkey_fpr)
+                    .all()):
+            identities[row.claimed_server_id] = (row.machine_id, row.pubkey_fpr)
+        out = []
+        for s in servers:
+            machine_id, fingerprint = identities.get(s.id, (None, None))
+            out.append({
                 'agent_id': s.agent_id,
-                'machine_id': None,
-                'fingerprint': None,
+                'machine_id': machine_id,
+                'fingerprint': (fingerprint or '').lower() or None,
                 'hostname': s.hostname or s.name,
                 'kind': 'agent',
-            }
-            for s in servers
-        ]
+            })
+        return out
     except Exception as exc:  # never block pairing on host enumeration
         logger.warning('Could not enumerate managed agents: %s', exc)
         return []

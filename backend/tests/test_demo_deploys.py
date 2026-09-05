@@ -32,7 +32,7 @@ class TestSimulateInfo:
         body = res.get_json()
         assert body['enabled'] is True
         ids = [s['id'] for s in body['scenarios']]
-        assert ids == ['success', 'fail-build', 'long', 'ansi', 'slow']
+        assert ids == ['success', 'repo', 'fail-build', 'long', 'ansi', 'slow']
         assert all(s['name'] and s['description'] for s in body['scenarios'])
 
     def test_gate_off_returns_404_both_verbs(self, app, client, auth_headers):
@@ -148,3 +148,44 @@ class TestLifecycle:
         result = DeploymentJobService.run_job(job_id)
         assert result['success'] is True
         assert _job(job_id).status == 'succeeded'
+
+
+class TestRepoScenario:
+    """The 'repo' scenario is parameterised so a demo reads like a real deploy."""
+
+    def test_repo_scenario_uses_params_and_title(self, client, auth_headers):
+        params = {'app_name': 'agentsite', 'repo_url': 'https://github.com/jhd3197/AgentSite.git',
+                  'branch': 'main', 'port': 6391, 'health_path': '/api/health',
+                  'url': 'https://agentsite.example.com'}
+        r = client.post('/api/v1/deployment-jobs/simulate?wait=true',
+                        json={'scenario': 'repo', 'speed': 'instant', 'params': params,
+                              'title': 'Deploying agentsite'},
+                        headers=auth_headers)
+        assert r.status_code == 202, r.get_json()
+        job = r.get_json()['job']
+        assert job['status'] == 'succeeded'
+        assert job['result']['auto_domain']['url'] == 'https://agentsite.example.com'
+        messages = [l['message'] for l in job['logs']]
+        assert any('AgentSite.git' in m for m in messages)
+        assert any('6391' in m and '/api/health' in m for m in messages)
+        detail = client.get(f"/api/v1/deployment-jobs/{job['id']}?plan=true", headers=auth_headers).get_json()['job']
+        assert detail['plan']['title'] == 'Deploying agentsite'
+        assert detail['plan']['params']['app_name'] == 'agentsite'
+
+    def test_repo_scenario_tolerates_bad_port_and_pace(self, client, auth_headers):
+        # A non-numeric port falls back to the default; a zero/negative pace is
+        # ignored rather than producing a negative line delay.
+        r = client.post('/api/v1/deployment-jobs/simulate?wait=true',
+                        json={'scenario': 'repo', 'speed': 'instant',
+                              'params': {'port': 'not-a-port', 'pace': -3}},
+                        headers=auth_headers)
+        assert r.status_code == 202, r.get_json()
+        job = r.get_json()['job']
+        assert job['status'] == 'succeeded'
+        assert any('3000' in l['message'] for l in job['logs'])
+
+    def test_repo_scenario_without_params_still_runs(self, client, auth_headers):
+        r = client.post('/api/v1/deployment-jobs/simulate?wait=true',
+                        json={'scenario': 'repo', 'speed': 'instant'}, headers=auth_headers)
+        assert r.status_code == 202
+        assert r.get_json()['job']['status'] == 'succeeded'

@@ -8,6 +8,19 @@ from app.services.metrics_history_service import MetricsHistoryService
 metrics_bp = Blueprint('metrics', __name__)
 
 
+def metrics_history_response():
+    """Return validated local metrics history for either API route."""
+    period = request.args.get('period', '1h')
+    valid_periods = ['1h', '6h', '24h', '7d', '30d']
+    if period not in valid_periods:
+        return jsonify({
+            'error': f"Invalid period. Must be one of: {', '.join(valid_periods)}"
+        }), 400
+
+    data = MetricsHistoryService.get_history(period)
+    return jsonify(data), 200
+
+
 @metrics_bp.route('/history', methods=['GET'])
 @viewer_required
 def get_metrics_history():
@@ -19,17 +32,7 @@ def get_metrics_history():
     Returns:
         JSON with time-series data points and summary statistics
     """
-    period = request.args.get('period', '1h')
-
-    # Validate period
-    valid_periods = ['1h', '6h', '24h', '7d', '30d']
-    if period not in valid_periods:
-        return jsonify({
-            'error': f"Invalid period. Must be one of: {', '.join(valid_periods)}"
-        }), 400
-
-    data = MetricsHistoryService.get_history(period)
-    return jsonify(data), 200
+    return metrics_history_response()
 
 
 @metrics_bp.route('/stats', methods=['GET'])

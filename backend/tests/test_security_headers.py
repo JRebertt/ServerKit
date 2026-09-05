@@ -1,4 +1,4 @@
-"""Proving tests — HSTS is gated on the operator's SSL choice.
+"""Proving tests for the panel's security headers.
 
 HTTPS is optional in ServerKit, so the panel must NOT advertise HSTS/preload
 (a hard-to-reverse browser commitment) unless the deployment actually
@@ -7,7 +7,19 @@ a proxy Flask can't tell real TLS from a Cloudflare-Flexible edge, so we trust
 the recorded choice rather than the request scheme.
 """
 
+from pathlib import Path
+
 import config as cfg
+import pytest
+
+
+PANEL_NGINX_CONFIGS = [
+    Path(__file__).resolve().parents[2] / 'nginx' / 'nginx.conf',
+    Path(__file__).resolve().parents[2]
+    / 'nginx'
+    / 'sites-available'
+    / 'serverkit.conf',
+]
 
 
 def _make_app(hsts_enabled, debug):
@@ -42,6 +54,27 @@ def test_hsts_absent_in_insecure_mode():
 def test_hsts_absent_in_debug_even_if_secure():
     r = _make_app(hsts_enabled=True, debug=True).test_client().get('/ping')
     assert 'Strict-Transport-Security' not in r.headers
+
+
+@pytest.mark.parametrize('debug', [False, True])
+def test_csp_allows_only_github_as_an_external_form_target(debug):
+    r = _make_app(hsts_enabled=False, debug=debug).test_client().get('/ping')
+    csp = r.headers['Content-Security-Policy']
+    form_action = next(
+        directive.strip()
+        for directive in csp.split(';')
+        if directive.strip().startswith('form-action ')
+    )
+
+    assert form_action == "form-action 'self' https://github.com"
+
+
+@pytest.mark.parametrize('config_path', PANEL_NGINX_CONFIGS)
+def test_panel_nginx_csp_allows_github_manifest_submission(config_path):
+    config = config_path.read_text(encoding='utf-8')
+
+    assert "form-action 'self' https://github.com;" in config
+    assert "form-action 'self';" not in config
 
 
 def test_resolve_ssl_mode(monkeypatch):

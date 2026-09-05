@@ -7,8 +7,8 @@
 //
 // The files live in frontend/public/fonts/ — fetch them once with:
 //     node frontend/scripts/fetch-fonts.mjs
-// (they're OFL-licensed, vendored from the @fontsource mirror). Until they
-// exist the stack falls back to system-ui, so the app never breaks.
+// They are OFL-licensed; the applicable license is vendored beside the fonts.
+// Until they exist the stack falls back to system-ui, so the app never breaks.
 //
 // IBM Plex publishes weights in steps of 100; the prototype's 450/550 requests
 // round to the nearest available face (400/500) automatically.
