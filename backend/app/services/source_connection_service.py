@@ -110,6 +110,13 @@ class SourceConnectionService:
             'name': f'ServerKit {suffix}',
             'url': base_url,
             'redirect_url': redirect_uri,
+            # GitHub requires a webhook URL when the manifest subscribes to
+            # events. Keep delivery disabled until ServerKit has an app-level
+            # receiver; deployments configure their own webhooks separately.
+            'hook_attributes': {
+                'url': f'{base_url}/api/v1/source-connections/github/webhook',
+                'active': False,
+            },
             # Where GitHub sends the user after they install the app (also the
             # user-to-server OAuth callback, so install + authorize land here).
             'callback_urls': [f'{base_url}/connections/callback/github'],
