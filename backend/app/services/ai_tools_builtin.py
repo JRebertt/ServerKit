@@ -16,12 +16,25 @@ Flask app context, so DB/service calls work normally.
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 
 from app.services.ai_tool_registry import ai_tool_registry
 
 logger = logging.getLogger(__name__)
 
 _REGISTERED = False
+tool_caller = ContextVar('ai_tool_caller', default=None)
+
+
+def _caller(*, admin=False):
+    user = tool_caller.get()
+    if user is None or not user.is_active or (admin and not user.is_admin):
+        raise PermissionError('Permission denied for this AI tool.')
+    return user
+
+
+def _summary(row, fields):
+    return {field: getattr(row, field, None) for field in fields}
 
 
 # ---------------------------------------------------------------------------
@@ -44,42 +57,54 @@ def list_docker_containers(include_stopped: bool = True) -> list:
         include_stopped: If true, include stopped containers; otherwise only running ones.
     """
     from app.services.docker_service import DockerService
-    return DockerService.list_containers(all_containers=include_stopped)
+    _caller()
+    rows = DockerService.list_containers(all_containers=include_stopped)
+    fields = ('id', 'name', 'image', 'status', 'state', 'ports', 'protected')
+    return [{key: row.get(key) for key in fields if key in row} for row in rows]
 
 
 def get_docker_info() -> dict:
     """Get Docker engine status and summary info (version, container/image counts)."""
     from app.services.docker_service import DockerService
-    return DockerService.get_docker_info()
+    _caller()
+    info = DockerService.get_docker_info() or {}
+    fields = ('ServerVersion', 'Containers', 'ContainersRunning', 'ContainersPaused',
+              'ContainersStopped', 'Images', 'NCPU', 'MemTotal', 'OperatingSystem',
+              'version', 'containers', 'images', 'running')
+    return {key: info[key] for key in fields if key in info}
 
 
-def list_applications() -> list:
+def list_applications(workspace_id: int = None) -> list:
     """List the web applications managed by this ServerKit panel.
 
     Returns:
         A list of apps with name, status, type, and port.
     """
     from app.models.application import Application
+    from app.services.workspace_service import WorkspaceService
+    user = _caller()
+    ws_id = WorkspaceService.resolve_workspace_id(user, workspace_id)
     # The assistant answers questions about what is RUNNING; a deleted app in
     # its context would be reported as though it still existed.
-    return [a.to_dict() for a in Application.query_active().all()]
+    query = WorkspaceService.scope_query(
+        Application.query_active(), Application, user, workspace_id=ws_id,
+        owner_attr='user_id', grant_resource_type='application',
+    )
+    return [_summary(a, ('id', 'name', 'status', 'app_type', 'port')) for a in query.all()]
 
 
-def list_servers() -> list:
+def list_servers(workspace_id: int = None) -> list:
     """List the servers in this ServerKit fleet (the panel host plus paired agents).
 
     Returns:
         A list of servers with name, status, and address.
     """
     from app.models.server import Server
-    out = []
-    for s in Server.query.all():
-        if hasattr(s, "to_dict"):
-            out.append(s.to_dict())
-        else:
-            out.append({"id": getattr(s, "id", None), "name": getattr(s, "name", None),
-                        "status": getattr(s, "status", None)})
-    return out
+    from app.services.workspace_service import WorkspaceService
+    user = _caller()
+    ws_id = WorkspaceService.resolve_workspace_id(user, workspace_id)
+    query = WorkspaceService.scope_query(Server.query, Server, user, workspace_id=ws_id)
+    return [_summary(s, ('id', 'name', 'status', 'hostname')) for s in query.all()]
 
 
 def list_databases() -> dict:
@@ -89,14 +114,15 @@ def list_databases() -> dict:
         A dict with the database list, or a message if MySQL is not available.
     """
     from app.services.database_service import DatabaseService
+    _caller(admin=True)
     try:
         if not DatabaseService.mysql_is_installed():
             return {"available": False, "message": "MySQL/MariaDB is not installed on this host."}
         if not DatabaseService.mysql_is_running():
             return {"available": False, "message": "MySQL/MariaDB is installed but not running."}
         return {"available": True, "databases": DatabaseService.mysql_list_databases()}
-    except Exception as exc:  # pragma: no cover - environment dependent
-        return {"available": False, "message": f"Could not list databases: {exc}"}
+    except Exception:  # pragma: no cover - environment dependent
+        return {"available": False, "message": "Could not list databases on this host."}
 
 
 # ---------------------------------------------------------------------------
@@ -109,8 +135,10 @@ def restart_docker_container(container_id: str) -> dict:
         container_id: The container id or name to restart.
     """
     from app.services.docker_service import DockerService
-    DockerService.restart_container(container_id)
-    return {"ok": True, "action": "restart", "container": container_id}
+    _caller(admin=True)
+    if DockerService.is_protected_container(container_id):
+        raise PermissionError('ServerKit system containers cannot be controlled here.')
+    return DockerService.restart_container(container_id)
 
 
 def stop_docker_container(container_id: str) -> dict:
@@ -120,8 +148,10 @@ def stop_docker_container(container_id: str) -> dict:
         container_id: The container id or name to stop.
     """
     from app.services.docker_service import DockerService
-    DockerService.stop_container(container_id)
-    return {"ok": True, "action": "stop", "container": container_id}
+    _caller(admin=True)
+    if DockerService.is_protected_container(container_id):
+        raise PermissionError('ServerKit system containers cannot be controlled here.')
+    return DockerService.stop_container(container_id)
 
 
 def register_builtin_tools() -> None:
@@ -152,16 +182,16 @@ def register_builtin_tools() -> None:
     )
     ai_tool_registry.register(
         name="list_databases", func=list_databases,
-        rbac_feature="databases", rbac_level="read",
+        rbac_feature="databases", rbac_level="read", admin_only=True,
     )
     # --- guarded write tools ---
     ai_tool_registry.register(
         name="restart_docker_container", func=restart_docker_container,
-        rbac_feature="docker", is_write=True,
+        rbac_feature="docker", is_write=True, admin_only=True,
     )
     ai_tool_registry.register(
         name="stop_docker_container", func=stop_docker_container,
-        rbac_feature="docker", is_write=True,
+        rbac_feature="docker", is_write=True, admin_only=True,
     )
 
     _REGISTERED = True

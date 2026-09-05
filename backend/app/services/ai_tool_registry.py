@@ -48,9 +48,14 @@ class ToolDescriptor:
     rbac_feature: Optional[str] = None  # e.g. 'docker'; None => any authenticated user
     rbac_level: str = "read"            # 'read' | 'write'
     is_write: bool = False              # write tools go through the confirmation handshake
+    admin_only: bool = False            # raw host operations mirror REST's admin gate
 
     def allowed_for(self, user) -> bool:
         """True if *user* may use this tool given its RBAC tagging."""
+        if user is None or not getattr(user, 'is_active', True):
+            return False
+        if self.admin_only and not getattr(user, 'is_admin', False):
+            return False
         if self.rbac_feature is None:
             return True
         try:
@@ -104,6 +109,7 @@ class AiToolRegistry:
         rbac_feature: Optional[str] = None,
         rbac_level: str = "read",
         is_write: bool = False,
+        admin_only: bool = False,
     ) -> ToolDescriptor:
         """Register a tool callable. Idempotent per qualified name (re-register overwrites)."""
         prefix = plugin_slug or CORE_PREFIX
@@ -125,6 +131,7 @@ class AiToolRegistry:
             rbac_feature=rbac_feature,
             rbac_level=("write" if is_write else rbac_level),
             is_write=is_write,
+            admin_only=admin_only,
         )
         with self._mutex:
             self._tools[qualified] = descriptor

@@ -22,6 +22,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import re
 import secrets
 import threading
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
@@ -289,8 +290,27 @@ def injection_flagged(text: str) -> bool:
         return False
     try:
         return bool(_get_injection_detector().is_injection(text))
-    except Exception:
-        return False
+    except Exception as exc:
+        raise AIProtectionError('AI injection protection is unavailable. Please try again later.') from exc
+
+
+class AIProtectionError(RuntimeError):
+    """Enabled protection failed; never send the original data as a fallback."""
+
+
+def _filter_secrets(text: str) -> str:
+    """Deterministic credential filtering, independent of optional PII detection."""
+    text = re.sub(r'-----BEGIN [^-]*PRIVATE KEY-----.*?-----END [^-]*PRIVATE KEY-----',
+                  '[redacted]', text, flags=re.DOTALL)
+    text = re.sub(r'(?i)\b(Bearer|Basic)\s+[A-Za-z0-9_./+=-]+', r'\1 [redacted]', text)
+    text = re.sub(r'(?i)([a-z][a-z0-9+.-]*://)[^\s/@:]+:[^\s/@]+@',
+                  r'\1[redacted]@', text)
+    # Handle assignments in log lines, pasted config, URLs and serialized JSON.
+    from app.utils.sensitive_data_filter import SENSITIVE_KEY_PARTS
+    parts = '|'.join(re.escape(part) for part in SENSITIVE_KEY_PARTS)
+    pattern = (r'(?i)([\w.-]*(?:' + parts + r')[\w.-]*["\x27]?\s*[:=]\s*)'
+               r'(?:"[^"\n]*"|\x27[^\x27\n]*\x27|[^\s,;&}\]]+)')
+    return re.sub(pattern, r'\1[redacted]', text)
 
 
 def _pii_enabled() -> bool:
@@ -298,21 +318,30 @@ def _pii_enabled() -> bool:
 
 
 def redact_input(text: str) -> str:
+    text = _filter_secrets(text)
     if not _pii_enabled():
         return text
     try:
         return _get_pii_redactor().redact(text).text
-    except Exception:
-        return text
+    except Exception as exc:
+        raise AIProtectionError('AI privacy protection is unavailable. Please try again later.') from exc
 
 
 def _maybe_redact_result(result: Any) -> Any:
-    if not _pii_enabled() or not isinstance(result, str):
-        return result
-    try:
-        return _get_pii_redactor().redact(result).text
-    except Exception:
-        return result
+    from app.utils.sensitive_data_filter import mask_payload
+
+    def walk(value):
+        if isinstance(value, dict):
+            return {redact_input(str(k)): walk(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [walk(item) for item in value]
+        if isinstance(value, str):
+            return redact_input(value)
+        if value is None or isinstance(value, (bool, int, float)):
+            return value
+        return redact_input(str(value))
+
+    return walk(mask_payload(result))
 
 
 # ===========================================================================
@@ -356,7 +385,7 @@ def build_system_prompt(user, mode: str, page_context: Optional[dict],
         f"\nThe operator's role is '{role}'. Do not offer or attempt actions they "
         "lack permission for; tools you cannot see are unavailable to this user."
     )
-    return "".join(parts)
+    return redact_input("".join(parts))
 
 
 # ===========================================================================
@@ -370,24 +399,70 @@ def build_tool_registry(user, mode: str, gate: Optional["ConfirmationGate"]) -> 
 
     reg = ToolRegistry()
     for d in descriptors:
-        fn = _make_write_wrapper(d, user, gate) if d.is_write else _make_read_wrapper(d, user)
+        fn = (_make_write_wrapper(d, user, gate) if d.is_write else
+              _make_read_wrapper(d, user, session_claims=getattr(gate, 'session_claims', None)))
         reg.add(ToolDefinition(name=d.qualified_name, description=d.description,
                                parameters=d.parameters, function=fn))
     return reg
 
 
-def _make_read_wrapper(descriptor, user) -> Callable[..., Any]:
+def _caller_validator(user, claims=None):
+    """Capture authentication before a long model/confirmation wait."""
+    from flask import has_request_context
+    from flask_jwt_extended import get_jwt
+    uid = getattr(user, 'id', None)
+    version = getattr(user, 'auth_version', None)
+    if claims is None and has_request_context():
+        try:
+            claims = get_jwt()
+        except RuntimeError:
+            claims = None  # In-process plugin callers may have no JWT.
+
+    def validate():
+        if claims:
+            from app.middleware.session_auth import validate_session_claims
+            return validate_session_claims(claims)
+        from app.models.user import User
+        fresh = db.session.get(User, uid, populate_existing=True) if uid is not None else None
+        if fresh is None or not fresh.is_active or getattr(fresh, 'auth_version', None) != version:
+            return None
+        return fresh
+    return validate
+
+
+def _invoke_tool(descriptor, user, kwargs):
+    from app.services.ai_tools_builtin import tool_caller
+    token = tool_caller.set(user)
+    try:
+        return descriptor.func(**kwargs)
+    finally:
+        tool_caller.reset(token)
+
+
+def _make_read_wrapper(descriptor, user, session_claims=None) -> Callable[..., Any]:
+    validate = _caller_validator(user, session_claims)
     def wrapper(**kwargs):
-        if not descriptor.allowed_for(user):
+        caller = validate()
+        if caller is None or not descriptor.allowed_for(caller):
             return f"Permission denied: you lack {descriptor.rbac_feature} {descriptor.rbac_level} access."
-        result = descriptor.func(**kwargs)
-        return _maybe_redact_result(result)
+        try:
+            result = _invoke_tool(descriptor, caller, kwargs)
+            return _maybe_redact_result(result)
+        except AIProtectionError:
+            raise
+        except Exception:
+            # Provider SDKs commonly turn exception text into tool output.
+            # Service exception messages can contain credentials/connection URLs.
+            logger.warning('AI read tool %s failed', descriptor.qualified_name)
+            return 'The tool failed to retrieve data.'
     return wrapper
 
 
 def _make_write_wrapper(descriptor, user, gate: Optional["ConfirmationGate"]) -> Callable[..., Any]:
+    validate = _caller_validator(user, getattr(gate, 'session_claims', None))
     def wrapper(**kwargs):
-        if not descriptor.allowed_for(user):
+        caller = validate()
+        if caller is None or not descriptor.allowed_for(caller):
             return f"Permission denied: you lack {descriptor.rbac_feature} write access."
         if gate is None:
             return ("This is a state-changing action and needs explicit confirmation. "
@@ -395,15 +470,25 @@ def _make_write_wrapper(descriptor, user, gate: Optional["ConfirmationGate"]) ->
         decision, token = gate.request_confirmation(descriptor, kwargs)
         if decision != "approve":
             return f"The user declined to run '{descriptor.name}'."
+        caller = validate()
+        if gate.is_cancelled() or caller is None or not descriptor.allowed_for(caller):
+            gate.mark_failed(token, 'Authorization changed or the stream was cancelled.')
+            return 'Permission denied: authorization changed or the stream was cancelled.'
         try:
-            result = descriptor.func(**kwargs)
+            result = _maybe_redact_result(_invoke_tool(descriptor, caller, kwargs))
+            if isinstance(result, dict) and (result.get('success') is False or result.get('ok') is False):
+                gate.mark_failed(token, 'The service reported that the action failed.')
+                _audit_tool_execute(descriptor, kwargs, caller, ok=False, error='Service action failed')
+                return result
             gate.mark_executed(token, result)
             _audit_tool_execute(descriptor, kwargs, user, ok=True)
             return result
         except Exception as exc:
-            gate.mark_failed(token, str(exc))
-            _audit_tool_execute(descriptor, kwargs, user, ok=False, error=str(exc))
-            return f"Action '{descriptor.name}' failed: {exc}"
+            error = ('AI privacy protection failed after execution; the action may have completed.'
+                     if isinstance(exc, AIProtectionError) else 'The action failed.')
+            gate.mark_failed(token, error)
+            _audit_tool_execute(descriptor, kwargs, caller, ok=False, error=error)
+            return error
     return wrapper
 
 
@@ -444,7 +529,7 @@ def build_conversation(row, user, mode: str, page_context: Optional[dict],
     )
     export = row.export
     if export:
-        conv = Conversation.from_export(export, tools=registry)
+        conv = Conversation.from_export(_maybe_redact_result(export), tools=registry)
         conv.system_prompt = system  # refresh page context each turn
         return conv
     return Conversation(
@@ -558,10 +643,14 @@ class ConfirmationGate:
         self._ttl = ttl_seconds
         self._pending: dict[str, dict] = {}
         self._lock = threading.Lock()
+        self.session_claims = None
 
     def request_confirmation(self, descriptor, params: dict) -> tuple[str, str]:
         """Block until the user approves/denies. Returns ('approve'|'deny', token)."""
         from app.models.ai import AiPendingAction
+
+        if self._cancel.is_set():
+            return 'deny', ''
 
         token = secrets.token_urlsafe(16)
         summary = summarize_action(descriptor, params)
@@ -578,6 +667,7 @@ class ConfirmationGate:
         except Exception:
             db.session.rollback()
             logger.warning("Failed to persist pending action", exc_info=True)
+            return 'deny', token
 
         ev = threading.Event()
         with self._lock:
@@ -615,6 +705,9 @@ class ConfirmationGate:
     def has_pending(self) -> bool:
         with self._lock:
             return bool(self._pending)
+
+    def is_cancelled(self) -> bool:
+        return self._cancel.is_set()
 
     def cancel_all(self) -> None:
         """Deny and unblock every confirmation when a stream disconnects."""
@@ -657,9 +750,10 @@ def register_gate(conversation_id: str, gate: ConfirmationGate) -> None:
         _active_gates[conversation_id] = gate
 
 
-def unregister_gate(conversation_id: str) -> None:
+def unregister_gate(conversation_id: str, gate: Optional[ConfirmationGate] = None) -> None:
     with _gates_lock:
-        _active_gates.pop(conversation_id, None)
+        if gate is None or _active_gates.get(conversation_id) is gate:
+            _active_gates.pop(conversation_id, None)
 
 
 def resolve_pending(conversation_id: str, token: str, decision: str) -> bool:
