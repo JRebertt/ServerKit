@@ -1,0 +1,23 @@
+{
+  "bandit_version": "1.9.3",
+  "exceptions": [
+    {
+      "path": "builtin-extensions/serverkit-ftp/backend/ftp_service.py",
+      "test_id": "B402",
+      "function": "FTPService.test_connection",
+      "sha256": "77ea0cc9afcb77e596beea5a8d9fc63786807bcb9a190f4d0dc8070bdb5195ba",
+      "count": 1,
+      "reviewed_on": "2026-09-05",
+      "reason": "Existing FTP-management compatibility probe: admin-only POST /api/v1/ftp/test explicitly authenticates to an operator-selected legacy FTP server. FTP credentials are unencrypted; this remains a known protocol limitation, not a safe general-purpose transport. Acceptance is limited to this unchanged function; migrate the probe to explicit FTPS/SFTP support before retiring it."
+    },
+    {
+      "path": "builtin-extensions/serverkit-ftp/backend/ftp_service.py",
+      "test_id": "B321",
+      "function": "FTPService.test_connection",
+      "sha256": "77ea0cc9afcb77e596beea5a8d9fc63786807bcb9a190f4d0dc8070bdb5195ba",
+      "count": 1,
+      "reviewed_on": "2026-09-05",
+      "reason": "Existing FTP-management compatibility probe: admin-only POST /api/v1/ftp/test explicitly authenticates to an operator-selected legacy FTP server. FTP credentials are unencrypted; this remains a known protocol limitation, not a safe general-purpose transport. Acceptance is limited to this unchanged function; migrate the probe to explicit FTPS/SFTP support before retiring it."
+    }
+  ]
+}

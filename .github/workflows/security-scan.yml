@@ -5,12 +5,28 @@ on:
     branches: [dev]
     paths:
       - 'backend/**'
+      - 'builtin-extensions/**'
+      - '**/requirements*.txt'
+      - 'frontend/package*.json'
+      - 'scripts/check-bandit-report.py'
+      - 'scripts/security/**'
       - '.github/workflows/security-scan.yml'
   pull_request:
     branches: [main]
     paths:
       - 'backend/**'
+      - 'builtin-extensions/**'
+      - '**/requirements*.txt'
+      - 'frontend/package*.json'
+      - 'scripts/check-bandit-report.py'
+      - 'scripts/security/**'
       - '.github/workflows/security-scan.yml'
+  schedule:
+    - cron: '17 9 * * 1' # Weekly; advisories change even without repository changes.
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   # ──────────────────────────────────────────────────────────────────
@@ -28,30 +44,21 @@ jobs:
           python-version: '3.11'
 
       - name: Install Bandit
-        run: pip install bandit
+        run: pip install bandit==1.9.3
 
       - name: Run Bandit scan
-        working-directory: backend
         run: |
-          echo "## Full report (MEDIUM+ severity, MEDIUM+ confidence)"
-          echo ""
-          bandit -r app/ \
-            --severity-level medium \
-            --confidence-level medium \
-            -f txt \
-            --exit-zero
-          echo ""
-          echo "---"
-          echo ""
-          echo "## Strict gate (HIGH severity, HIGH confidence, new issues only)"
-          echo "Known accepts: B602 (shell=True for build/deploy scripts),"
-          echo "  B402/B321 (FTP management feature), B202 (tarfile for backups)"
-          echo ""
-          bandit -r app/ \
-            --severity-level high \
-            --confidence-level high \
-            --skip B602,B402,B321,B202 \
-            -f txt
+          python -m unittest discover -s scripts/security -p 'test_*.py'
+          bandit -r backend/app builtin-extensions -f json -o bandit-report.json --exit-zero
+          python scripts/check-bandit-report.py bandit-report.json
+
+      - name: Upload full Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          if-no-files-found: warn
 
   # ──────────────────────────────────────────────────────────────────
   # Job 2: pip-audit — dependency vulnerability scanning (the gate)
@@ -86,6 +93,28 @@ jobs:
 
       - name: Audit test-harness requirements
         run: pip-audit -r scripts/test/harness/requirements.txt --progress-spinner off
+
+      - name: Audit extension requirements
+        shell: bash
+        run: |
+          while IFS= read -r -d '' requirements; do
+            pip-audit -r "$requirements" --progress-spinner off
+          done < <(find builtin-extensions -type f -name 'requirements*.txt' -print0)
+
+  npm-audit:
+    name: Frontend Production Dependency Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Audit production dependency lockfile
+        working-directory: frontend
+        # No installation or package scripts are needed to audit the lockfile.
+        run: npm audit --package-lock-only --omit=dev --audit-level=high
 
   # ──────────────────────────────────────────────────────────────────
   # Job 3: Safety — advisory only
