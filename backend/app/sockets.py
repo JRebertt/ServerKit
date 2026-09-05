@@ -1,9 +1,10 @@
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from flask_jwt_extended import decode_token
-from flask import request, current_app
+from flask import request, current_app, has_app_context
 import threading
 import time
 import queue
+import re
 
 from app.services.system_service import SystemService
 from app.services.log_service import LogService, LogStreamer
@@ -11,7 +12,26 @@ from app.services.docker_service import DockerService
 from app import sockets_rooms as rooms
 from app.utils.background_loop import BackgroundLoop
 
-socketio = SocketIO()
+
+class AuthorizedSocketIO(SocketIO):
+    """Recheck audience authorization before every server-side delivery.
+
+    Background producers also use this instance, so a disabled user or a
+    removed grant cannot retain access simply by leaving their socket open.
+    """
+    def emit(self, event, *args, **kwargs):
+        if kwargs.get('namespace', '/') in (None, '/') and self.server is not None:
+            application = getattr(self, '_security_app', None)
+            if application is not None:
+                if has_app_context():
+                    _prune_audience(kwargs.get('to', kwargs.get('room')))
+                else:
+                    with application.app_context():
+                        _prune_audience(kwargs.get('to', kwargs.get('room')))
+        return super().emit(event, *args, **kwargs)
+
+
+socketio = AuthorizedSocketIO()
 log_streamer = LogStreamer()
 
 # Store active metric subscriptions
@@ -30,7 +50,7 @@ container_log_streams = {}  # sid -> {'process': Popen, 'app_id': int, 'thread':
 # what role they hold — so a viewer could join a developer's live terminal
 # room. Keyed by request.sid; cleaned up on disconnect. Guarded by a lock
 # because async_mode='threading' runs handlers across worker threads.
-connected_clients = {}  # sid -> {'user_id': ..., 'role': ...}
+connected_clients = {}  # sid -> {'user_id': ..., 'role': ..., 'claims': ...}
 _connected_clients_lock = threading.Lock()
 
 # Roles permitted to drive/observe privileged server surfaces (remote
@@ -39,18 +59,96 @@ _connected_clients_lock = threading.Lock()
 _PRIVILEGED_ROLES = ('admin', 'developer')
 
 
-def _client_role(sid):
-    """Return the authenticated role for a connected socket, or None if the
-    socket isn't in our authenticated set (shouldn't happen post-connect)."""
+def _client_user(sid):
+    from app.middleware.session_auth import validate_session_claims
     with _connected_clients_lock:
         info = connected_clients.get(sid)
-        return info['role'] if info else None
+    if not info:
+        return None
+    user = validate_session_claims(info.get('claims', {}))
+    # Disconnect on role changes instead of retaining previously joined rooms.
+    if not user or user.role != info['role']:
+        _disconnect_client(sid)
+        return None
+    return user
+
+
+def _disconnect_client(sid):
+    with _connected_clients_lock:
+        connected_clients.pop(sid, None)
+    metric_subscribers.discard(sid)
+    container_status_subscribers.discard(sid)
+    log_streamer.stop_stream(sid)
+    stop_container_log_stream(sid)
+    socketio.server.disconnect(sid, namespace='/')
+
+
+def _client_role(sid):
+    user = _client_user(sid)
+    return user.role if user else None
 
 
 def _client_is_privileged(sid):
-    """True when the connected socket belongs to an admin/developer — the
-    roles allowed to attach to remote terminal streams."""
     return _client_role(sid) in _PRIVILEGED_ROLES
+
+
+def _app_visible(user, app_id):
+    from app.models import Application
+    from app.middleware.rbac import app_access_tier
+    if not isinstance(app_id, (str, int)) or isinstance(app_id, bool):
+        return False
+    application = Application.query_active().populate_existing().filter_by(id=app_id).first()
+    return bool(application and app_access_tier(user, application))
+
+
+def _server_visible(user, server_id):
+    from app.models.server import Server
+    from app.services.workspace_service import WorkspaceService
+    server = Server.query.populate_existing().filter_by(id=server_id).first()
+    if not server:
+        return False
+    return (user.is_admin or not server.workspace_id
+            or WorkspaceService.get_user_role(server.workspace_id, user.id) is not None)
+
+
+def _room_allowed(user, room):
+    from app.services.run_access import can_read_run
+    if room == rooms.user_room(user.id):
+        return True
+    if room.startswith('deploy_'):
+        return can_read_run(user, 'deploy', room[len('deploy_'):])
+    if room.startswith('run_'):
+        parts = room.split('_', 2)
+        return len(parts) == 3 and can_read_run(user, parts[1], parts[2])
+    match = re.fullmatch(r'logs_(\d+)', room)
+    if match:
+        return _app_visible(user, int(match[1]))
+    match = re.fullmatch(r'server_([^_]+)_(.+)', room)
+    if not match:
+        return False
+    server_id, channel = match.groups()
+    if channel.startswith('terminal:'):
+        from app.services.terminal_service import TerminalService
+        session = TerminalService.get_session(channel[len('terminal:'):])
+        return bool(user.role in _PRIVILEGED_ROLES and session
+                    and str(session['user_id']) == str(user.id)
+                    and str(session['server_id']) == server_id
+                    and _server_visible(user, server_id))
+    # These are the only generic stream rooms used by the browser. Host jobs
+    # may print secrets (e.g. cloudflared login URLs), so require an operator.
+    return bool(re.fullmatch(r'job:[A-Za-z0-9-]+', channel)
+                and user.role in _PRIVILEGED_ROLES
+                and _server_visible(user, server_id))
+
+
+def _prune_audience(room=None):
+    # Inspect only this delivery's audience; per-sid metrics should not scan
+    # every other connection for each subscriber.
+    sids = [sid for sid, _ in socketio.server.manager.get_participants('/', room)]
+    for sid in sids:
+        user = _client_user(sid)
+        if user and room and room != sid and not _room_allowed(user, room):
+            socketio.server.leave_room(sid, room, namespace='/')
 
 
 # ==================== DECLARATIVE CHANNEL REGISTRY (plan 77 E2) ====================
@@ -97,9 +195,9 @@ def register_channel(name, *, room_fn=None, auth=None, on_subscribe=None,
         return payload
 
     def _subscribe(data=None):
-        data = data or {}
+        data = data if isinstance(data, dict) else {}
         sid = request.sid
-        if sid not in connected_clients:
+        if not _client_user(sid):
             emit('error', {'message': 'Authentication required'})
             return
         if auth:
@@ -121,7 +219,7 @@ def register_channel(name, *, room_fn=None, auth=None, on_subscribe=None,
         emit('subscribed', _payload(data))
 
     def _unsubscribe(data=None):
-        data = data or {}
+        data = data if isinstance(data, dict) else {}
         sid = request.sid
         if room_fn:
             try:
@@ -155,6 +253,7 @@ def init_socketio(app):
         cors_allowed_origins=app.config.get('CORS_ORIGINS', '*'),
         async_mode='threading'
     )
+    socketio._security_app = app
     return socketio
 
 
@@ -183,18 +282,16 @@ def handle_connect(auth):
         emit('error', {'message': 'Invalid token'})
         return False
 
-    # Resolve the identity to a live, active user. decode_token only proves the
-    # token is well-formed and unexpired — it says nothing about whether the
-    # account is still allowed in.
-    from app.models import User
-    user_id = decoded.get('sub')
-    user = User.query.get(user_id) if user_id is not None else None
-    if not user or not user.is_active:
-        emit('error', {'message': 'Account not found or deactivated'})
+    from app.middleware.session_auth import validate_session_claims
+    user = validate_session_claims(decoded)
+    if not user:
+        emit('error', {'message': 'Invalid or revoked access token'})
         return False
 
     with _connected_clients_lock:
-        connected_clients[request.sid] = {'user_id': user.id, 'role': user.role}
+        connected_clients[request.sid] = {
+            'user_id': user.id, 'role': user.role, 'claims': decoded,
+        }
 
     # Join a per-user room so the Notification Bus can push in-app notifications
     # to every tab/device this user has open.
@@ -229,7 +326,8 @@ def handle_disconnect():
 
 def _metrics_tick():
     metrics = SystemService.get_all_metrics()
-    socketio.emit('metrics', metrics, room=None)  # Broadcast to all
+    for sid in list(metric_subscribers):
+        socketio.emit('metrics', metrics, room=sid)
 
 
 # Ends itself when the last subscriber leaves; restarted by the next
@@ -242,7 +340,7 @@ metrics_loop = BackgroundLoop(
 
 def _metrics_on_subscribe(sid, data):
     metric_subscribers.add(sid)
-    metrics_loop.start()
+    metrics_loop.start(app=current_app._get_current_object())
 
 
 def _metrics_on_unsubscribe(sid, data):
@@ -267,10 +365,15 @@ def _container_status_tick():
     from app.services import container_status_service as css
     changed = css.get_changed_app_statuses()
     if changed:
-        socketio.emit('container_status', {
-            'statuses': changed,
-            'timestamp': time.time(),
-        }, room=None)
+        for sid in list(container_status_subscribers):
+            user = _client_user(sid)
+            if not user:
+                continue
+            visible = [item for item in changed if _app_visible(user, item['app_id'])]
+            if visible:
+                socketio.emit('container_status', {
+                    'statuses': visible, 'timestamp': time.time(),
+                }, room=sid)
 
 
 container_status_loop = BackgroundLoop(
@@ -306,13 +409,24 @@ register_channel(
 def _terminal_auth(sid, data):
     if not _client_is_privileged(sid):
         return 'Developer role required for terminal access'
+    user = _client_user(sid)
+    from app.services.terminal_service import TerminalService
+    session_id = data.get('session_id')
+    if not isinstance(session_id, str) or not session_id:
+        return 'session_id required'
+    session = TerminalService.get_session(session_id)
+    if not session:
+        return 'Unknown terminal session'
+    if (str(session['user_id']) != str(user.id)
+            or not _server_visible(user, session['server_id'])):
+        return 'Terminal access denied'
     return None
 
 
 def _terminal_room(data):
     from app.services.terminal_service import TerminalService
     session_id = data.get('session_id')
-    if not session_id:
+    if not isinstance(session_id, str) or not session_id:
         raise ChannelError('session_id required')
     session = TerminalService.get_session(session_id)
     if not session:
@@ -333,6 +447,11 @@ register_channel(
 def handle_subscribe_logs(data):
     """Subscribe to real-time log streaming."""
     sid = request.sid
+    user = _client_user(sid)
+    if not user or not user.is_admin:
+        emit('error', {'message': 'Admin access required for host logs'})
+        return
+    data = data if isinstance(data, dict) else {}
     filepath = data.get('path')
 
     if not filepath:
@@ -370,23 +489,12 @@ def handle_unsubscribe_logs():
 
 @socketio.on('join_room')
 def handle_join_room(data):
-    """Join a specific room for targeted broadcasts.
-
-    This is the generic join used by job-progress and cloudflared-login
-    streaming (rooms shaped `server_<id>_<channel>`). It is deliberately
-    permissive for those — the data mirrors what any authenticated user can
-    already pull over REST — but it must NOT become a side door into the
-    privileged terminal stream rooms (`server_<id>_terminal:<session>`), which
-    `subscribe_terminal` gates by role. Enforce that gate here too so the
-    generic primitive can't be used to bypass it.
-    """
+    """Join only recognized rooms after their resource authorization check."""
+    user = _client_user(request.sid)
+    data = data if isinstance(data, dict) else {}
     room = data.get('room')
-    if not room or not isinstance(room, str):
-        emit('error', {'message': 'room required'})
-        return
-
-    if rooms.is_terminal_room(room) and not _client_is_privileged(request.sid):
-        emit('error', {'message': 'Developer role required for terminal access'})
+    if not user or not isinstance(room, str) or not _room_allowed(user, room):
+        emit('error', {'message': 'Room access denied'})
         return
 
     join_room(room)
@@ -396,8 +504,9 @@ def handle_join_room(data):
 @socketio.on('leave_room')
 def handle_leave_room(data):
     """Leave a specific room."""
+    data = data if isinstance(data, dict) else {}
     room = data.get('room')
-    if room:
+    if isinstance(room, str) and room:
         leave_room(room)
         emit('left', {'room': room})
 
@@ -411,9 +520,16 @@ def handle_leave_room(data):
 # on top of the `GET /deployment-jobs/<id>/logs?after_id=` polling endpoint —
 # the console stays 100% functional with sockets disabled (D2).
 
-# Deploy Console: any authenticated user may watch (mirrors the read API —
-# job ids are unguessable UUIDs and the REST read endpoint exposes them the
-# same way).
+# Deploy visibility matches the persisted job's REST resource gate.
+
+def _run_auth(sid, kind, run_id):
+    from app.services.run_access import can_read_run
+    if not run_id:
+        return 'job_id required' if kind == 'deploy' else 'run_kind and run_id required'
+    if not can_read_run(_client_user(sid), kind, run_id):
+        return 'Run not found or access denied'
+    return None
+
 
 def _deploy_room(data):
     job_id = data.get('job_id')
@@ -425,6 +541,7 @@ def _deploy_room(data):
 register_channel(
     'deploy',
     room_fn=_deploy_room,
+    auth=lambda sid, data: _run_auth(sid, 'deploy', data.get('job_id')),
     ack=lambda data: {'job_id': data.get('job_id')},
 )
 
@@ -488,11 +605,11 @@ def _run_channel_room(data):
     return rooms.run_room(run_kind, run_id)
 
 
-# Auth mirrors the deploy channel: any authenticated user may watch — run ids
-# are unguessable and the REST twin exposes the same data the same way.
+# Unknown run kinds are denied until they have an explicit visibility policy.
 register_channel(
     'run',
     room_fn=_run_channel_room,
+    auth=lambda sid, data: _run_auth(sid, data.get('run_kind'), data.get('run_id')),
     ack=lambda data: {'run_kind': data.get('run_kind'), 'run_id': data.get('run_id')},
 )
 
@@ -520,7 +637,12 @@ def handle_subscribe_container_logs(data):
     from app import db
 
     sid = request.sid
+    user = _client_user(sid)
+    data = data if isinstance(data, dict) else {}
     app_id = data.get('app_id')
+    if not user or not _app_visible(user, app_id):
+        emit('error', {'message': 'Application access denied'})
+        return
     tail = data.get('tail', 100)
     since = data.get('since')
     service = data.get('service')

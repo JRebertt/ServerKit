@@ -8,7 +8,8 @@ one serves every kind stored in run_log_entries.
 """
 from flask import Blueprint, jsonify, request
 
-from app.middleware.rbac import auth_required
+from app.middleware.rbac import auth_required, get_current_user
+from app.services.run_access import can_read_run
 from app.services.run_log_service import list_run_logs
 
 runs_bp = Blueprint('runs', __name__)
@@ -17,5 +18,7 @@ runs_bp = Blueprint('runs', __name__)
 @runs_bp.route('/<run_kind>/<run_id>/logs', methods=['GET'])
 @auth_required()
 def get_run_logs(run_kind, run_id):
+    if not can_read_run(get_current_user(), run_kind, run_id):
+        return jsonify({'error': 'Run not found or access denied'}), 403
     after_id = request.args.get('after_id', type=int)
     return jsonify({'logs': list_run_logs(run_kind, run_id, after_id=after_id)}), 200

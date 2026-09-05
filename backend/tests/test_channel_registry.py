@@ -38,7 +38,12 @@ def _run(app, handler, data=None, sid='sid-1'):
 
 def _authed(sid='sid-1', role='developer'):
     with sk._connected_clients_lock:
-        sk.connected_clients[sid] = {'user_id': 1, 'role': role}
+        from flask_jwt_extended import create_access_token, decode_token
+        user = make_user(db, role=role)
+        sk.connected_clients[sid] = {
+            'user_id': user.id, 'role': role,
+            'claims': decode_token(create_access_token(identity=user.id)),
+        }
 
 
 def test_registered_channels_exist(app):
@@ -72,6 +77,9 @@ def test_deploy_requires_job_id_then_joins_room(app, wire):
     assert ('error', {'message': 'job_id required'}) in wire
 
     wire.clear()
+    from app.models.deployment_job import DeploymentJob
+    db.session.add(DeploymentJob(id='job-1', kind='test', requested_by=sk.connected_clients['sid-1']['user_id']))
+    db.session.commit()
     _run(app, sk.CHANNELS['deploy']['subscribe'], {'job_id': 'job-1'})
     assert ('__join__', 'deploy_job-1') in wire
     assert ('subscribed', {'channel': 'deploy', 'job_id': 'job-1'}) in wire
@@ -99,7 +107,7 @@ def test_terminal_unsubscribe_does_not_ack(app, wire):
 def test_generic_join_room_still_gates_terminal_rooms(app, wire):
     _authed(role='viewer')
     _run(app, sk.handle_join_room, {'room': 'server_s1_terminal:sess'})
-    assert wire == [('error', {'message': 'Developer role required for terminal access'})]
+    assert wire == [('error', {'message': 'Room access denied'})]
 
 
 def test_raw_subscribe_handlers_are_frozen():
