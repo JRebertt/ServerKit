@@ -172,6 +172,18 @@ class TestRepoScenario:
         assert detail['plan']['title'] == 'Deploying agentsite'
         assert detail['plan']['params']['app_name'] == 'agentsite'
 
+    def test_repo_scenario_tolerates_bad_port_and_pace(self, client, auth_headers):
+        # A non-numeric port falls back to the default; a zero/negative pace is
+        # ignored rather than producing a negative line delay.
+        r = client.post('/api/v1/deployment-jobs/simulate?wait=true',
+                        json={'scenario': 'repo', 'speed': 'instant',
+                              'params': {'port': 'not-a-port', 'pace': -3}},
+                        headers=auth_headers)
+        assert r.status_code == 202, r.get_json()
+        job = r.get_json()['job']
+        assert job['status'] == 'succeeded'
+        assert any('3000' in l['message'] for l in job['logs'])
+
     def test_repo_scenario_without_params_still_runs(self, client, auth_headers):
         r = client.post('/api/v1/deployment-jobs/simulate?wait=true',
                         json={'scenario': 'repo', 'speed': 'instant'}, headers=auth_headers)

@@ -92,7 +92,10 @@ def _repo_steps(params=None):
     name = p.get('app_name') or 'my-app'
     repo = p.get('repo_url') or 'https://github.com/example/my-app.git'
     branch = p.get('branch') or 'main'
-    port = int(p.get('port') or 3000)
+    try:
+        port = int(p.get('port') or 3000)
+    except (TypeError, ValueError):
+        port = 3000
     health = p.get('health_path') or '/health'
     dockerfile = p.get('dockerfile') or 'Dockerfile'
     image = f'{name}:{branch}'
@@ -348,9 +351,11 @@ class DemoDeployService:
             # `pace` lets a parameterised run stream slower/faster than the
             # speed preset (e.g. 2.5 = ~0.75 s/line at 'realtime').
             try:
-                factor = float((plan.get('params') or {}).get('pace') or factor)
+                pace = float((plan.get('params') or {}).get('pace'))
             except (TypeError, ValueError):
-                pass
+                pace = None
+            if pace is not None and pace > 0:
+                factor = pace
         line_delay = min(0.8, delay * factor)
 
         try:
