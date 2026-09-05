@@ -74,9 +74,14 @@
 
 .users-table-container {
     overflow-x: auto;
+    background: var(--surface);
     border: 1px solid $border-default;
     border-radius: $radius-md;
 }
+
+.users-action--warning { color: $warning; }
+.users-action--success { color: $success; }
+.users-action--danger { color: $danger; }
 
 .users-table {
     width: 100%;

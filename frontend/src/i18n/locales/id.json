@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "Tambahkan Pengguna",
-            "areYouSureYouWantTo": "Apakah Anda yakin ingin menghapus",
             "deleteUser": "Hapus pengguna",
             "deleteUser2": "Hapus Pengguna",
             "disableUser": "Nonaktifkan pengguna",
@@ -6219,7 +6218,6 @@
             "lastLogin": "Masuk Terakhir",
             "loadingUsers": "Memuat pengguna...",
             "role": "Peran",
-            "thisActionCannotBeUndone": "Tindakan ini tidak dapat dibatalkan.",
             "you": "Anda"
         },
         "vaults": {

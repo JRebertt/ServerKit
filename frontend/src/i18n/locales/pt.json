@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "Adicionar usuário",
-            "areYouSureYouWantTo": "Tem certeza de que deseja excluir",
             "deleteUser": "Excluir usuário",
             "deleteUser2": "Excluir usuário",
             "disableUser": "Desativar usuário",
@@ -6219,7 +6218,6 @@
             "lastLogin": "Último login",
             "loadingUsers": "Carregando usuários...",
             "role": "Função",
-            "thisActionCannotBeUndone": "Esta ação não pode ser desfeita.",
             "you": "Você"
         },
         "vaults": {

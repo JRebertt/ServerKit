@@ -7,6 +7,7 @@
         "dev": "vite",
         "build": "vite build",
         "test": "node --test",
+    "test:browser": "node scripts/settings-browser.mjs",
         "lint": "eslint . && node scripts/check-font-integrity.mjs && node scripts/check-settings-index.mjs && node scripts/check-theme-tokens.mjs && node scripts/check-frontend-boundaries.mjs && node scripts/check-style-ownership.mjs && node scripts/check-status-one-door.mjs && node scripts/check-status-scss.mjs && node scripts/check-i18n-literals.mjs && node scripts/check-intl-door.mjs && node scripts/extract-i18n.mjs --check && node scripts/check-i18n.mjs && node scripts/check-logical-properties.mjs && node scripts/generate-vendor-shims.mjs --check && node ../scripts/check-html-sinks.mjs",
         "lint:settings-index": "node scripts/check-settings-index.mjs",
         "lint:fonts": "node scripts/check-font-integrity.mjs",
@@ -72,6 +73,7 @@
         "eslint-plugin-react-refresh": "^0.4.9",
         "espree": "^11.2.0",
         "globals": "^15.9.0",
+        "playwright": "1.61.1",
         "sass": "^1.86.0",
         "vite": "^8.1.4"
     },

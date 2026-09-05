@@ -222,3 +222,6 @@ frontend/src/plugins/serverkit-wordpress/
 
 # Extension release signing keys (private halves — never commit; see scripts/sign-extension.mjs)
 scripts/keys/
+
+# Local/CI browser regression screenshots
+frontend/test-results/

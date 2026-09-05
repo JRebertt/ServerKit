@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "사용자 추가",
-            "areYouSureYouWantTo": "삭제하시겠습니까?",
             "deleteUser": "사용자 삭제",
             "deleteUser2": "사용자 삭제",
             "disableUser": "사용자 비활성화",
@@ -6219,7 +6218,6 @@
             "lastLogin": "마지막 로그인",
             "loadingUsers": "사용자 로드 중...",
             "role": "역할",
-            "thisActionCannotBeUndone": "이 작업은 취소할 수 없습니다.",
             "you": "당신"
         },
         "vaults": {

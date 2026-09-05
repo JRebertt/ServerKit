@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import UserModal from './UserModal';
 import InvitationsTab from './InvitationsTab';
 import LoginLinksSection from './LoginLinksSection';
-import Modal from '../Modal';
+import { useConfirm } from '../../hooks/useConfirm';
+import useFormat from '../../hooks/useFormat';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DataTable } from '@/components/ds';
@@ -26,6 +27,22 @@ const statusLabel = (user) => (user.is_active ? 'Active' : 'Disabled');
 // strings here are the LABELS the cells render ('Disabled', 'admin') rather
 // than whatever the API happens to call the field.
 const USER_VIEWS = [
+    {
+        name: 'Admins without MFA',
+        state: {
+            sorts: [{ key: 'user', direction: 'asc' }],
+            hiddenKeys: [],
+            groupBy: null,
+            columnFilters: {
+                match: 'all',
+                rules: [
+                    { id: 'uv-mfa-role', field: 'role', op: 'any', value: ['admin'] },
+                    { id: 'uv-mfa-active', field: 'status', op: 'any', value: ['Active'] },
+                    { id: 'uv-mfa-off', field: 'mfa', op: 'is', value: false },
+                ],
+            },
+        },
+    },
     {
         // Who can do anything on this panel. It is the first question of an
         // access review and the one a flat alphabetical list buries as soon as
@@ -77,7 +94,10 @@ const UsersTab = () => {
     const [error, setError] = useState('');
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState(null);
-    const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [pendingUserId, setPendingUserId] = useState(null);
+    const actionInFlight = useRef(false);
+    const { confirm } = useConfirm();
+    const { formatDateTime } = useFormat();
     const { user: currentUser } = useAuth();
 
     // Lifted out of <DataTable> so a saved view can capture them. The storage
@@ -92,22 +112,22 @@ const UsersTab = () => {
     // Not persisted on its own: a grouping worth keeping is a saved view.
     const [groupBy, setGroupBy] = useState(null);
 
-    useEffect(() => {
-        loadUsers();
-    }, []);
-
-    async function loadUsers() {
+    const loadUsers = useCallback(async () => {
         try {
             setLoading(true);
             const data = await api.getUsers();
-            setUsers(data.users);
+            setUsers(data.users || []);
             setError('');
         } catch (err) {
-            setError(err.message || 'Failed to load users');
+            setError(err.message || t('app.usersTab.loadFailed', 'Failed to load users'));
         } finally {
             setLoading(false);
         }
-    }
+    }, [t]);
+
+    useEffect(() => {
+        loadUsers();
+    }, [loadUsers]);
 
     function handleAddUser() {
         setEditingUser(null);
@@ -135,21 +155,38 @@ const UsersTab = () => {
     }
 
     async function handleDeleteUser(user) {
+        if (actionInFlight.current) return;
+        actionInFlight.current = true;
+        setPendingUserId(user.id);
         try {
+            if (!await confirm({
+                title: t('app.usersTab.deleteUser2', 'Delete User'),
+                message: t('app.usersTab.confirmDeleteUser', 'Delete {{username}}? This action cannot be undone.', { username: user.username }),
+                confirmText: t('app.usersTab.deleteUser2', 'Delete User'),
+                variant: 'danger',
+            })) return;
             await api.deleteUser(user.id);
-            setDeleteConfirm(null);
             await loadUsers();
         } catch (err) {
-            setError(err.message || 'Failed to delete user');
+            setError(err.message || t('app.usersTab.deleteFailed', 'Failed to delete user'));
+        } finally {
+            actionInFlight.current = false;
+            setPendingUserId(null);
         }
     }
 
     async function handleToggleActive(user) {
+        if (actionInFlight.current) return;
+        actionInFlight.current = true;
+        setPendingUserId(user.id);
         try {
             await api.updateUser(user.id, { is_active: !user.is_active });
             await loadUsers();
         } catch (err) {
-            setError(err.message || 'Failed to update user status');
+            setError(err.message || t('app.usersTab.updateFailed', 'Failed to update user status'));
+        } finally {
+            actionInFlight.current = false;
+            setPendingUserId(null);
         }
     }
 
@@ -162,13 +199,8 @@ const UsersTab = () => {
     }
 
     function formatDate(dateString) {
-        if (!dateString) return 'Never';
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+        return formatDateTime(dateString, {
+            fallback: t('app.usersTab.never', 'Never'),
         });
     }
 
@@ -235,9 +267,37 @@ const UsersTab = () => {
             value: statusLabel,
             render: (user) => (
                 <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                    {statusLabel(user)}
+                    {user.is_active ? t('app.usersTab.active', 'Active') : t('app.usersTab.disabled', 'Disabled')}
                 </span>
             ),
+        },
+        {
+            key: 'mfa',
+            headerKey: 'app.usersTab.mfa', header: 'MFA',
+            type: 'bool',
+            sortable: true,
+            value: (user) => Boolean(user.totp_enabled),
+            render: (user) => (
+                <Badge variant={user.totp_enabled ? 'success' : 'warning'}>
+                    {user.totp_enabled ? t('app.usersTab.enabled', 'Enabled') : t('app.usersTab.notEnabled', 'Not enabled')}
+                </Badge>
+            ),
+        },
+        {
+            key: 'passkey',
+            headerKey: 'app.usersTab.passkey', header: 'Passkey',
+            type: 'bool',
+            value: (user) => Boolean(user.passkey_enabled),
+            render: (user) => user.passkey_enabled
+                ? t('app.usersTab.enrolled', 'Enrolled') : t('app.usersTab.notEnrolled', 'Not enrolled'),
+        },
+        {
+            key: 'authProvider',
+            headerKey: 'app.usersTab.signInMethod', header: 'Sign-in provider',
+            type: 'enum',
+            value: (user) => user.auth_provider || 'local',
+            render: (user) => (!user.auth_provider || user.auth_provider === 'local')
+                ? t('app.usersTab.local', 'Local') : user.auth_provider,
         },
         {
             // Sortable and typed rather than render-only: "when did this person
@@ -277,6 +337,7 @@ const UsersTab = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEditUser(user)}
+                        disabled={pendingUserId !== null}
                         title={t('app.usersTab.editUser', 'Edit user')}
                     >
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
@@ -290,8 +351,10 @@ const UsersTab = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleToggleActive(user)}
+                                disabled={pendingUserId !== null}
+                                aria-busy={pendingUserId === user.id}
                                 title={user.is_active ? t('app.usersTab.disableUser', 'Disable user') : t('app.usersTab.enableUser', 'Enable user')}
-                                className={user.is_active ? 'text-warning' : 'text-success'}
+                                className={user.is_active ? 'users-action--warning' : 'users-action--success'}
                             >
                                 {user.is_active ? (
                                     <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
@@ -308,9 +371,11 @@ const UsersTab = () => {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setDeleteConfirm(user)}
+                                onClick={() => handleDeleteUser(user)}
+                                disabled={pendingUserId !== null}
+                                aria-busy={pendingUserId === user.id}
                                 title={t('app.usersTab.deleteUser', 'Delete user')}
-                                className="text-destructive hover:text-destructive"
+                                className="users-action--danger"
                             >
                                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" strokeWidth="2">
                                     <polyline points="3 6 5 6 21 6"/>
@@ -369,7 +434,7 @@ const UsersTab = () => {
                             its own: that bar held one button, and a table gets
                             ONE row of chrome. Primary action first, then the
                             icons that act on what you are looking at. */}
-                        <Button variant="default" size="sm" onClick={handleAddUser}>
+                        <Button variant="default" size="sm" onClick={handleAddUser} disabled={pendingUserId !== null}>
                             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" strokeWidth="2">
                                 <line x1="12" y1="5" x2="12" y2="19"/>
                                 <line x1="5" y1="12" x2="19" y2="12"/>
@@ -387,7 +452,7 @@ const UsersTab = () => {
 
             <GridChips {...chrome.chipProps} />
 
-            {error && <div className="error-message">{error}</div>}
+            {error && <div className="error-message" role="alert">{error}</div>}
 
             <div {...register('users-management', 'users-table-container')}>
                 <DataTable
@@ -410,21 +475,6 @@ const UsersTab = () => {
                     onSave={handleSaveUser}
                     onClose={handleCloseModal}
                 />
-            )}
-
-            {deleteConfirm && (
-                <Modal open={true} onClose={() => setDeleteConfirm(null)} title={t('app.usersTab.deleteUser2', 'Delete User')} size="sm">
-                            <p>{t('app.usersTab.areYouSureYouWantTo', 'Are you sure you want to delete')} <strong>{deleteConfirm.username}</strong>?</p>
-                            <p className="text-muted">{t('app.usersTab.thisActionCannotBeUndone', 'This action cannot be undone.')}</p>
-                        <div className="modal-footer">
-                            <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>
-                                {t('common.actions.cancel', 'Cancel')}
-                            </Button>
-                            <Button variant="destructive" onClick={() => handleDeleteUser(deleteConfirm)}>
-                                {t('app.usersTab.deleteUser2', 'Delete User')}
-                            </Button>
-                        </div>
-                </Modal>
             )}
 
             <LoginLinksSection users={users} currentUserId={currentUser?.id} />

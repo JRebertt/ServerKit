@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "เพิ่มผู้ใช้",
-            "areYouSureYouWantTo": "คุณแน่ใจหรือไม่ว่าต้องการลบ",
             "deleteUser": "ลบผู้ใช้",
             "deleteUser2": "ลบผู้ใช้",
             "disableUser": "ปิดการใช้งานผู้ใช้",
@@ -6219,7 +6218,6 @@
             "lastLogin": "เข้าสู่ระบบครั้งล่าสุด",
             "loadingUsers": "กำลังโหลดผู้ใช้...",
             "role": "บทบาท",
-            "thisActionCannotBeUndone": "การดำเนินการนี้ไม่สามารถยกเลิกได้",
             "you": "คุณ"
         },
         "vaults": {

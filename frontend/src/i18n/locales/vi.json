@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "Thêm người dùng",
-            "areYouSureYouWantTo": "Bạn có chắc chắn muốn xóa",
             "deleteUser": "Xóa người dùng",
             "deleteUser2": "Xóa người dùng",
             "disableUser": "Vô hiệu hóa người dùng",
@@ -6219,7 +6218,6 @@
             "lastLogin": "Đăng nhập lần cuối",
             "loadingUsers": "Đang tải người dùng...",
             "role": "Vai trò",
-            "thisActionCannotBeUndone": "Không thể hoàn tác hành động này.",
             "you": "Bạn"
         },
         "vaults": {

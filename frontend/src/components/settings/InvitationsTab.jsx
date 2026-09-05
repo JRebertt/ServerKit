@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../services/api';
 import InviteModal from './InviteModal';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ import EmptyState from '../EmptyState';
 import { copyToClipboard } from '@/utils/clipboard';
 import { useTranslation } from 'react-i18next';
 import useFocusParam from '@/hooks/useFocusParam';
+import useFormat from '@/hooks/useFormat';
 
 // A pending invite whose window has closed still carries status 'pending' in
 // the database — the row only becomes 'expired' on screen. One accessor for
@@ -72,6 +73,10 @@ const InvitationsTab = () => {
     const [loading, setLoading] = useState(true);
     const [showInviteModal, setShowInviteModal] = useState(false);
     const [copied, setCopied] = useState(null);
+    const [error, setError] = useState('');
+    const [pendingId, setPendingId] = useState(null);
+    const actionInFlight = useRef(false);
+    const { formatDate: formatLocaleDate } = useFormat();
 
     useFocusParam('create', (target) => {
         if (target === 'invitation') setShowInviteModal(true);
@@ -87,36 +92,48 @@ const InvitationsTab = () => {
         storageKey: 'serverkit-table-settings-invitations-cols',
     });
 
-    useEffect(() => {
-        loadInvitations();
-    }, []);
-
-    async function loadInvitations() {
+    const loadInvitations = useCallback(async () => {
         try {
             setLoading(true);
             const data = await api.getInvitations();
             setInvitations(data.invitations || []);
-        } catch {
-            // Silently handle
+            setError('');
+        } catch (err) {
+            setError(err.message || t('app.invitationsTab.loadFailed', 'Failed to load invitations'));
         } finally {
             setLoading(false);
         }
-    }
+    }, [t]);
+
+    useEffect(() => { loadInvitations(); }, [loadInvitations]);
 
     async function handleRevoke(id) {
+        if (actionInFlight.current) return;
+        actionInFlight.current = true;
+        setPendingId(id);
         try {
             await api.revokeInvitation(id);
             await loadInvitations();
-        } catch {
-            // Silently handle
+        } catch (err) {
+            setError(err.message || t('app.invitationsTab.revokeFailed', 'Failed to revoke invitation'));
+        } finally {
+            actionInFlight.current = false;
+            setPendingId(null);
         }
     }
 
     async function handleResend(id) {
+        if (actionInFlight.current) return;
+        actionInFlight.current = true;
+        setPendingId(id);
         try {
             await api.resendInvitation(id);
-        } catch {
-            // Silently handle
+            setError('');
+        } catch (err) {
+            setError(err.message || t('app.invitationsTab.resendFailed', 'Failed to resend invitation'));
+        } finally {
+            actionInFlight.current = false;
+            setPendingId(null);
         }
     }
 
@@ -128,10 +145,7 @@ const InvitationsTab = () => {
     }
 
     function formatDate(dateString) {
-        if (!dateString) return 'Never';
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric', month: 'short', day: 'numeric'
-        });
+        return formatLocaleDate(dateString, { fallback: t('app.invitationsTab.never', 'Never') });
     }
 
     function getRoleBadgeVariant(role) {
@@ -240,6 +254,8 @@ const InvitationsTab = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => handleResend(inv.id)}
+                                disabled={pendingId !== null}
+                                aria-busy={pendingId === inv.id}
                                 title={t('app.invitationsTab.resendEmail', 'Resend email')}
                             >
                                 {t('app.invitationsTab.resend', 'Resend')}
@@ -249,8 +265,10 @@ const InvitationsTab = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleRevoke(inv.id)}
+                            disabled={pendingId !== null}
+                            aria-busy={pendingId === inv.id}
                             title={t('app.invitationsTab.revokeInvitation', 'Revoke invitation')}
-                            className="text-destructive hover:text-destructive"
+                            className="users-action--danger"
                         >
                             {t('app.invitationsTab.revoke', 'Revoke')}
                         </Button>
@@ -311,9 +329,11 @@ const InvitationsTab = () => {
 
             <GridChips {...chrome.chipProps} />
 
+            {error && <div className="error-message" role="alert">{error}</div>}
+
             {loading ? (
                 <div className="loading-state">{t('app.invitationsTab.loadingInvitations', 'Loading invitations…')}</div>
-            ) : invitations.length === 0 ? (
+            ) : invitations.length === 0 && !error ? (
                 <EmptyState title={t('app.invitationsTab.noInvitationsYet', 'No invitations yet')} />
             ) : (
                 <div className="users-table-container">

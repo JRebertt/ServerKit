@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "ব্যবহারকারী যোগ করুন",
-            "areYouSureYouWantTo": "আপনি কি নিশ্চিত আপনি মুছে দিতে চান",
             "deleteUser": "ব্যবহারকারী মুছুন",
             "deleteUser2": "ব্যবহারকারী মুছুন",
             "disableUser": "ব্যবহারকারী অক্ষম করুন",
@@ -6219,7 +6218,6 @@
             "lastLogin": "শেষ লগইন",
             "loadingUsers": "ব্যবহারকারী লোড হচ্ছে...",
             "role": "ভূমিকা",
-            "thisActionCannotBeUndone": "এই ক্রিয়াটি পূর্বাবস্থায় ফেরানো যাবে না৷",
             "you": "আপনি"
         },
         "vaults": {

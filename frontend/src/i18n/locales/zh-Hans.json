@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "添加用户",
-            "areYouSureYouWantTo": "您确定要删除吗",
             "deleteUser": "删除用户",
             "deleteUser2": "删除用户",
             "disableUser": "禁用用户",
@@ -6219,7 +6218,6 @@
             "lastLogin": "上次登录",
             "loadingUsers": "正在加载用户...",
             "role": "角色",
-            "thisActionCannotBeUndone": "此操作无法撤消。",
             "you": "你"
         },
         "vaults": {

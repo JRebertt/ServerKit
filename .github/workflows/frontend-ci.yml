@@ -63,3 +63,16 @@ jobs:
         # node --test over src/**/__tests__ — pure-logic modules, no jsdom.
         working-directory: frontend
         run: npm test
+      - name: Install browser for Settings regressions
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Settings browser regressions
+        working-directory: frontend
+        run: npm run test:browser
+      - name: Upload Settings screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: settings-browser-screenshots
+          path: frontend/test-results/
+          if-no-files-found: ignore

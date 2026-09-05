@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "Kullanıcı Ekle",
-            "areYouSureYouWantTo": "Silmek istediğinizden emin misiniz?",
             "deleteUser": "Kullanıcıyı sil",
             "deleteUser2": "Kullanıcıyı Sil",
             "disableUser": "Kullanıcıyı devre dışı bırak",
@@ -6219,7 +6218,6 @@
             "lastLogin": "Son Giriş",
             "loadingUsers": "Kullanıcılar yükleniyor...",
             "role": "Rol",
-            "thisActionCannotBeUndone": "Bu eylem geri alınamaz.",
             "you": "Sen"
         },
         "vaults": {

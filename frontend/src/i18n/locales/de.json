@@ -6210,7 +6210,6 @@
         },
         "usersTab": {
             "addUser": "Benutzer hinzufügen",
-            "areYouSureYouWantTo": "Sind Sie sicher, dass Sie löschen möchten?",
             "deleteUser": "Benutzer löschen",
             "deleteUser2": "Benutzer löschen",
             "disableUser": "Benutzer deaktivieren",
@@ -6219,7 +6218,6 @@
             "lastLogin": "Letzte Anmeldung",
             "loadingUsers": "Benutzer werden geladen...",
             "role": "Rolle",
-            "thisActionCannotBeUndone": "Diese Aktion kann nicht rückgängig gemacht werden.",
             "you": "Du"
         },
         "vaults": {
